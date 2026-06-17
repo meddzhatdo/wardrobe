@@ -311,11 +311,108 @@ function countByBoard(items, board) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   AddToCollageModal
+   ───────────────────────────────────────────────────────────────────────────── */
+function AddToCollageModal({ savedOutfits, draftOutfits, onClose, onCreateNew }) {
+  const [view, setView] = useState('saved');
+  const list = view === 'saved' ? savedOutfits : draftOutfits;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm backdrop-fade" onClick={onClose} />
+      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm modal-animate">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-4">
+          <h3 className="text-base font-semibold text-gray-900">Add to Collage</h3>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+          >
+            <X size={14} className="text-gray-500" />
+          </button>
+        </div>
+
+        {/* Toggle */}
+        <div className="px-5 pb-4">
+          <div className="flex bg-gray-100 rounded-xl p-1 gap-1 w-fit">
+            {[
+              { key: 'saved',  label: 'Saved',  count: savedOutfits.length },
+              { key: 'drafts', label: 'Drafts', count: draftOutfits.length },
+            ].map(({ key, label, count }) => (
+              <button
+                key={key}
+                onClick={() => setView(key)}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  view === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {label}
+                {count > 0 && <span className="text-[11px] tabular-nums text-gray-400">{count}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Collage thumbnails */}
+        <div className="px-5 pb-2 min-h-[6rem]">
+          {list.length === 0 ? (
+            <div className="flex items-center justify-center h-24">
+              <p className="text-sm text-gray-400">
+                {view === 'saved' ? 'No saved collages yet' : 'No drafts yet'}
+              </p>
+            </div>
+          ) : (
+            <div className="flex gap-2.5 overflow-x-auto scrollbar-hide pb-1">
+              {list.map(outfit => {
+                const imgs = outfit.items.slice(0, 4);
+                return (
+                  <div key={outfit.id} className="flex-shrink-0 w-24 h-24 rounded-2xl overflow-hidden bg-gray-100 cursor-pointer hover:opacity-80 transition-opacity">
+                    {imgs.length === 0 ? (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Wand2 size={16} className="text-gray-300" />
+                      </div>
+                    ) : imgs.length === 1 ? (
+                      <img src={imgs[0].image} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className={`grid h-full w-full ${imgs.length === 2 ? 'grid-cols-2' : 'grid-cols-2 grid-rows-2'}`}>
+                        {imgs.map((item, i) => (
+                          <div key={i} className="overflow-hidden">
+                            <img src={item.image} alt="" className="w-full h-full object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Create button */}
+        <div className="px-5 pb-5 pt-3">
+          <button
+            onClick={onCreateNew}
+            className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 rounded-2xl text-sm font-medium text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors"
+          >
+            <Plus size={15} strokeWidth={2.5} />
+            Create Collage
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    ItemModal
    ───────────────────────────────────────────────────────────────────────────── */
-function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onAddToOutfit }) {
+function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onAddToOutfit, savedOutfits, draftOutfits }) {
   const [editMode, setEditMode] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCollagePicker, setShowCollagePicker] = useState(false);
   const [draft, setDraft] = useState({
     name: item.name,
     brand: item.brand,
@@ -524,7 +621,7 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
             {!editMode && (
               <>
                 <button
-                  onClick={() => onAddToOutfit(item)}
+                  onClick={() => setShowCollagePicker(true)}
                   className="w-full py-3.5 bg-gray-900 text-white rounded-2xl text-sm font-semibold tracking-wide hover:bg-gray-700 active:scale-[0.98] transition-all mb-3"
                 >
                   Add to Outfit
@@ -564,6 +661,15 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
           </div>
         </div>
       </div>
+
+      {showCollagePicker && (
+        <AddToCollageModal
+          savedOutfits={savedOutfits}
+          draftOutfits={draftOutfits}
+          onClose={() => setShowCollagePicker(false)}
+          onCreateNew={() => { setShowCollagePicker(false); onAddToOutfit(item); }}
+        />
+      )}
     </div>
   );
 }
@@ -1091,12 +1197,10 @@ function OutfitCard({ outfit }) {
   );
 }
 
-function StudioTab({ pendingOutfitItem, onClearPendingOutfit }) {
+function StudioTab({ savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit, pendingOutfitItem, onClearPendingOutfit }) {
   const [showCreate, setShowCreate] = useState(false);
   const [createSeed, setCreateSeed] = useState(null);
   const [view, setView]             = useState('saved');
-  const [savedOutfits, setSaved]    = useState([]);
-  const [draftOutfits, setDrafts]   = useState([]);
 
   useEffect(() => {
     if (!pendingOutfitItem) return;
@@ -1104,16 +1208,6 @@ function StudioTab({ pendingOutfitItem, onClearPendingOutfit }) {
     setShowCreate(true);
     onClearPendingOutfit();
   }, [pendingOutfitItem]);
-
-  const handleSave = items => {
-    if (items.length === 0) return;
-    setSaved(prev => [{ id: Date.now(), items }, ...prev]);
-  };
-
-  const handleSaveDraft = items => {
-    if (items.length === 0) return;
-    setDrafts(prev => [{ id: Date.now(), items }, ...prev]);
-  };
 
   const list = view === 'saved' ? savedOutfits : draftOutfits;
 
@@ -1140,7 +1234,7 @@ function StudioTab({ pendingOutfitItem, onClearPendingOutfit }) {
           {/* Saved / Drafts toggle */}
           <div className="flex bg-gray-100 rounded-xl p-1 w-fit gap-1">
             {[
-              { key: 'saved',  label: 'Saved',  count: savedOutfits.length },
+              { key: 'saved',  label: 'Saved',  count: savedOutfits.length  },
               { key: 'drafts', label: 'Drafts', count: draftOutfits.length },
             ].map(({ key, label, count }) => (
               <button
@@ -1187,8 +1281,8 @@ function StudioTab({ pendingOutfitItem, onClearPendingOutfit }) {
         <CreateOutfitModal
           initialItem={createSeed}
           onClose={() => { setShowCreate(false); setCreateSeed(null); }}
-          onSave={handleSave}
-          onSaveDraft={handleSaveDraft}
+          onSave={onSaveOutfit}
+          onSaveDraft={onSaveDraftOutfit}
         />
       )}
     </>
@@ -1263,7 +1357,9 @@ export default function WardrobeApp() {
   const [selectedItem, setSelectedItem]   = useState(null);
   const [items, setItems]                 = useState(ITEMS);
   const [pendingOutfitItem, setPendingOutfitItem] = useState(null);
-  const [likedItems, setLikedItems]     = useState(
+  const [savedOutfits, setSavedOutfits]   = useState([]);
+  const [draftOutfits, setDraftOutfits]   = useState([]);
+  const [likedItems, setLikedItems]       = useState(
     () => new Set(ITEMS.filter(i => i.liked).map(i => i.id))
   );
 
@@ -1299,6 +1395,16 @@ export default function WardrobeApp() {
     setSelectedItem(null);
   };
 
+  const handleSaveOutfit = items => {
+    if (items.length === 0) return;
+    setSavedOutfits(prev => [{ id: Date.now(), items }, ...prev]);
+  };
+
+  const handleSaveDraftOutfit = items => {
+    if (items.length === 0) return;
+    setDraftOutfits(prev => [{ id: Date.now(), items }, ...prev]);
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'wardrobe': return (
@@ -1310,6 +1416,10 @@ export default function WardrobeApp() {
       case 'today':   return <TodayTab />;
       case 'studio':  return (
         <StudioTab
+          savedOutfits={savedOutfits}
+          draftOutfits={draftOutfits}
+          onSaveOutfit={handleSaveOutfit}
+          onSaveDraftOutfit={handleSaveDraftOutfit}
           pendingOutfitItem={pendingOutfitItem}
           onClearPendingOutfit={() => setPendingOutfitItem(null)}
         />
@@ -1464,6 +1574,8 @@ export default function WardrobeApp() {
           onUpdate={updateItem}
           onDelete={deleteItem}
           onAddToOutfit={handleAddToOutfit}
+          savedOutfits={savedOutfits}
+          draftOutfits={draftOutfits}
         />
       )}
     </div>
