@@ -630,9 +630,6 @@ function WardrobeTab({ items, likedItems, onToggleLike, onSelectItem }) {
                 }`}
               >
                 {board}
-                <span className="text-[11px] tabular-nums text-gray-400">
-                  {countByBoard(items, board)}
-                </span>
               </button>
             );
           })}
