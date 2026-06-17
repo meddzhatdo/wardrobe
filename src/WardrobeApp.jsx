@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Sun, Shirt, Wand2, Sparkles,
-  X, Heart, Share2, Plus, Search, ChevronRight,
+  X, Heart, Plus, Search, ChevronRight, Pencil, Trash2,
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -292,14 +292,44 @@ const RATIO = {
   square:   'aspect-square',
 };
 
-function countByBoard(board) {
-  return board === 'All' ? ITEMS.length : ITEMS.filter(i => i.boards.includes(board)).length;
+function countByBoard(items, board) {
+  return board === 'All' ? items.length : items.filter(i => i.boards.includes(board)).length;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
    ItemModal
    ───────────────────────────────────────────────────────────────────────────── */
-function ItemModal({ item, liked, onToggleLike, onClose }) {
+function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete }) {
+  const [editMode, setEditMode] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [draft, setDraft] = useState({
+    name: item.name,
+    brand: item.brand,
+    price: item.price,
+    category: item.category,
+    size: item.size,
+    material: item.material,
+    notes: item.notes || '',
+  });
+
+  const set = (key, val) => setDraft(d => ({ ...d, [key]: val }));
+
+  const handleSave = () => {
+    onUpdate(item.id, draft);
+    setEditMode(false);
+  };
+
+  const handleCancelEdit = () => {
+    setDraft({
+      name: item.name, brand: item.brand, price: item.price,
+      category: item.category, size: item.size, material: item.material,
+      notes: item.notes || '',
+    });
+    setEditMode(false);
+  };
+
+  const editInput = "w-full bg-transparent border-b border-gray-200 focus:border-gray-500 focus:outline-none transition-colors";
+
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-6">
       {/* Backdrop */}
@@ -316,15 +346,40 @@ function ItemModal({ item, liked, onToggleLike, onClose }) {
           <div className="w-10 h-1 bg-gray-200 rounded-full" />
         </div>
 
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-md hover:shadow-lg transition-shadow"
-        >
-          <X size={14} strokeWidth={2.5} className="text-gray-500" />
-        </button>
+        {/* Top-right button cluster */}
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5">
+          {editMode ? (
+            <>
+              <button
+                onClick={handleCancelEdit}
+                className="px-3 py-1.5 text-xs font-semibold text-gray-500 hover:text-gray-800 transition-colors bg-white rounded-full shadow-md"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                className="px-3 py-1.5 bg-gray-900 text-white text-xs font-semibold rounded-full hover:bg-gray-700 transition-colors shadow-md"
+              >
+                Save
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setEditMode(true)}
+              className="w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-md hover:shadow-lg transition-shadow"
+            >
+              <Pencil size={13} strokeWidth={2} className="text-gray-500" />
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-md hover:shadow-lg transition-shadow"
+          >
+            <X size={14} strokeWidth={2.5} className="text-gray-500" />
+          </button>
+        </div>
 
-        {/* Hero image — fixed height so content is always visible */}
+        {/* Hero image */}
         <div className="relative flex-shrink-0 h-72 md:h-80 bg-gray-100 overflow-hidden">
           <img
             src={item.image}
@@ -337,76 +392,144 @@ function ItemModal({ item, liked, onToggleLike, onClose }) {
         <div className="flex-1 overflow-y-auto scrollbar-hide">
           <div className="p-6">
 
-            {/* Brand + actions row */}
+            {/* Brand + name + like */}
             <div className="flex items-start justify-between gap-4 mb-3">
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.18em] mb-1">
-                  {item.brand}
-                </p>
-                <h2 className="text-xl font-semibold text-gray-900 leading-snug">{item.name}</h2>
+              <div className="min-w-0 flex-1">
+                {editMode ? (
+                  <div className="space-y-1.5">
+                    <input
+                      value={draft.brand}
+                      onChange={e => set('brand', e.target.value)}
+                      placeholder="Brand"
+                      className={`${editInput} text-[11px] font-semibold text-gray-500 uppercase tracking-[0.18em] pb-0.5`}
+                    />
+                    <input
+                      value={draft.name}
+                      onChange={e => set('name', e.target.value)}
+                      placeholder="Item name"
+                      className={`${editInput} text-xl font-semibold text-gray-900 pb-0.5`}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.18em] mb-1">
+                      {item.brand}
+                    </p>
+                    <h2 className="text-xl font-semibold text-gray-900 leading-snug">{item.name}</h2>
+                  </>
+                )}
               </div>
-              <div className="flex gap-2 flex-shrink-0 pt-0.5">
-                <button
-                  onClick={() => onToggleLike(item.id)}
-                  className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all ${
-                    liked
-                      ? 'bg-rose-50 border-rose-200'
-                      : 'border-gray-200 bg-white hover:bg-gray-50'
-                  }`}
-                >
-                  <Heart
-                    size={15}
-                    className={liked ? 'text-rose-500 fill-rose-500' : 'text-gray-400'}
-                  />
-                </button>
-                <button className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition-colors">
-                  <Share2 size={15} className="text-gray-400" />
-                </button>
-              </div>
+              <button
+                onClick={() => onToggleLike(item.id)}
+                className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all flex-shrink-0 ${
+                  liked ? 'bg-rose-50 border-rose-200' : 'border-gray-200 bg-white hover:bg-gray-50'
+                }`}
+              >
+                <Heart size={15} className={liked ? 'text-rose-500 fill-rose-500' : 'text-gray-400'} />
+              </button>
             </div>
 
             {/* Price */}
-            <p className="text-3xl font-light tracking-tight text-gray-900 mb-6">{item.price}</p>
+            {editMode ? (
+              <input
+                value={draft.price}
+                onChange={e => set('price', e.target.value)}
+                placeholder="Price"
+                className={`${editInput} text-3xl font-light tracking-tight text-gray-900 pb-0.5 mb-6 block`}
+              />
+            ) : (
+              <p className="text-3xl font-light tracking-tight text-gray-900 mb-6">{item.price}</p>
+            )}
 
             {/* Detail tiles */}
             <div className="grid grid-cols-2 gap-2.5 mb-5">
-              {[
-                { label: 'Category', value: item.category },
-                { label: 'Size',     value: item.size     },
-              ].map(({ label, value }) => (
-                <div key={label} className="bg-gray-50 rounded-2xl px-4 py-3">
+              {(['category', 'size'] ).map(key => (
+                <div key={key} className="bg-gray-50 rounded-2xl px-4 py-3">
                   <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-0.5">
-                    {label}
+                    {key === 'category' ? 'Category' : 'Size'}
                   </p>
-                  <p className="text-sm font-medium text-gray-800">{value}</p>
+                  {editMode ? (
+                    <input
+                      value={draft[key]}
+                      onChange={e => set(key, e.target.value)}
+                      className={`${editInput} text-sm font-medium text-gray-800 mt-0.5`}
+                    />
+                  ) : (
+                    <p className="text-sm font-medium text-gray-800">{item[key]}</p>
+                  )}
                 </div>
               ))}
+
               <div className="col-span-2 bg-gray-50 rounded-2xl px-4 py-3">
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-0.5">
-                  Material
-                </p>
-                <p className="text-sm font-medium text-gray-800">{item.material}</p>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-0.5">Material</p>
+                {editMode ? (
+                  <input
+                    value={draft.material}
+                    onChange={e => set('material', e.target.value)}
+                    className={`${editInput} text-sm font-medium text-gray-800 mt-0.5`}
+                  />
+                ) : (
+                  <p className="text-sm font-medium text-gray-800">{item.material}</p>
+                )}
               </div>
-              {item.boards.length > 0 && (
-                <div className="col-span-2 bg-gray-50 rounded-2xl px-4 py-3">
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
-                    Boards
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {item.boards.map(b => (
-                      <span key={b} className="text-xs font-medium bg-white border border-gray-200 text-gray-700 px-2.5 py-0.5 rounded-full">
-                        {b}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
+
+              {/* Notes */}
+              <div className="col-span-2 bg-gray-50 rounded-2xl px-4 py-3">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-0.5">Notes</p>
+                {editMode ? (
+                  <textarea
+                    value={draft.notes}
+                    onChange={e => set('notes', e.target.value)}
+                    placeholder="Add a note about this piece…"
+                    rows={3}
+                    className={`${editInput} text-sm text-gray-700 mt-0.5 resize-none leading-relaxed w-full`}
+                  />
+                ) : item.notes ? (
+                  <p className="text-sm text-gray-600 leading-relaxed">{item.notes}</p>
+                ) : (
+                  <p className="text-sm text-gray-300 italic">No notes added</p>
+                )}
+              </div>
             </div>
 
-            {/* Primary action */}
-            <button className="w-full py-3.5 bg-gray-900 text-white rounded-2xl text-sm font-semibold tracking-wide hover:bg-gray-700 active:scale-[0.98] transition-all">
-              Add to Outfit
-            </button>
+            {/* Bottom actions — view mode only */}
+            {!editMode && (
+              <>
+                <button className="w-full py-3.5 bg-gray-900 text-white rounded-2xl text-sm font-semibold tracking-wide hover:bg-gray-700 active:scale-[0.98] transition-all mb-3">
+                  Add to Outfit
+                </button>
+
+                {showDeleteConfirm ? (
+                  <div className="border border-red-100 bg-red-50 rounded-2xl p-4">
+                    <p className="text-sm font-semibold text-gray-800 mb-1">Delete this item?</p>
+                    <p className="text-xs text-gray-500 mb-3">This action can't be undone.</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className="flex-1 py-2 border border-gray-200 bg-white text-sm font-medium text-gray-600 rounded-xl hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => onDelete(item.id)}
+                        className="flex-1 py-2 bg-red-500 text-white text-sm font-medium rounded-xl hover:bg-red-600 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full py-2 text-sm text-red-400 hover:text-red-600 transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <Trash2 size={13} />
+                    Delete item
+                  </button>
+                )}
+              </>
+            )}
+
           </div>
         </div>
       </div>
@@ -461,13 +584,13 @@ function GridCard({ item, liked, onLike, onClick }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    WardrobeTab
    ───────────────────────────────────────────────────────────────────────────── */
-function WardrobeTab({ likedItems, onToggleLike, onSelectItem }) {
+function WardrobeTab({ items, likedItems, onToggleLike, onSelectItem }) {
   const [activeFilter, setActiveFilter] = useState('All');
 
   const filtered =
     activeFilter === 'All'
-      ? ITEMS
-      : ITEMS.filter(i => i.boards.includes(activeFilter));
+      ? items
+      : items.filter(i => i.boards.includes(activeFilter));
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -508,7 +631,7 @@ function WardrobeTab({ likedItems, onToggleLike, onSelectItem }) {
               >
                 {board}
                 <span className={`text-[11px] tabular-nums ${active ? 'text-gray-400' : 'text-gray-400'}`}>
-                  {countByBoard(board)}
+                  {countByBoard(items, board)}
                 </span>
               </button>
             );
@@ -1083,9 +1206,10 @@ function StylistTab() {
    Root — WardrobeApp
    ───────────────────────────────────────────────────────────────────────────── */
 export default function WardrobeApp() {
-  const [activeTab, setActiveTab]     = useState('wardrobe');
+  const [activeTab, setActiveTab]       = useState('wardrobe');
   const [selectedItem, setSelectedItem] = useState(null);
-  const [likedItems, setLikedItems]   = useState(
+  const [items, setItems]               = useState(ITEMS);
+  const [likedItems, setLikedItems]     = useState(
     () => new Set(ITEMS.filter(i => i.liked).map(i => i.id))
   );
 
@@ -1104,10 +1228,21 @@ export default function WardrobeApp() {
       return next;
     });
 
+  const updateItem = (id, updates) => {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i));
+    setSelectedItem(prev => prev?.id === id ? { ...prev, ...updates } : prev);
+  };
+
+  const deleteItem = id => {
+    setItems(prev => prev.filter(i => i.id !== id));
+    setSelectedItem(null);
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'wardrobe': return (
         <WardrobeTab
+          items={items}
           likedItems={likedItems}
           onToggleLike={toggleLike}
           onSelectItem={setSelectedItem}
@@ -1164,7 +1299,7 @@ export default function WardrobeApp() {
             Wardrobe Stats
           </p>
           {[
-            { label: 'Total Items', value: ITEMS.length },
+            { label: 'Total Items', value: items.length },
             { label: 'Favourites',  value: likedItems.size },
             { label: 'Boards',      value: BOARDS.length - 1 },
           ].map(({ label, value }) => (
@@ -1262,6 +1397,8 @@ export default function WardrobeApp() {
           liked={likedItems.has(selectedItem.id)}
           onToggleLike={toggleLike}
           onClose={() => setSelectedItem(null)}
+          onUpdate={updateItem}
+          onDelete={deleteItem}
         />
       )}
     </div>
