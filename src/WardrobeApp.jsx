@@ -54,7 +54,7 @@ const ITEMS = [
     price: '$485',
     material: '100% Belgian Linen',
     category: 'Outerwear',
-    board: 'Workwear',
+    boards: ['Workwear', 'Weekend'],
     color: 'Sand',
     size: 'S / 36',
     image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=500&q=80',
@@ -68,7 +68,7 @@ const ITEMS = [
     price: '$248',
     material: '100% Silk Charmeuse',
     category: 'Dresses',
-    board: 'Evening',
+    boards: ['Evening'],
     color: 'Ivory',
     size: 'XS',
     image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=500&q=80',
@@ -82,7 +82,7 @@ const ITEMS = [
     price: '$495',
     material: 'Full-grain Leather',
     category: 'Footwear',
-    board: 'Weekend',
+    boards: ['Weekend', 'Basics'],
     color: 'White',
     size: '38',
     image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=500&q=80',
@@ -96,7 +96,7 @@ const ITEMS = [
     price: '$175',
     material: 'Grade-A Mongolian Cashmere',
     category: 'Tops',
-    board: 'Basics',
+    boards: ['Basics', 'Weekend'],
     color: 'Camel',
     size: 'S',
     image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=500&q=80',
@@ -110,7 +110,7 @@ const ITEMS = [
     price: '$228',
     material: '100% Organic Cotton Denim',
     category: 'Bottoms',
-    board: 'Weekend',
+    boards: ['Weekend', 'Basics'],
     color: 'Light Indigo',
     size: '26',
     image: 'https://images.unsplash.com/photo-1542272454315-4c01d7abdf4a?auto=format&fit=crop&w=500&q=80',
@@ -124,7 +124,7 @@ const ITEMS = [
     price: '$2,290',
     material: 'Cotton Gabardine',
     category: 'Outerwear',
-    board: 'Outerwear',
+    boards: ['Outerwear', 'Workwear', 'Weekend'],
     color: 'Honey',
     size: 'UK 8',
     image: 'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?auto=format&fit=crop&w=500&q=80',
@@ -138,7 +138,7 @@ const ITEMS = [
     price: '$360',
     material: 'Suede Leather',
     category: 'Bags',
-    board: 'Weekend',
+    boards: ['Weekend', 'Workwear'],
     color: 'Caramel',
     size: 'OS',
     image: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=500&q=80',
@@ -152,7 +152,7 @@ const ITEMS = [
     price: '$120',
     material: '90% Modal, 10% Elastane',
     category: 'Tops',
-    board: 'Basics',
+    boards: ['Basics', 'Weekend'],
     color: 'Off White',
     size: 'XS / S',
     image: 'https://images.unsplash.com/photo-1594938298603-c8148c4b02e0?auto=format&fit=crop&w=500&q=80',
@@ -166,7 +166,7 @@ const ITEMS = [
     price: '$155',
     material: '65% Viscose, 35% Linen',
     category: 'Bottoms',
-    board: 'Workwear',
+    boards: ['Workwear'],
     color: 'Stone',
     size: 'S',
     image: 'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?auto=format&fit=crop&w=500&q=80',
@@ -180,7 +180,7 @@ const ITEMS = [
     price: '$380',
     material: 'Vegetable-tanned Nappa',
     category: 'Footwear',
-    board: 'Evening',
+    boards: ['Evening', 'Weekend'],
     color: 'Cognac',
     size: '38',
     image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=500&q=80',
@@ -194,7 +194,7 @@ const ITEMS = [
     price: '$39.90',
     material: '100% French Linen',
     category: 'Tops',
-    board: 'Basics',
+    boards: ['Basics', 'Weekend'],
     color: 'White',
     size: 'S',
     image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=500&q=80',
@@ -208,7 +208,7 @@ const ITEMS = [
     price: '$1,840',
     material: 'Camel Hair & Wool Blend',
     category: 'Outerwear',
-    board: 'Outerwear',
+    boards: ['Outerwear', 'Workwear'],
     color: 'Camel',
     size: '38 IT',
     image: 'https://images.unsplash.com/photo-1583744946564-b432d563933f?auto=format&fit=crop&w=500&q=80',
@@ -222,7 +222,7 @@ const ITEMS = [
     price: '$295',
     material: '100% Polyester Satin',
     category: 'Bottoms',
-    board: 'Evening',
+    boards: ['Evening'],
     color: 'Champagne',
     size: '36 FR',
     image: 'https://images.unsplash.com/photo-1583496661160-fb5974ca5f59?auto=format&fit=crop&w=500&q=80',
@@ -236,7 +236,7 @@ const ITEMS = [
     price: '$99.90',
     material: 'Polyester Blend',
     category: 'Outerwear',
-    board: 'Workwear',
+    boards: ['Workwear'],
     color: 'Black',
     size: 'S',
     image: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=500&q=80',
@@ -250,7 +250,7 @@ const ITEMS = [
     price: '$169',
     material: '100% Lambswool',
     category: 'Tops',
-    board: 'Basics',
+    boards: ['Basics', 'Weekend'],
     color: 'Oatmeal',
     size: 'S',
     image: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?auto=format&fit=crop&w=500&q=80',
@@ -264,7 +264,7 @@ const ITEMS = [
     price: '$560',
     material: 'Silk Chiffon & Lace',
     category: 'Dresses',
-    board: 'Evening',
+    boards: ['Evening'],
     color: 'Floral Multi',
     size: 'US 6',
     image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=500&q=80',
@@ -293,7 +293,7 @@ const RATIO = {
 };
 
 function countByBoard(board) {
-  return board === 'All' ? ITEMS.length : ITEMS.filter(i => i.board === board).length;
+  return board === 'All' ? ITEMS.length : ITEMS.filter(i => i.boards.includes(board)).length;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -331,12 +331,6 @@ function ItemModal({ item, liked, onToggleLike, onClose }) {
             alt={item.name}
             className="w-full h-full object-cover"
           />
-          {/* Board badge on image */}
-          <div className="absolute bottom-3 left-3">
-            <span className="text-[11px] font-semibold bg-white/90 backdrop-blur-sm text-gray-700 px-2.5 py-1 rounded-full shadow-sm">
-              {item.board}
-            </span>
-          </div>
         </div>
 
         {/* Scrollable body */}
@@ -378,7 +372,6 @@ function ItemModal({ item, liked, onToggleLike, onClose }) {
             <div className="grid grid-cols-2 gap-2.5 mb-5">
               {[
                 { label: 'Category', value: item.category },
-                { label: 'Board',    value: item.board    },
                 { label: 'Color',    value: item.color    },
                 { label: 'Size',     value: item.size     },
               ].map(({ label, value }) => (
@@ -395,6 +388,20 @@ function ItemModal({ item, liked, onToggleLike, onClose }) {
                 </p>
                 <p className="text-sm font-medium text-gray-800">{item.material}</p>
               </div>
+              {item.boards.length > 0 && (
+                <div className="col-span-2 bg-gray-50 rounded-2xl px-4 py-3">
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
+                    Boards
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {item.boards.map(b => (
+                      <span key={b} className="text-xs font-medium bg-white border border-gray-200 text-gray-700 px-2.5 py-0.5 rounded-full">
+                        {b}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Primary action */}
@@ -446,12 +453,6 @@ function GridCard({ item, liked, onLike, onClick }) {
           />
         </button>
 
-        {/* Board badge — appears on hover */}
-        <div className="absolute bottom-2.5 left-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <span className="text-[10px] font-semibold bg-white/85 backdrop-blur-sm text-gray-700 px-2 py-0.5 rounded-full">
-            {item.board}
-          </span>
-        </div>
       </div>
 
       {/* Item info */}
@@ -475,7 +476,7 @@ function WardrobeTab({ likedItems, onToggleLike, onSelectItem }) {
   const filtered =
     activeFilter === 'All'
       ? ITEMS
-      : ITEMS.filter(i => i.board === activeFilter);
+      : ITEMS.filter(i => i.boards.includes(activeFilter));
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -642,7 +643,7 @@ function StylistTab() {
   const prompts = [
     'What should I wear to a rooftop dinner?',
     'Build a capsule wardrobe from my basics',
-    'What's trending for autumn?',
+    "What's trending for autumn?",
   ];
 
   return (
