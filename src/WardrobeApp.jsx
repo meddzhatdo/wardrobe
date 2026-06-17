@@ -599,6 +599,7 @@ function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
   const [canvasItems, setCanvasItems] = useState([]);
   const [activeFilter, setActiveFilter] = useState('All');
   const [boardsOpen, setBoardsOpen] = useState(false);
+  const [panelWidth, setPanelWidth] = useState(240);
 
   const filtered =
     activeFilter === 'All'
@@ -610,6 +611,23 @@ function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
 
   const removeFromCanvas = cid =>
     setCanvasItems(prev => prev.filter(i => i._cid !== cid));
+
+  const startDrag = e => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = panelWidth;
+
+    const onMove = e => {
+      const delta = startX - e.clientX;
+      setPanelWidth(Math.min(480, Math.max(200, startWidth + delta)));
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col">
@@ -670,8 +688,23 @@ function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
           )}
         </div>
 
+        {/* ── Resize handle (desktop only) ── */}
+        <div
+          onMouseDown={startDrag}
+          className="hidden md:flex w-3 flex-shrink-0 items-center justify-center cursor-col-resize group bg-white border-x border-gray-100 hover:border-gray-300 transition-colors"
+        >
+          <div className="flex flex-col gap-[3px]">
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} className="w-0.5 h-0.5 rounded-full bg-gray-300 group-hover:bg-gray-500 transition-colors" />
+            ))}
+          </div>
+        </div>
+
         {/* ── Mini wardrobe panel ── */}
-        <div className="w-full md:w-60 flex flex-col flex-shrink-0 h-56 md:h-auto bg-white">
+        <div
+          className="w-full flex flex-col flex-shrink-0 h-56 md:h-auto bg-white"
+          style={window.innerWidth >= 768 ? { width: panelWidth } : undefined}
+        >
 
           {/* Board filter — collapsible */}
           <div className="flex-shrink-0 border-b border-gray-100">
