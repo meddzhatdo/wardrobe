@@ -1042,13 +1042,15 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
                   Delete {selectedItemIds.size} item{selectedItemIds.size !== 1 ? 's' : ''}?
                 </h3>
                 <p className="text-sm text-gray-500 mb-5 leading-relaxed">
-                  {selectedItemIds.size === 1 ? 'This item' : 'These items'} will be permanently removed from your wardrobe.
+                  {activeFilter === 'All'
+                    ? `${selectedItemIds.size === 1 ? 'This item' : 'These items'} will be permanently removed from your wardrobe.`
+                    : `${selectedItemIds.size === 1 ? 'This item' : 'These items'} will be removed from this board but stay in your wardrobe.`}
                 </p>
                 <div className="flex flex-col gap-2">
                   <button
                     onClick={() => {
                       const toDelete = new Set(selectedItemIds);
-                      onDeleteItems(toDelete);
+                      onDeleteItems(toDelete, activeFilter);
                       setOrganizedItems(prev => prev.filter(i => !toDelete.has(i.id)));
                       setSelectedItemIds(new Set());
                       setShowDeleteSelectedConfirm(false);
@@ -1757,13 +1759,19 @@ export default function WardrobeApp() {
     });
   };
 
-  const handleDeleteItems = ids => {
-    setItems(prev => prev.filter(i => !ids.has(i.id)));
-    setLikedItems(prev => {
-      const next = new Set(prev);
-      ids.forEach(id => next.delete(id));
-      return next;
-    });
+  const handleDeleteItems = (ids, board) => {
+    if (board === 'All') {
+      setItems(prev => prev.filter(i => !ids.has(i.id)));
+      setLikedItems(prev => {
+        const next = new Set(prev);
+        ids.forEach(id => next.delete(id));
+        return next;
+      });
+    } else {
+      setItems(prev => prev.map(i =>
+        ids.has(i.id) ? { ...i, boards: i.boards.filter(b => b !== board) } : i
+      ));
+    }
   };
 
   const [pendingOutfitItem, setPendingOutfitItem] = useState(null);
