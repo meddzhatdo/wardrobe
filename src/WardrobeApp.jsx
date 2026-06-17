@@ -1235,6 +1235,7 @@ export default function WardrobeApp() {
 
   const deleteItem = id => {
     setItems(prev => prev.filter(i => i.id !== id));
+    setLikedItems(prev => { const next = new Set(prev); next.delete(id); return next; });
     setSelectedItem(null);
   };
 
@@ -1300,7 +1301,7 @@ export default function WardrobeApp() {
           </p>
           {[
             { label: 'Total Items', value: items.length },
-            { label: 'Favourites',  value: likedItems.size },
+            { label: 'Favorites',   value: likedItems.size },
             { label: 'Boards',      value: BOARDS.length - 1 },
           ].map(({ label, value }) => (
             <div
