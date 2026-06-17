@@ -681,7 +681,7 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
 function GridCard({ item, onClick }) {
   return (
     <div
-      className="break-inside-avoid mb-2 cursor-pointer group"
+      className="cursor-pointer group"
       onClick={() => onClick(item)}
     >
       <div className="relative rounded-2xl overflow-hidden bg-gray-100">
@@ -702,10 +702,13 @@ function GridCard({ item, onClick }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    WardrobeTab
    ───────────────────────────────────────────────────────────────────────────── */
-function WardrobeTab({ items, onSelectItem }) {
+function WardrobeTab({ items, boards, onSelectItem, onDeleteBoard }) {
   const [activeFilter, setActiveFilter] = useState('All');
   const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [boardMenuOpen, setBoardMenuOpen] = useState(null);
+  const [deleteConfirmBoard, setDeleteConfirmBoard] = useState(null);
   const addMenuRef = useRef(null);
+  const boardMenuRef = useRef(null);
 
   useEffect(() => {
     if (!addMenuOpen) return;
@@ -715,6 +718,15 @@ function WardrobeTab({ items, onSelectItem }) {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [addMenuOpen]);
+
+  useEffect(() => {
+    if (!boardMenuOpen) return;
+    const handler = e => {
+      if (!boardMenuRef.current?.contains(e.target)) setBoardMenuOpen(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [boardMenuOpen]);
 
   const filtered =
     activeFilter === 'All'
@@ -726,13 +738,39 @@ function WardrobeTab({ items, onSelectItem }) {
 
       {/* ── Tab header ── */}
       <div className="px-5 md:px-7 pt-5 pb-0 flex-shrink-0">
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-start justify-between mb-5">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">My Wardrobe</h1>
-            <p className="text-sm text-gray-400 mt-0.5">
-              {filtered.length} item{filtered.length !== 1 ? 's' : ''}
-              {activeFilter !== 'All' && ` · ${activeFilter}`}
-            </p>
+            <h1 className="text-3xl font-semibold tracking-tight text-gray-900">My Wardrobe</h1>
+            <div className="flex items-center gap-3 mt-4">
+              <p className="text-3xl font-semibold text-gray-900">{activeFilter}</p>
+              {activeFilter !== 'All' && (
+                <div className="relative" ref={boardMenuRef}>
+                  <button
+                    onClick={() => setBoardMenuOpen(o => o ? null : activeFilter)}
+                    className="text-gray-300 hover:text-gray-500 transition-colors text-2xl leading-none"
+                  >
+                    ···
+                  </button>
+                  {boardMenuOpen && (
+                    <div className="absolute left-0 top-8 bg-white rounded-xl shadow-lg border border-gray-100 py-1 w-36 z-20">
+                      <button
+                        onClick={() => setBoardMenuOpen(null)}
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Edit board
+                      </button>
+                      <button
+                        onClick={() => { setBoardMenuOpen(null); setDeleteConfirmBoard(activeFilter); }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-gray-50 transition-colors"
+                      >
+                        Delete board
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <p className="text-sm text-gray-400 mt-0.5">{filtered.length} item{filtered.length !== 1 ? 's' : ''}</p>
           </div>
           <div className="flex items-center gap-2">
             <button className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
@@ -764,13 +802,13 @@ function WardrobeTab({ items, onSelectItem }) {
 
         {/* ── Board filter ── */}
         <div className="flex gap-5 overflow-x-auto scrollbar-hide pb-4">
-          {BOARDS.map(board => {
+          {boards.map(board => {
             const active = activeFilter === board;
             return (
               <button
                 key={board}
                 onClick={() => setActiveFilter(board)}
-                className={`flex-shrink-0 flex items-center gap-1.5 text-sm font-medium transition-colors pb-0.5 ${
+                className={`flex-shrink-0 flex items-center gap-1.5 text-base font-medium transition-colors pb-0.5 ${
                   active
                     ? 'text-gray-900 border-b-2 border-gray-900'
                     : 'text-gray-400 hover:text-gray-700 border-b-2 border-transparent'
@@ -794,7 +832,7 @@ function WardrobeTab({ items, onSelectItem }) {
             <p className="text-sm text-gray-400 mt-1">Tap + to add your first piece</p>
           </div>
         ) : (
-          <div className="columns-3 md:columns-4 xl:columns-5 gap-2">
+          <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2">
             {filtered.map(item => (
               <GridCard
                 key={item.id}
@@ -805,6 +843,37 @@ function WardrobeTab({ items, onSelectItem }) {
           </div>
         )}
       </div>
+
+      {/* ── Delete board confirmation popup ── */}
+      {deleteConfirmBoard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm backdrop-fade" onClick={() => setDeleteConfirmBoard(null)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl p-6 w-full max-w-xs modal-animate">
+            <h3 className="text-base font-semibold text-gray-900 mb-1">Delete "{deleteConfirmBoard}"?</h3>
+            <p className="text-sm text-gray-500 mb-5 leading-relaxed">
+              This board will be permanently removed. Items inside won't be deleted.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  onDeleteBoard(deleteConfirmBoard);
+                  if (activeFilter === deleteConfirmBoard) setActiveFilter('All');
+                  setDeleteConfirmBoard(null);
+                }}
+                className="w-full py-2.5 bg-red-500 text-white text-sm font-semibold rounded-2xl hover:bg-red-600 transition-colors"
+              >
+                Delete Board
+              </button>
+              <button
+                onClick={() => setDeleteConfirmBoard(null)}
+                className="w-full py-2.5 border border-gray-200 text-gray-700 text-sm font-semibold rounded-2xl hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1380,6 +1449,9 @@ export default function WardrobeApp() {
   const [activeTab, setActiveTab]         = useState('wardrobe');
   const [selectedItem, setSelectedItem]   = useState(null);
   const [items, setItems]                 = useState(ITEMS);
+  const [boards, setBoards]               = useState(BOARDS);
+
+  const handleDeleteBoard = name => setBoards(prev => prev.filter(b => b !== name));
   const [pendingOutfitItem, setPendingOutfitItem] = useState(null);
   const [pendingTargetCollage, setPendingTargetCollage] = useState(null);
   const [savedOutfits, setSavedOutfits]   = useState([]);
@@ -1449,7 +1521,9 @@ export default function WardrobeApp() {
       case 'wardrobe': return (
         <WardrobeTab
           items={items}
+          boards={boards}
           onSelectItem={setSelectedItem}
+          onDeleteBoard={handleDeleteBoard}
         />
       );
       case 'today':   return <TodayTab />;
@@ -1517,7 +1591,7 @@ export default function WardrobeApp() {
           {[
             { label: 'Total Items', value: items.length },
             { label: 'Favorites',   value: likedItems.size },
-            { label: 'Boards',      value: BOARDS.length - 1 },
+            { label: 'Boards',      value: boards.length - 1 },
           ].map(({ label, value }) => (
             <div
               key={label}
