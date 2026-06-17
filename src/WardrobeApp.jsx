@@ -299,7 +299,7 @@ function countByBoard(items, board) {
 /* ─────────────────────────────────────────────────────────────────────────────
    ItemModal
    ───────────────────────────────────────────────────────────────────────────── */
-function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete }) {
+function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onAddToOutfit }) {
   const [editMode, setEditMode] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [draft, setDraft] = useState({
@@ -496,7 +496,10 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete }) {
             {/* Bottom actions — view mode only */}
             {!editMode && (
               <>
-                <button className="w-full py-3.5 bg-gray-900 text-white rounded-2xl text-sm font-semibold tracking-wide hover:bg-gray-700 active:scale-[0.98] transition-all mb-3">
+                <button
+                  onClick={() => onAddToOutfit(item)}
+                  className="w-full py-3.5 bg-gray-900 text-white rounded-2xl text-sm font-semibold tracking-wide hover:bg-gray-700 active:scale-[0.98] transition-all mb-3"
+                >
                   Add to Outfit
                 </button>
 
@@ -723,7 +726,7 @@ function TodayTab() {
 /* ─────────────────────────────────────────────────────────────────────────────
    CreateOutfitModal
    ───────────────────────────────────────────────────────────────────────────── */
-function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
+function CreateOutfitModal({ initialItem, onClose, onSave, onSaveDraft }) {
   const [canvasItems, setCanvasItems] = useState([]);
   const [activeFilter, setActiveFilter] = useState('All');
   const [boardsOpen, setBoardsOpen] = useState(false);
@@ -736,6 +739,15 @@ function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
   const dragOffset = useRef({ x: 0, y: 0 });
 
   const ITEM_SIZE = 128;
+
+  useEffect(() => {
+    if (!initialItem || !canvasRef.current) return;
+    const { width, height } = canvasRef.current.getBoundingClientRect();
+    const x = Math.max(0, (width  - ITEM_SIZE) / 2);
+    const y = Math.max(0, (height - ITEM_SIZE) / 2);
+    setCanvasItems([{ ...initialItem, _cid: `${initialItem.id}-${Date.now()}`, x, y }]);
+    setIsDirty(true);
+  }, []);
 
   const requestClose = () => {
     if (isDirty) setShowExitWarning(true);
@@ -1052,11 +1064,19 @@ function OutfitCard({ outfit }) {
   );
 }
 
-function StudioTab() {
+function StudioTab({ pendingOutfitItem, onClearPendingOutfit }) {
   const [showCreate, setShowCreate] = useState(false);
+  const [createSeed, setCreateSeed] = useState(null);
   const [view, setView]             = useState('saved');
   const [savedOutfits, setSaved]    = useState([]);
   const [draftOutfits, setDrafts]   = useState([]);
+
+  useEffect(() => {
+    if (!pendingOutfitItem) return;
+    setCreateSeed(pendingOutfitItem);
+    setShowCreate(true);
+    onClearPendingOutfit();
+  }, [pendingOutfitItem]);
 
   const handleSave = items => {
     if (items.length === 0) return;
@@ -1138,7 +1158,8 @@ function StudioTab() {
 
       {showCreate && (
         <CreateOutfitModal
-          onClose={() => setShowCreate(false)}
+          initialItem={createSeed}
+          onClose={() => { setShowCreate(false); setCreateSeed(null); }}
           onSave={handleSave}
           onSaveDraft={handleSaveDraft}
         />
@@ -1211,9 +1232,10 @@ function StylistTab() {
    Root — WardrobeApp
    ───────────────────────────────────────────────────────────────────────────── */
 export default function WardrobeApp() {
-  const [activeTab, setActiveTab]       = useState('wardrobe');
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [items, setItems]               = useState(ITEMS);
+  const [activeTab, setActiveTab]         = useState('wardrobe');
+  const [selectedItem, setSelectedItem]   = useState(null);
+  const [items, setItems]                 = useState(ITEMS);
+  const [pendingOutfitItem, setPendingOutfitItem] = useState(null);
   const [likedItems, setLikedItems]     = useState(
     () => new Set(ITEMS.filter(i => i.liked).map(i => i.id))
   );
@@ -1244,6 +1266,12 @@ export default function WardrobeApp() {
     setSelectedItem(null);
   };
 
+  const handleAddToOutfit = item => {
+    setPendingOutfitItem(item);
+    setActiveTab('studio');
+    setSelectedItem(null);
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'wardrobe': return (
@@ -1253,7 +1281,12 @@ export default function WardrobeApp() {
         />
       );
       case 'today':   return <TodayTab />;
-      case 'studio':  return <StudioTab />;
+      case 'studio':  return (
+        <StudioTab
+          pendingOutfitItem={pendingOutfitItem}
+          onClearPendingOutfit={() => setPendingOutfitItem(null)}
+        />
+      );
       case 'stylist': return <StylistTab />;
       default: return null;
     }
@@ -1403,6 +1436,7 @@ export default function WardrobeApp() {
           onClose={() => setSelectedItem(null)}
           onUpdate={updateItem}
           onDelete={deleteItem}
+          onAddToOutfit={handleAddToOutfit}
         />
       )}
     </div>
