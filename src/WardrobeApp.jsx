@@ -713,7 +713,7 @@ function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
         </button>
         <p className="text-sm font-semibold text-gray-900 flex-1">New Outfit</p>
         <button
-          onClick={() => { onSaveDraft(canvasItems); onClose(); }}
+          onClick={() => onSaveDraft(canvasItems)}
           disabled={canvasItems.length === 0}
           className="px-3.5 py-1.5 border border-gray-300 text-gray-700 text-xs font-semibold rounded-full hover:bg-gray-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
