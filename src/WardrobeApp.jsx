@@ -541,13 +541,12 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    GridCard
    ───────────────────────────────────────────────────────────────────────────── */
-function GridCard({ item, liked, onLike, onClick }) {
+function GridCard({ item, onClick }) {
   return (
     <div
       className="break-inside-avoid mb-2 cursor-pointer group"
       onClick={() => onClick(item)}
     >
-      {/* Image tile */}
       <div className="relative rounded-2xl overflow-hidden bg-gray-100">
         <div className="w-full aspect-square">
           <img
@@ -557,27 +556,8 @@ function GridCard({ item, liked, onLike, onClick }) {
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
           />
         </div>
-
-        {/* Hover tint */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/6 transition-colors duration-300 pointer-events-none" />
-
-        {/* Like button — always visible if liked, else appears on hover */}
-        <button
-          onClick={e => { e.stopPropagation(); onLike(item.id); }}
-          className={`absolute top-2.5 right-2.5 w-7 h-7 flex items-center justify-center rounded-full shadow-sm transition-all duration-200 ${
-            liked
-              ? 'bg-white opacity-100 scale-100'
-              : 'bg-white/80 backdrop-blur-sm opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100'
-          }`}
-        >
-          <Heart
-            size={13}
-            className={liked ? 'text-rose-500 fill-rose-500' : 'text-gray-500'}
-          />
-        </button>
-
       </div>
-
     </div>
   );
 }
@@ -585,7 +565,7 @@ function GridCard({ item, liked, onLike, onClick }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    WardrobeTab
    ───────────────────────────────────────────────────────────────────────────── */
-function WardrobeTab({ items, likedItems, onToggleLike, onSelectItem }) {
+function WardrobeTab({ items, onSelectItem }) {
   const [activeFilter, setActiveFilter] = useState('All');
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const addMenuRef = useRef(null);
@@ -682,8 +662,6 @@ function WardrobeTab({ items, likedItems, onToggleLike, onSelectItem }) {
               <GridCard
                 key={item.id}
                 item={item}
-                liked={likedItems.has(item.id)}
-                onLike={onToggleLike}
                 onClick={onSelectItem}
               />
             ))}
@@ -1271,8 +1249,6 @@ export default function WardrobeApp() {
       case 'wardrobe': return (
         <WardrobeTab
           items={items}
-          likedItems={likedItems}
-          onToggleLike={toggleLike}
           onSelectItem={setSelectedItem}
         />
       );
