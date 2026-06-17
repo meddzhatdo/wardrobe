@@ -615,22 +615,22 @@ function WardrobeTab({ items, likedItems, onToggleLike, onSelectItem }) {
           </div>
         </div>
 
-        {/* ── Board filter chips ── */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-4">
+        {/* ── Board filter ── */}
+        <div className="flex gap-5 overflow-x-auto scrollbar-hide pb-4">
           {BOARDS.map(board => {
             const active = activeFilter === board;
             return (
               <button
                 key={board}
                 onClick={() => setActiveFilter(board)}
-                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                className={`flex-shrink-0 flex items-center gap-1.5 text-sm font-medium transition-colors pb-0.5 ${
                   active
-                    ? 'bg-gray-900 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-800'
+                    ? 'text-gray-900 border-b-2 border-gray-900'
+                    : 'text-gray-400 hover:text-gray-700 border-b-2 border-transparent'
                 }`}
               >
                 {board}
-                <span className={`text-[11px] tabular-nums ${active ? 'text-gray-400' : 'text-gray-400'}`}>
+                <span className="text-[11px] tabular-nums text-gray-400">
                   {countByBoard(items, board)}
                 </span>
               </button>
