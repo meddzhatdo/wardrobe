@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Sun, Shirt, Wand2, Sparkles,
-  X, Heart, Share2, Plus, Search, ChevronRight,
+  X, Heart, Plus, Search, ChevronRight, Pencil, Trash2, Brush,
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -45,6 +45,20 @@ const GLOBAL_CSS = `
    Mock Data
    ───────────────────────────────────────────────────────────────────────────── */
 const BOARDS = ['All', 'Workwear', 'Weekend', 'Evening', 'Basics', 'Outerwear'];
+
+const CATEGORIES = [
+  'Tops',
+  'Bottoms',
+  'Dresses & Jumpsuits',
+  'Outerwear',
+  'Knitwear & Sweaters',
+  'Shoes',
+  'Activewear / Athleisure',
+  'Accessories & Bags',
+  'Jewelry',
+  'Underwear & Sleepwear',
+  'Other',
+];
 
 const ITEMS = [
   {
@@ -292,14 +306,141 @@ const RATIO = {
   square:   'aspect-square',
 };
 
-function countByBoard(board) {
-  return board === 'All' ? ITEMS.length : ITEMS.filter(i => i.boards.includes(board)).length;
+function countByBoard(items, board) {
+  return board === 'All' ? items.length : items.filter(i => i.boards.includes(board)).length;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   AddToCollageModal
+   ───────────────────────────────────────────────────────────────────────────── */
+function AddToCollageModal({ savedOutfits, draftOutfits, onClose, onCreateNew, onOpenCollage }) {
+  const [view, setView] = useState('saved');
+  const list = view === 'saved' ? savedOutfits : draftOutfits;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm backdrop-fade" onClick={onClose} />
+      <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm modal-animate">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-4">
+          <h3 className="text-base font-semibold text-gray-900">Add to Collage</h3>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+          >
+            <X size={14} className="text-gray-500" />
+          </button>
+        </div>
+
+        {/* Toggle */}
+        <div className="px-5 pb-4">
+          <div className="flex bg-gray-100 rounded-xl p-1 gap-1 w-fit">
+            {[
+              { key: 'saved',  label: 'Saved',  count: savedOutfits.length },
+              { key: 'drafts', label: 'Drafts', count: draftOutfits.length },
+            ].map(({ key, label, count }) => (
+              <button
+                key={key}
+                onClick={() => setView(key)}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  view === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {label}
+                {count > 0 && <span className="text-[11px] tabular-nums text-gray-400">{count}</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Collage thumbnails */}
+        <div className="px-5 pb-2 min-h-[6rem]">
+          {list.length === 0 ? (
+            <div className="flex items-center justify-center h-24">
+              <p className="text-sm text-gray-400">
+                {view === 'saved' ? 'No saved collages yet' : 'No drafts yet'}
+              </p>
+            </div>
+          ) : (
+            <div className="flex gap-2.5 overflow-x-auto scrollbar-hide pb-1">
+              {list.map(outfit => {
+                const imgs = outfit.items.slice(0, 4);
+                return (
+                  <div key={outfit.id} onClick={() => onOpenCollage(outfit, view)} className="flex-shrink-0 w-24 h-24 rounded-2xl overflow-hidden bg-gray-100 cursor-pointer hover:opacity-80 transition-opacity">
+                    {imgs.length === 0 ? (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Wand2 size={16} className="text-gray-300" />
+                      </div>
+                    ) : imgs.length === 1 ? (
+                      <img src={imgs[0].image} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className={`grid h-full w-full ${imgs.length === 2 ? 'grid-cols-2' : 'grid-cols-2 grid-rows-2'}`}>
+                        {imgs.map((item, i) => (
+                          <div key={i} className="overflow-hidden">
+                            <img src={item.image} alt="" className="w-full h-full object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Create button */}
+        <div className="px-5 pb-5 pt-3">
+          <button
+            onClick={onCreateNew}
+            className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 rounded-2xl text-sm font-medium text-gray-500 hover:border-gray-400 hover:text-gray-700 transition-colors"
+          >
+            <Plus size={15} strokeWidth={2.5} />
+            Create Collage
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
    ItemModal
    ───────────────────────────────────────────────────────────────────────────── */
-function ItemModal({ item, liked, onToggleLike, onClose }) {
+function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onAddToOutfit, onOpenCollage, savedOutfits, draftOutfits }) {
+  const [editMode, setEditMode] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showCollagePicker, setShowCollagePicker] = useState(false);
+  const [draft, setDraft] = useState({
+    name: item.name,
+    brand: item.brand,
+    price: item.price,
+    category: item.category,
+    size: item.size,
+    material: item.material,
+    notes: item.notes || '',
+  });
+
+  const set = (key, val) => setDraft(d => ({ ...d, [key]: val }));
+
+  const handleSave = () => {
+    onUpdate(item.id, draft);
+    setEditMode(false);
+  };
+
+  const handleCancelEdit = () => {
+    setDraft({
+      name: item.name, brand: item.brand, price: item.price,
+      category: item.category, size: item.size, material: item.material,
+      notes: item.notes || '',
+    });
+    setEditMode(false);
+  };
+
+  const editInput = "w-full bg-transparent border-b border-gray-200 focus:border-gray-500 focus:outline-none transition-colors";
+
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-6">
       {/* Backdrop */}
@@ -316,15 +457,40 @@ function ItemModal({ item, liked, onToggleLike, onClose }) {
           <div className="w-10 h-1 bg-gray-200 rounded-full" />
         </div>
 
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-md hover:shadow-lg transition-shadow"
-        >
-          <X size={14} strokeWidth={2.5} className="text-gray-500" />
-        </button>
+        {/* Top-right button cluster */}
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5">
+          {editMode ? (
+            <>
+              <button
+                onClick={handleCancelEdit}
+                className="px-3 py-1.5 text-xs font-semibold text-gray-500 hover:text-gray-800 transition-colors bg-white rounded-full shadow-md"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                className="px-3 py-1.5 bg-gray-900 text-white text-xs font-semibold rounded-full hover:bg-gray-700 transition-colors shadow-md"
+              >
+                Save
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setEditMode(true)}
+              className="w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-md hover:shadow-lg transition-shadow"
+            >
+              <Pencil size={13} strokeWidth={2} className="text-gray-500" />
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-md hover:shadow-lg transition-shadow"
+          >
+            <X size={14} strokeWidth={2.5} className="text-gray-500" />
+          </button>
+        </div>
 
-        {/* Hero image — fixed height so content is always visible */}
+        {/* Hero image */}
         <div className="relative flex-shrink-0 h-72 md:h-80 bg-gray-100 overflow-hidden">
           <img
             src={item.image}
@@ -337,79 +503,174 @@ function ItemModal({ item, liked, onToggleLike, onClose }) {
         <div className="flex-1 overflow-y-auto scrollbar-hide">
           <div className="p-6">
 
-            {/* Brand + actions row */}
+            {/* Brand + name + like */}
             <div className="flex items-start justify-between gap-4 mb-3">
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.18em] mb-1">
-                  {item.brand}
-                </p>
-                <h2 className="text-xl font-semibold text-gray-900 leading-snug">{item.name}</h2>
+              <div className="min-w-0 flex-1">
+                {editMode ? (
+                  <div className="space-y-1.5">
+                    <input
+                      value={draft.brand}
+                      onChange={e => set('brand', e.target.value)}
+                      placeholder="Brand"
+                      className={`${editInput} text-[11px] font-semibold text-gray-500 uppercase tracking-[0.18em] pb-0.5`}
+                    />
+                    <input
+                      value={draft.name}
+                      onChange={e => set('name', e.target.value)}
+                      placeholder="Item name"
+                      className={`${editInput} text-xl font-semibold text-gray-900 pb-0.5`}
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.18em] mb-1">
+                      {item.brand}
+                    </p>
+                    <h2 className="text-xl font-semibold text-gray-900 leading-snug">{item.name}</h2>
+                  </>
+                )}
               </div>
-              <div className="flex gap-2 flex-shrink-0 pt-0.5">
-                <button
-                  onClick={() => onToggleLike(item.id)}
-                  className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all ${
-                    liked
-                      ? 'bg-rose-50 border-rose-200'
-                      : 'border-gray-200 bg-white hover:bg-gray-50'
-                  }`}
-                >
-                  <Heart
-                    size={15}
-                    className={liked ? 'text-rose-500 fill-rose-500' : 'text-gray-400'}
-                  />
-                </button>
-                <button className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition-colors">
-                  <Share2 size={15} className="text-gray-400" />
-                </button>
-              </div>
+              <button
+                onClick={() => onToggleLike(item.id)}
+                className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all flex-shrink-0 ${
+                  liked ? 'bg-rose-50 border-rose-200' : 'border-gray-200 bg-white hover:bg-gray-50'
+                }`}
+              >
+                <Heart size={15} className={liked ? 'text-rose-500 fill-rose-500' : 'text-gray-400'} />
+              </button>
             </div>
 
             {/* Price */}
-            <p className="text-3xl font-light tracking-tight text-gray-900 mb-6">{item.price}</p>
+            {editMode ? (
+              <input
+                value={draft.price}
+                onChange={e => set('price', e.target.value)}
+                placeholder="Price"
+                className={`${editInput} text-3xl font-light tracking-tight text-gray-900 pb-0.5 mb-6 block`}
+              />
+            ) : (
+              <p className="text-3xl font-light tracking-tight text-gray-900 mb-6">{item.price}</p>
+            )}
 
             {/* Detail tiles */}
             <div className="grid grid-cols-2 gap-2.5 mb-5">
-              {[
-                { label: 'Category', value: item.category },
-                { label: 'Size',     value: item.size     },
-              ].map(({ label, value }) => (
-                <div key={label} className="bg-gray-50 rounded-2xl px-4 py-3">
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-0.5">
-                    {label}
-                  </p>
-                  <p className="text-sm font-medium text-gray-800">{value}</p>
-                </div>
-              ))}
-              <div className="col-span-2 bg-gray-50 rounded-2xl px-4 py-3">
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-0.5">
-                  Material
-                </p>
-                <p className="text-sm font-medium text-gray-800">{item.material}</p>
+              {/* Category — dropdown in edit mode */}
+              <div className="bg-gray-50 rounded-2xl px-4 py-3">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-0.5">Category</p>
+                {editMode ? (
+                  <select
+                    value={draft.category}
+                    onChange={e => set('category', e.target.value)}
+                    className="w-full bg-transparent focus:outline-none text-sm font-medium text-gray-800 mt-0.5 cursor-pointer"
+                  >
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                ) : (
+                  <p className="text-sm font-medium text-gray-800">{item.category}</p>
+                )}
               </div>
-              {item.boards.length > 0 && (
-                <div className="col-span-2 bg-gray-50 rounded-2xl px-4 py-3">
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">
-                    Boards
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {item.boards.map(b => (
-                      <span key={b} className="text-xs font-medium bg-white border border-gray-200 text-gray-700 px-2.5 py-0.5 rounded-full">
-                        {b}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
+
+              {/* Size — free text */}
+              <div className="bg-gray-50 rounded-2xl px-4 py-3">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-0.5">Size</p>
+                {editMode ? (
+                  <input
+                    value={draft.size}
+                    onChange={e => set('size', e.target.value)}
+                    className={`${editInput} text-sm font-medium text-gray-800 mt-0.5`}
+                  />
+                ) : (
+                  <p className="text-sm font-medium text-gray-800">{item.size}</p>
+                )}
+              </div>
+
+              <div className="col-span-2 bg-gray-50 rounded-2xl px-4 py-3">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-0.5">Material</p>
+                {editMode ? (
+                  <textarea
+                    value={draft.material}
+                    onChange={e => set('material', e.target.value)}
+                    rows={2}
+                    className={`${editInput} text-sm font-medium text-gray-800 mt-0.5 resize-none leading-relaxed w-full`}
+                  />
+                ) : (
+                  <p className="text-sm font-medium text-gray-800 whitespace-pre-line">{item.material}</p>
+                )}
+              </div>
+
+              {/* Notes */}
+              <div className="col-span-2 bg-gray-50 rounded-2xl px-4 py-3">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-0.5">Notes</p>
+                {editMode ? (
+                  <textarea
+                    value={draft.notes}
+                    onChange={e => set('notes', e.target.value)}
+                    placeholder="Add a note about this piece…"
+                    rows={3}
+                    className={`${editInput} text-sm text-gray-700 mt-0.5 resize-none leading-relaxed w-full`}
+                  />
+                ) : item.notes ? (
+                  <p className="text-sm text-gray-600 leading-relaxed">{item.notes}</p>
+                ) : (
+                  <p className="text-sm text-gray-300 italic">No notes added</p>
+                )}
+              </div>
             </div>
 
-            {/* Primary action */}
-            <button className="w-full py-3.5 bg-gray-900 text-white rounded-2xl text-sm font-semibold tracking-wide hover:bg-gray-700 active:scale-[0.98] transition-all">
-              Add to Outfit
-            </button>
+            {/* Bottom actions — view mode only */}
+            {!editMode && (
+              <>
+                <button
+                  onClick={() => setShowCollagePicker(true)}
+                  className="w-full py-3.5 bg-gray-900 text-white rounded-2xl text-sm font-semibold tracking-wide hover:bg-gray-700 active:scale-[0.98] transition-all mb-3"
+                >
+                  Add to Outfit
+                </button>
+
+                {showDeleteConfirm ? (
+                  <div className="border border-red-100 bg-red-50 rounded-2xl p-4">
+                    <p className="text-sm font-semibold text-gray-800 mb-1">Delete this item?</p>
+                    <p className="text-xs text-gray-500 mb-3">This action can't be undone.</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className="flex-1 py-2 border border-gray-200 bg-white text-sm font-medium text-gray-600 rounded-xl hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => onDelete(item.id)}
+                        className="flex-1 py-2 bg-red-500 text-white text-sm font-medium rounded-xl hover:bg-red-600 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="w-full py-2 text-sm text-red-400 hover:text-red-600 transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <Trash2 size={13} />
+                    Delete item
+                  </button>
+                )}
+              </>
+            )}
+
           </div>
         </div>
       </div>
+
+      {showCollagePicker && (
+        <AddToCollageModal
+          savedOutfits={savedOutfits}
+          draftOutfits={draftOutfits}
+          onClose={() => setShowCollagePicker(false)}
+          onCreateNew={() => { setShowCollagePicker(false); onAddToOutfit(item); }}
+          onOpenCollage={(outfit, type) => { setShowCollagePicker(false); onOpenCollage(item, outfit, type); }}
+        />
+      )}
     </div>
   );
 }
@@ -417,13 +678,12 @@ function ItemModal({ item, liked, onToggleLike, onClose }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    GridCard
    ───────────────────────────────────────────────────────────────────────────── */
-function GridCard({ item, liked, onLike, onClick }) {
+function GridCard({ item, onClick }) {
   return (
     <div
-      className="break-inside-avoid mb-2 cursor-pointer group"
+      className="cursor-pointer group"
       onClick={() => onClick(item)}
     >
-      {/* Image tile */}
       <div className="relative rounded-2xl overflow-hidden bg-gray-100">
         <div className="w-full aspect-square">
           <img
@@ -433,27 +693,37 @@ function GridCard({ item, liked, onLike, onClick }) {
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
           />
         </div>
-
-        {/* Hover tint */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/6 transition-colors duration-300 pointer-events-none" />
-
-        {/* Like button — always visible if liked, else appears on hover */}
-        <button
-          onClick={e => { e.stopPropagation(); onLike(item.id); }}
-          className={`absolute top-2.5 right-2.5 w-7 h-7 flex items-center justify-center rounded-full shadow-sm transition-all duration-200 ${
-            liked
-              ? 'bg-white opacity-100 scale-100'
-              : 'bg-white/80 backdrop-blur-sm opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100'
-          }`}
-        >
-          <Heart
-            size={13}
-            className={liked ? 'text-rose-500 fill-rose-500' : 'text-gray-500'}
-          />
-        </button>
-
       </div>
+    </div>
+  );
+}
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   OrganizeCard
+   ───────────────────────────────────────────────────────────────────────────── */
+function OrganizeCard({ item, draggedId, selected, onSelect, onDragStart, onDragHover, onDragEnd }) {
+  return (
+    <div
+      draggable
+      onClick={onSelect}
+      onDragStart={onDragStart}
+      onDragOver={e => {
+        e.preventDefault();
+        if (draggedId === item.id) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        onDragHover(item.id, e.clientX, e.clientY, rect);
+      }}
+      onDrop={e => e.preventDefault()}
+      onDragEnd={onDragEnd}
+      className={`relative rounded-2xl overflow-hidden bg-gray-100 cursor-grab active:cursor-grabbing select-none transition-all duration-150 ${
+        draggedId === item.id ? 'opacity-40' : ''
+      } ${selected ? 'ring-[3px] ring-gray-900' : ''}`}
+    >
+      <div className="w-full aspect-square">
+        <img src={item.image} alt={item.name} loading="lazy" className="w-full h-full object-cover pointer-events-none" />
+      </div>
+      {selected && <div className="absolute inset-0 bg-black/25 pointer-events-none" />}
     </div>
   );
 }
@@ -461,62 +731,221 @@ function GridCard({ item, liked, onLike, onClick }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    WardrobeTab
    ───────────────────────────────────────────────────────────────────────────── */
-function WardrobeTab({ likedItems, onToggleLike, onSelectItem }) {
+function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDeleteBoard, onEditBoard, onDeleteItems }) {
   const [activeFilter, setActiveFilter] = useState('All');
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [boardMenuOpen, setBoardMenuOpen] = useState(null);
+  const [deleteConfirmBoard, setDeleteConfirmBoard] = useState(null);
+  const [editBoard, setEditBoard] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const addMenuRef = useRef(null);
+  const boardMenuRef = useRef(null);
 
-  const filtered =
-    activeFilter === 'All'
-      ? ITEMS
-      : ITEMS.filter(i => i.boards.includes(activeFilter));
+  const [organizeMode, setOrganizeMode] = useState(false);
+  const [selectedItemIds, setSelectedItemIds] = useState(new Set());
+  const [organizedItems, setOrganizedItems] = useState([]);
+  const [draggedId, setDraggedId] = useState(null);
+  const [showDeleteSelectedConfirm, setShowDeleteSelectedConfirm] = useState(false);
+
+  useEffect(() => {
+    if (!addMenuOpen) return;
+    const handler = e => {
+      if (!addMenuRef.current?.contains(e.target)) setAddMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [addMenuOpen]);
+
+  useEffect(() => {
+    if (!boardMenuOpen) return;
+    const handler = e => {
+      if (!boardMenuRef.current?.contains(e.target)) setBoardMenuOpen(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [boardMenuOpen]);
+
+  useEffect(() => {
+    setOrganizeMode(false);
+    setSelectedItemIds(new Set());
+    setOrganizedItems([]);
+  }, [activeFilter, favoritesOnly]);
+
+  const filtered = (() => {
+    let list = activeFilter === 'All' ? items : items.filter(i => i.boards.includes(activeFilter));
+    if (favoritesOnly) list = list.filter(i => likedItems.has(i.id));
+    return list;
+  })();
+
+  const enterOrganize = () => {
+    setOrganizedItems([...filtered]);
+    setSelectedItemIds(new Set());
+    setOrganizeMode(true);
+  };
+
+  const exitOrganize = () => {
+    setOrganizeMode(false);
+    setSelectedItemIds(new Set());
+    setOrganizedItems([]);
+    setDraggedId(null);
+  };
+
+  const toggleSelectItem = id => {
+    setSelectedItemIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const handleDragHover = (targetId, clientX, clientY, rect) => {
+    if (!draggedId || targetId === draggedId) return;
+    setOrganizedItems(prev => {
+      const from = prev.findIndex(i => i.id === draggedId);
+      const to = prev.findIndex(i => i.id === targetId);
+      if (from === -1 || to === -1 || from === to) return prev;
+      const midX = rect.left + rect.width / 2;
+      const midY = rect.top + rect.height / 2;
+      // Only reorder once the cursor crosses the midpoint in the direction of travel
+      const movingForward = from < to;
+      const pastThreshold = movingForward
+        ? (clientX > midX || clientY > midY)
+        : (clientX < midX || clientY < midY);
+      if (!pastThreshold) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
 
       {/* ── Tab header ── */}
       <div className="px-5 md:px-7 pt-5 pb-0 flex-shrink-0">
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-start justify-between mb-5">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">My Wardrobe</h1>
-            <p className="text-sm text-gray-400 mt-0.5">
-              {filtered.length} item{filtered.length !== 1 ? 's' : ''}
-              {activeFilter !== 'All' && ` · ${activeFilter}`}
-            </p>
+            <h1 className="text-3xl font-semibold tracking-tight text-gray-900">My Wardrobe</h1>
+            <div className="mt-4">
+              <p className="text-3xl font-semibold text-gray-900 truncate">{activeFilter}</p>
+            </div>
+            <p className="text-sm text-gray-400 mt-0.5">{filtered.length} item{filtered.length !== 1 ? 's' : ''}</p>
+            <div className="min-h-[1.25rem] mt-0.5">
+              {activeFilter !== 'All' && boardMeta[activeFilter]?.description && (
+                <p className="text-sm text-gray-400 italic pl-3">{boardMeta[activeFilter].description}</p>
+              )}
+            </div>
+            <div className="flex items-center gap-2 mt-4">
+              <button
+                onClick={organizeMode ? exitOrganize : enterOrganize}
+                className={`flex items-center gap-1.5 px-3.5 h-9 rounded-full transition-colors text-sm font-medium ${
+                  organizeMode ? 'bg-gray-900 text-white hover:bg-gray-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {organizeMode ? <X size={13} strokeWidth={2.5} /> : <Brush size={13} strokeWidth={2} />}
+                {organizeMode ? 'Done' : 'Organize'}
+              </button>
+              {activeFilter !== 'All' && (
+                <div className="relative" ref={boardMenuRef}>
+                  <button
+                    onClick={() => setBoardMenuOpen(o => o ? null : activeFilter)}
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors text-gray-700 text-xl leading-none"
+                  >
+                    ···
+                  </button>
+                  {boardMenuOpen && (
+                    <div className="absolute left-0 top-11 bg-white rounded-xl shadow-lg border border-gray-100 py-1 w-36 z-20">
+                      <button
+                        onClick={() => {
+                          setBoardMenuOpen(null);
+                          setEditBoard(activeFilter);
+                          setEditName(activeFilter);
+                          setEditDesc(boardMeta[activeFilter]?.description ?? '');
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Edit board
+                      </button>
+                      <button
+                        onClick={() => { setBoardMenuOpen(null); setDeleteConfirmBoard(activeFilter); }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-gray-50 transition-colors"
+                      >
+                        Delete board
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
               <Search size={16} strokeWidth={2} className="text-gray-600" />
             </button>
-            <button className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-900 hover:bg-gray-700 transition-colors shadow-sm">
-              <Plus size={17} strokeWidth={2.5} className="text-white" />
-            </button>
+            <div className="relative" ref={addMenuRef}>
+              <button
+                onClick={() => setAddMenuOpen(o => !o)}
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-900 hover:bg-gray-700 transition-colors shadow-sm"
+              >
+                <Plus size={17} strokeWidth={2.5} className="text-white" />
+              </button>
+              {addMenuOpen && (
+                <div className="absolute right-0 top-11 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-36 z-20">
+                  {['Item', 'Board'].map(option => (
+                    <button
+                      key={option}
+                      onClick={() => setAddMenuOpen(false)}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* ── Board filter chips ── */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-4">
-          {BOARDS.map(board => {
+        {/* ── Board filter ── */}
+        <div className="flex gap-5 overflow-x-auto scrollbar-hide pb-4">
+          {boards.map(board => {
             const active = activeFilter === board;
             return (
               <button
                 key={board}
                 onClick={() => setActiveFilter(board)}
-                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                className={`flex-shrink-0 flex items-center gap-1.5 text-base font-medium transition-colors pb-0.5 ${
                   active
-                    ? 'bg-gray-900 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-800'
+                    ? 'text-gray-900 border-b-2 border-gray-900'
+                    : 'text-gray-400 hover:text-gray-700 border-b-2 border-transparent'
                 }`}
               >
                 {board}
-                <span className={`text-[11px] tabular-nums ${active ? 'text-gray-400' : 'text-gray-400'}`}>
-                  {countByBoard(board)}
-                </span>
               </button>
             );
           })}
         </div>
+
+        {/* ── Favorites toggle ── */}
+        <div className="pb-3">
+          <button
+            onClick={() => setFavoritesOnly(o => !o)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              favoritesOnly
+                ? 'bg-rose-50 text-rose-500'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            }`}
+          >
+            <Heart size={13} className={favoritesOnly ? 'fill-rose-500' : ''} />
+            Favorites
+          </button>
+        </div>
       </div>
 
-      {/* ── Masonry grid ── */}
+      {/* ── Grid ── */}
       <div className="flex-1 overflow-y-auto scrollbar-hide px-5 md:px-7 pb-28 md:pb-8">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -527,19 +956,210 @@ function WardrobeTab({ likedItems, onToggleLike, onSelectItem }) {
             <p className="text-sm text-gray-400 mt-1">Tap + to add your first piece</p>
           </div>
         ) : (
-          <div className="columns-3 md:columns-4 xl:columns-5 gap-2">
+          <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2">
             {filtered.map(item => (
-              <GridCard
-                key={item.id}
-                item={item}
-                liked={likedItems.has(item.id)}
-                onLike={onToggleLike}
-                onClick={onSelectItem}
-              />
+              <GridCard key={item.id} item={item} onClick={onSelectItem} />
             ))}
           </div>
         )}
       </div>
+
+      {/* ── Organize mode full-screen overlay ── */}
+      {organizeMode && (
+        <div className="fixed inset-0 z-50 bg-white flex flex-col">
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 md:px-7 pt-14 md:pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
+            <h2 className="text-base font-semibold text-gray-900">Organize Board</h2>
+            <button
+              onClick={exitOrganize}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <X size={16} className="text-gray-600" />
+            </button>
+          </div>
+
+          {/* Item grid */}
+          <div className="flex-1 overflow-y-auto scrollbar-hide px-5 md:px-7 pt-4 pb-36">
+            {organizedItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
+                  <Shirt size={22} className="text-gray-300" />
+                </div>
+                <p className="text-sm font-semibold text-gray-800">No items in this board</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2">
+                {organizedItems.map(item => (
+                  <OrganizeCard
+                    key={item.id}
+                    item={item}
+                    draggedId={draggedId}
+                    selected={selectedItemIds.has(item.id)}
+                    onSelect={() => toggleSelectItem(item.id)}
+                    onDragStart={() => setDraggedId(item.id)}
+                    onDragHover={handleDragHover}
+                    onDragEnd={() => setDraggedId(null)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Floating trash bar */}
+          <div className="absolute bottom-8 inset-x-0 flex justify-center pointer-events-none">
+            <div className="pointer-events-auto bg-white rounded-2xl shadow-2xl border border-gray-100 px-5 py-3 flex items-center gap-3">
+              {selectedItemIds.size > 0 && (
+                <span className="text-sm text-gray-500 tabular-nums">{selectedItemIds.size} selected</span>
+              )}
+              <div className="relative group">
+                <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 transition-opacity pointer-events-none ${
+                  selectedItemIds.size > 0 ? 'opacity-0 group-hover:opacity-100' : 'opacity-0'
+                }`}>
+                  <span className="text-xs font-semibold text-white bg-gray-800 rounded-lg px-2.5 py-1 whitespace-nowrap">Delete</span>
+                </div>
+                <button
+                  disabled={selectedItemIds.size === 0}
+                  onClick={() => setShowDeleteSelectedConfirm(true)}
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
+                    selectedItemIds.size > 0
+                      ? 'bg-red-50 text-red-500 hover:bg-red-100'
+                      : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                  }`}
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Delete selected confirmation */}
+          {showDeleteSelectedConfirm && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-sm backdrop-fade" onClick={() => setShowDeleteSelectedConfirm(false)} />
+              <div className="relative bg-white rounded-3xl shadow-2xl p-6 w-full max-w-xs modal-animate">
+                <h3 className="text-base font-semibold text-gray-900 mb-1">
+                  Delete {selectedItemIds.size} item{selectedItemIds.size !== 1 ? 's' : ''}?
+                </h3>
+                <p className="text-sm text-gray-500 mb-5 leading-relaxed">
+                  {selectedItemIds.size === 1 ? 'This item' : 'These items'} will be permanently removed from your wardrobe.
+                </p>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => {
+                      const toDelete = new Set(selectedItemIds);
+                      onDeleteItems(toDelete);
+                      setOrganizedItems(prev => prev.filter(i => !toDelete.has(i.id)));
+                      setSelectedItemIds(new Set());
+                      setShowDeleteSelectedConfirm(false);
+                    }}
+                    className="w-full py-2.5 bg-red-500 text-white text-sm font-semibold rounded-2xl hover:bg-red-600 transition-colors"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteSelectedConfirm(false)}
+                    className="w-full py-2.5 border border-gray-200 text-gray-700 text-sm font-semibold rounded-2xl hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Edit board popup ── */}
+      {editBoard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm backdrop-fade" onClick={() => setEditBoard(null)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl p-6 w-full max-w-xs modal-animate">
+            <h3 className="text-base font-semibold text-gray-900 mb-4">Edit Board</h3>
+
+            <div className="space-y-3 mb-6">
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest block mb-1">
+                  Name <span className="text-red-400">*</span>
+                </label>
+                <input
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  maxLength={20}
+                  className="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                  placeholder="Board name"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest block mb-1">
+                  Description <span className="text-gray-300 normal-case font-normal tracking-normal">optional</span>
+                </label>
+                <textarea
+                  value={editDesc}
+                  onChange={e => setEditDesc(e.target.value)}
+                  maxLength={150}
+                  rows={3}
+                  className="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none leading-relaxed"
+                  placeholder="Add a description…"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <button
+                disabled={!editName.trim()}
+                onClick={() => {
+                  const trimmed = editName.trim();
+                  onEditBoard(editBoard, trimmed, editDesc.trim());
+                  if (activeFilter === editBoard) setActiveFilter(trimmed);
+                  setEditBoard(null);
+                }}
+                className="w-full py-2.5 bg-gray-900 text-white text-sm font-semibold rounded-2xl hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setEditBoard(null)}
+                className="w-full py-2.5 border border-gray-200 text-gray-700 text-sm font-semibold rounded-2xl hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete board confirmation popup ── */}
+      {deleteConfirmBoard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm backdrop-fade" onClick={() => setDeleteConfirmBoard(null)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl p-6 w-full max-w-xs modal-animate">
+            <h3 className="text-base font-semibold text-gray-900 mb-1">Delete "{deleteConfirmBoard}"?</h3>
+            <p className="text-sm text-gray-500 mb-5 leading-relaxed">
+              This board will be permanently removed. Items inside won't be deleted.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  onDeleteBoard(deleteConfirmBoard);
+                  if (activeFilter === deleteConfirmBoard) setActiveFilter('All');
+                  setDeleteConfirmBoard(null);
+                }}
+                className="w-full py-2.5 bg-red-500 text-white text-sm font-semibold rounded-2xl hover:bg-red-600 transition-colors"
+              >
+                Delete Board
+              </button>
+              <button
+                onClick={() => setDeleteConfirmBoard(null)}
+                className="w-full py-2.5 border border-gray-200 text-gray-700 text-sm font-semibold rounded-2xl hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -595,7 +1215,7 @@ function TodayTab() {
 /* ─────────────────────────────────────────────────────────────────────────────
    CreateOutfitModal
    ───────────────────────────────────────────────────────────────────────────── */
-function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
+function CreateOutfitModal({ initialItem, initialCanvasItems, onClose, onSave, onSaveDraft }) {
   const [canvasItems, setCanvasItems] = useState([]);
   const [activeFilter, setActiveFilter] = useState('All');
   const [boardsOpen, setBoardsOpen] = useState(false);
@@ -608,6 +1228,20 @@ function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
   const dragOffset = useRef({ x: 0, y: 0 });
 
   const ITEM_SIZE = 128;
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    const base = initialCanvasItems || [];
+    if (!initialItem) {
+      if (base.length > 0) { setCanvasItems(base); setIsDirty(true); }
+      return;
+    }
+    const { width, height } = canvasRef.current.getBoundingClientRect();
+    const x = Math.max(0, (width  - ITEM_SIZE) / 2);
+    const y = Math.max(0, (height - ITEM_SIZE) / 2);
+    setCanvasItems([...base, { ...initialItem, _cid: `${initialItem.id}-${Date.now()}`, x, y }]);
+    setIsDirty(true);
+  }, []);
 
   const requestClose = () => {
     if (isDirty) setShowExitWarning(true);
@@ -924,21 +1558,28 @@ function OutfitCard({ outfit }) {
   );
 }
 
-function StudioTab() {
-  const [showCreate, setShowCreate] = useState(false);
-  const [view, setView]             = useState('saved');
-  const [savedOutfits, setSaved]    = useState([]);
-  const [draftOutfits, setDrafts]   = useState([]);
+function StudioTab({ savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit, onUpdateSavedOutfit, onUpdateDraftOutfit, pendingOutfitItem, pendingTargetCollage, onClearPendingOutfit }) {
+  const [showCreate, setShowCreate]         = useState(false);
+  const [createSeed, setCreateSeed]         = useState(null);
+  const [initialCanvasItems, setInitialCanvasItems] = useState(null);
+  const [editingCollage, setEditingCollage] = useState(null);
+  const [view, setView]                     = useState('saved');
 
-  const handleSave = items => {
-    if (items.length === 0) return;
-    setSaved(prev => [{ id: Date.now(), items }, ...prev]);
-  };
-
-  const handleSaveDraft = items => {
-    if (items.length === 0) return;
-    setDrafts(prev => [{ id: Date.now(), items }, ...prev]);
-  };
+  useEffect(() => {
+    if (!pendingOutfitItem) return;
+    setCreateSeed(pendingOutfitItem);
+    if (pendingTargetCollage) {
+      const list = pendingTargetCollage.type === 'saved' ? savedOutfits : draftOutfits;
+      const outfit = list.find(o => o.id === pendingTargetCollage.id);
+      setInitialCanvasItems(outfit?.items || []);
+      setEditingCollage(pendingTargetCollage);
+    } else {
+      setInitialCanvasItems(null);
+      setEditingCollage(null);
+    }
+    setShowCreate(true);
+    onClearPendingOutfit();
+  }, [pendingOutfitItem]);
 
   const list = view === 'saved' ? savedOutfits : draftOutfits;
 
@@ -965,7 +1606,7 @@ function StudioTab() {
           {/* Saved / Drafts toggle */}
           <div className="flex bg-gray-100 rounded-xl p-1 w-fit gap-1">
             {[
-              { key: 'saved',  label: 'Saved',  count: savedOutfits.length },
+              { key: 'saved',  label: 'Saved',  count: savedOutfits.length  },
               { key: 'drafts', label: 'Drafts', count: draftOutfits.length },
             ].map(({ key, label, count }) => (
               <button
@@ -1010,9 +1651,17 @@ function StudioTab() {
 
       {showCreate && (
         <CreateOutfitModal
-          onClose={() => setShowCreate(false)}
-          onSave={handleSave}
-          onSaveDraft={handleSaveDraft}
+          initialItem={createSeed}
+          initialCanvasItems={initialCanvasItems}
+          onClose={() => { setShowCreate(false); setCreateSeed(null); setInitialCanvasItems(null); setEditingCollage(null); }}
+          onSave={items => {
+            if (editingCollage?.type === 'saved') onUpdateSavedOutfit(editingCollage.id, items);
+            else onSaveOutfit(items);
+          }}
+          onSaveDraft={items => {
+            if (editingCollage?.type === 'drafts') onUpdateDraftOutfit(editingCollage.id, items);
+            else onSaveDraftOutfit(items);
+          }}
         />
       )}
     </>
@@ -1083,9 +1732,45 @@ function StylistTab() {
    Root — WardrobeApp
    ───────────────────────────────────────────────────────────────────────────── */
 export default function WardrobeApp() {
-  const [activeTab, setActiveTab]     = useState('wardrobe');
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [likedItems, setLikedItems]   = useState(
+  const [activeTab, setActiveTab]         = useState('wardrobe');
+  const [selectedItem, setSelectedItem]   = useState(null);
+  const [items, setItems]                 = useState(ITEMS);
+  const [boards, setBoards]               = useState(BOARDS);
+  const [boardMeta, setBoardMeta]         = useState({});
+
+  const handleDeleteBoard = name => {
+    setBoards(prev => prev.filter(b => b !== name));
+    setBoardMeta(prev => { const next = { ...prev }; delete next[name]; return next; });
+  };
+
+  const handleEditBoard = (oldName, newName, description) => {
+    setBoards(prev => prev.map(b => b === oldName ? newName : b));
+    setItems(prev => prev.map(i => ({
+      ...i,
+      boards: i.boards.map(b => b === oldName ? newName : b),
+    })));
+    setBoardMeta(prev => {
+      const next = { ...prev };
+      delete next[oldName];
+      if (description) next[newName] = { description };
+      return next;
+    });
+  };
+
+  const handleDeleteItems = ids => {
+    setItems(prev => prev.filter(i => !ids.has(i.id)));
+    setLikedItems(prev => {
+      const next = new Set(prev);
+      ids.forEach(id => next.delete(id));
+      return next;
+    });
+  };
+
+  const [pendingOutfitItem, setPendingOutfitItem] = useState(null);
+  const [pendingTargetCollage, setPendingTargetCollage] = useState(null);
+  const [savedOutfits, setSavedOutfits]   = useState([]);
+  const [draftOutfits, setDraftOutfits]   = useState([]);
+  const [likedItems, setLikedItems]       = useState(
     () => new Set(ITEMS.filter(i => i.liked).map(i => i.id))
   );
 
@@ -1104,17 +1789,75 @@ export default function WardrobeApp() {
       return next;
     });
 
+  const updateItem = (id, updates) => {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i));
+    setSelectedItem(prev => prev?.id === id ? { ...prev, ...updates } : prev);
+  };
+
+  const deleteItem = id => {
+    setItems(prev => prev.filter(i => i.id !== id));
+    setLikedItems(prev => { const next = new Set(prev); next.delete(id); return next; });
+    setSelectedItem(null);
+  };
+
+  const handleAddToOutfit = item => {
+    setPendingOutfitItem(item);
+    setPendingTargetCollage(null);
+    setActiveTab('studio');
+    setSelectedItem(null);
+  };
+
+  const handleOpenExistingCollage = (item, outfit, type) => {
+    setPendingOutfitItem(item);
+    setPendingTargetCollage({ id: outfit.id, type });
+    setActiveTab('studio');
+    setSelectedItem(null);
+  };
+
+  const handleSaveOutfit = items => {
+    if (items.length === 0) return;
+    setSavedOutfits(prev => [{ id: Date.now(), items }, ...prev]);
+  };
+
+  const handleSaveDraftOutfit = items => {
+    if (items.length === 0) return;
+    setDraftOutfits(prev => [{ id: Date.now(), items }, ...prev]);
+  };
+
+  const updateSavedOutfit = (id, items) =>
+    setSavedOutfits(prev => prev.map(o => o.id === id ? { ...o, items } : o));
+
+  const updateDraftOutfit = (id, items) =>
+    setDraftOutfits(prev => prev.map(o => o.id === id ? { ...o, items } : o));
+
   const renderContent = () => {
     switch (activeTab) {
       case 'wardrobe': return (
         <WardrobeTab
+          items={items}
+          boards={boards}
+          boardMeta={boardMeta}
           likedItems={likedItems}
-          onToggleLike={toggleLike}
           onSelectItem={setSelectedItem}
+          onDeleteBoard={handleDeleteBoard}
+          onEditBoard={handleEditBoard}
+          onDeleteItems={handleDeleteItems}
         />
       );
       case 'today':   return <TodayTab />;
-      case 'studio':  return <StudioTab />;
+      case 'studio':  return (
+        <StudioTab
+          savedOutfits={savedOutfits}
+          draftOutfits={draftOutfits}
+          onSaveOutfit={handleSaveOutfit}
+          onSaveDraftOutfit={handleSaveDraftOutfit}
+          onUpdateSavedOutfit={updateSavedOutfit}
+          onUpdateDraftOutfit={updateDraftOutfit}
+          pendingOutfitItem={pendingOutfitItem}
+          pendingTargetCollage={pendingTargetCollage}
+          onClearPendingOutfit={() => { setPendingOutfitItem(null); setPendingTargetCollage(null); }}
+        />
+      );
       case 'stylist': return <StylistTab />;
       default: return null;
     }
@@ -1157,26 +1900,6 @@ export default function WardrobeApp() {
             );
           })}
         </nav>
-
-        {/* Wardrobe stats widget */}
-        <div className="mt-8 mx-0.5 p-4 bg-gray-50 rounded-2xl">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
-            Wardrobe Stats
-          </p>
-          {[
-            { label: 'Total Items', value: ITEMS.length },
-            { label: 'Favourites',  value: likedItems.size },
-            { label: 'Boards',      value: BOARDS.length - 1 },
-          ].map(({ label, value }) => (
-            <div
-              key={label}
-              className="flex items-center justify-between py-2 border-b border-gray-200 last:border-0"
-            >
-              <p className="text-xs text-gray-500">{label}</p>
-              <p className="text-xs font-bold text-gray-900 tabular-nums">{value}</p>
-            </div>
-          ))}
-        </div>
 
         {/* Profile */}
         <div className="mt-auto">
@@ -1262,6 +1985,12 @@ export default function WardrobeApp() {
           liked={likedItems.has(selectedItem.id)}
           onToggleLike={toggleLike}
           onClose={() => setSelectedItem(null)}
+          onUpdate={updateItem}
+          onDelete={deleteItem}
+          onAddToOutfit={handleAddToOutfit}
+          onOpenCollage={handleOpenExistingCollage}
+          savedOutfits={savedOutfits}
+          draftOutfits={draftOutfits}
         />
       )}
     </div>
