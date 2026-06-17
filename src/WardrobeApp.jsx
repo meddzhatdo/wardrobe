@@ -702,11 +702,14 @@ function GridCard({ item, onClick }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    WardrobeTab
    ───────────────────────────────────────────────────────────────────────────── */
-function WardrobeTab({ items, boards, onSelectItem, onDeleteBoard }) {
+function WardrobeTab({ items, boards, boardMeta, onSelectItem, onDeleteBoard, onEditBoard }) {
   const [activeFilter, setActiveFilter] = useState('All');
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [boardMenuOpen, setBoardMenuOpen] = useState(null);
   const [deleteConfirmBoard, setDeleteConfirmBoard] = useState(null);
+  const [editBoard, setEditBoard] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editDesc, setEditDesc] = useState('');
   const addMenuRef = useRef(null);
   const boardMenuRef = useRef(null);
 
@@ -754,7 +757,12 @@ function WardrobeTab({ items, boards, onSelectItem, onDeleteBoard }) {
                   {boardMenuOpen && (
                     <div className="absolute left-0 top-8 bg-white rounded-xl shadow-lg border border-gray-100 py-1 w-36 z-20">
                       <button
-                        onClick={() => setBoardMenuOpen(null)}
+                        onClick={() => {
+                          setBoardMenuOpen(null);
+                          setEditBoard(activeFilter);
+                          setEditName(activeFilter);
+                          setEditDesc(boardMeta[activeFilter]?.description ?? '');
+                        }}
                         className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                       >
                         Edit board
@@ -771,6 +779,9 @@ function WardrobeTab({ items, boards, onSelectItem, onDeleteBoard }) {
               )}
             </div>
             <p className="text-sm text-gray-400 mt-0.5">{filtered.length} item{filtered.length !== 1 ? 's' : ''}</p>
+            {activeFilter !== 'All' && boardMeta[activeFilter]?.description && (
+              <p className="text-sm text-gray-400 mt-0.5 italic">{boardMeta[activeFilter].description}</p>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
@@ -843,6 +854,64 @@ function WardrobeTab({ items, boards, onSelectItem, onDeleteBoard }) {
           </div>
         )}
       </div>
+
+      {/* ── Edit board popup ── */}
+      {editBoard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm backdrop-fade" onClick={() => setEditBoard(null)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl p-6 w-full max-w-xs modal-animate">
+            <h3 className="text-base font-semibold text-gray-900 mb-4">Edit Board</h3>
+
+            <div className="space-y-3 mb-6">
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest block mb-1">
+                  Name <span className="text-red-400">*</span>
+                </label>
+                <input
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  className="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                  placeholder="Board name"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest block mb-1">
+                  Description <span className="text-gray-300 normal-case font-normal tracking-normal">optional</span>
+                </label>
+                <textarea
+                  value={editDesc}
+                  onChange={e => setEditDesc(e.target.value)}
+                  rows={3}
+                  className="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none leading-relaxed"
+                  placeholder="Add a description…"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <button
+                disabled={!editName.trim()}
+                onClick={() => {
+                  const trimmed = editName.trim();
+                  onEditBoard(editBoard, trimmed, editDesc.trim());
+                  if (activeFilter === editBoard) setActiveFilter(trimmed);
+                  setEditBoard(null);
+                }}
+                className="w-full py-2.5 bg-gray-900 text-white text-sm font-semibold rounded-2xl hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setEditBoard(null)}
+                className="w-full py-2.5 border border-gray-200 text-gray-700 text-sm font-semibold rounded-2xl hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Delete board confirmation popup ── */}
       {deleteConfirmBoard && (
@@ -1450,8 +1519,27 @@ export default function WardrobeApp() {
   const [selectedItem, setSelectedItem]   = useState(null);
   const [items, setItems]                 = useState(ITEMS);
   const [boards, setBoards]               = useState(BOARDS);
+  const [boardMeta, setBoardMeta]         = useState({});
 
-  const handleDeleteBoard = name => setBoards(prev => prev.filter(b => b !== name));
+  const handleDeleteBoard = name => {
+    setBoards(prev => prev.filter(b => b !== name));
+    setBoardMeta(prev => { const next = { ...prev }; delete next[name]; return next; });
+  };
+
+  const handleEditBoard = (oldName, newName, description) => {
+    setBoards(prev => prev.map(b => b === oldName ? newName : b));
+    setItems(prev => prev.map(i => ({
+      ...i,
+      boards: i.boards.map(b => b === oldName ? newName : b),
+    })));
+    setBoardMeta(prev => {
+      const next = { ...prev };
+      delete next[oldName];
+      if (description) next[newName] = { description };
+      return next;
+    });
+  };
+
   const [pendingOutfitItem, setPendingOutfitItem] = useState(null);
   const [pendingTargetCollage, setPendingTargetCollage] = useState(null);
   const [savedOutfits, setSavedOutfits]   = useState([]);
@@ -1522,8 +1610,10 @@ export default function WardrobeApp() {
         <WardrobeTab
           items={items}
           boards={boards}
+          boardMeta={boardMeta}
           onSelectItem={setSelectedItem}
           onDeleteBoard={handleDeleteBoard}
+          onEditBoard={handleEditBoard}
         />
       );
       case 'today':   return <TodayTab />;
