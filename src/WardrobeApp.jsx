@@ -3,7 +3,7 @@
  * Phase 1 — UI Layout + Mock Data
  * Stack: React · Tailwind CSS · Lucide React
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Sun, Shirt, Wand2, Sparkles,
   X, Heart, Share2, Plus, Search, ChevronRight,
@@ -601,6 +601,12 @@ function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
   const [boardsOpen, setBoardsOpen] = useState(false);
   const [panelWidth, setPanelWidth] = useState(240);
   const [showExitWarning, setShowExitWarning] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [draggingCid, setDraggingCid] = useState(null);
+  const canvasRef = useRef(null);
+  const dragOffset = useRef({ x: 0, y: 0 });
+
+  const ITEM_SIZE = 128;
 
   const requestClose = () => {
     if (canvasItems.length > 0) setShowExitWarning(true);
@@ -612,12 +618,71 @@ function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
       ? ITEMS
       : ITEMS.filter(i => i.boards.includes(activeFilter));
 
-  const addToCanvas = item =>
-    setCanvasItems(prev => [...prev, { ...item, _cid: `${item.id}-${Date.now()}` }]);
+  // Click-to-add: cascade items from top-left so they don't stack
+  const addToCanvas = item => {
+    const offset = (canvasItems.length % 8) * 24;
+    setCanvasItems(prev => [
+      ...prev,
+      { ...item, _cid: `${item.id}-${Date.now()}`, x: 20 + offset, y: 20 + offset },
+    ]);
+  };
 
   const removeFromCanvas = cid =>
     setCanvasItems(prev => prev.filter(i => i._cid !== cid));
 
+  // ── HTML5 drag-and-drop: wardrobe → canvas ──
+  const handleDragStart = (e, item) => {
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('itemId', String(item.id));
+  };
+
+  const handleDragOver = e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = e => {
+    // only clear if leaving the canvas itself, not a child
+    if (!canvasRef.current?.contains(e.relatedTarget)) setIsDragOver(false);
+  };
+
+  const handleDrop = e => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const item = ITEMS.find(i => i.id === Number(e.dataTransfer.getData('itemId')));
+    if (!item) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(e.clientX - rect.left - ITEM_SIZE / 2, rect.width  - ITEM_SIZE));
+    const y = Math.max(0, Math.min(e.clientY - rect.top  - ITEM_SIZE / 2, rect.height - ITEM_SIZE));
+    setCanvasItems(prev => [...prev, { ...item, _cid: `${item.id}-${Date.now()}`, x, y }]);
+  };
+
+  // ── Mouse drag: reposition items already on canvas ──
+  const startItemDrag = (e, cid) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const item = canvasItems.find(i => i._cid === cid);
+    dragOffset.current = { x: e.clientX - item.x, y: e.clientY - item.y };
+    setDraggingCid(cid);
+
+    const onMove = e => {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const x = Math.max(0, Math.min(e.clientX - dragOffset.current.x, rect.width  - ITEM_SIZE));
+      const y = Math.max(0, Math.min(e.clientY - dragOffset.current.y, rect.height - ITEM_SIZE));
+      setCanvasItems(prev => prev.map(i => i._cid === cid ? { ...i, x, y } : i));
+    };
+    const onUp = () => {
+      setDraggingCid(null);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  // ── Panel resize handle ──
   const startDrag = e => {
     e.preventDefault();
     const startX = e.clientX;
@@ -667,31 +732,48 @@ function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
       <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
 
         {/* ── Collage canvas ── */}
-        <div className="flex-1 bg-gray-50 relative overflow-hidden border-b md:border-b-0 md:border-r border-gray-100">
-          {canvasItems.length === 0 ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-8 select-none">
+        <div
+          ref={canvasRef}
+          className={`flex-1 relative overflow-hidden border-b md:border-b-0 border-gray-100 transition-colors duration-150 ${isDragOver ? 'bg-gray-100' : 'bg-gray-50'}`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          {/* Empty / drag-over hint */}
+          {canvasItems.length === 0 && !isDragOver && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-8 select-none pointer-events-none">
               <div className="w-12 h-12 border-2 border-dashed border-gray-300 rounded-2xl flex items-center justify-center mb-3">
                 <Plus size={20} className="text-gray-300" />
               </div>
-              <p className="text-sm font-medium text-gray-400">Pick pieces from your wardrobe</p>
-            </div>
-          ) : (
-            <div className="absolute inset-0 overflow-y-auto scrollbar-hide p-4">
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {canvasItems.map(item => (
-                  <div key={item._cid} className="relative group aspect-square rounded-xl overflow-hidden bg-gray-200">
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                    <button
-                      onClick={() => removeFromCanvas(item._cid)}
-                      className="absolute top-1.5 right-1.5 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X size={9} strokeWidth={2.5} className="text-white" />
-                    </button>
-                  </div>
-                ))}
-              </div>
+              <p className="text-sm font-medium text-gray-400">Drag pieces here or tap to add</p>
             </div>
           )}
+
+          {/* Drop target indicator */}
+          {isDragOver && (
+            <div className="absolute inset-3 border-2 border-dashed border-gray-400 rounded-2xl pointer-events-none flex items-center justify-center">
+              <p className="text-sm font-medium text-gray-400 select-none">Drop to place</p>
+            </div>
+          )}
+
+          {/* Canvas items — absolutely positioned, draggable to reposition */}
+          {canvasItems.map(item => (
+            <div
+              key={item._cid}
+              style={{ left: item.x, top: item.y, width: ITEM_SIZE, height: ITEM_SIZE, zIndex: draggingCid === item._cid ? 10 : 1 }}
+              className={`absolute group rounded-xl overflow-hidden bg-gray-200 select-none cursor-grab active:cursor-grabbing transition-shadow ${draggingCid === item._cid ? 'shadow-2xl' : 'shadow-sm'}`}
+              onMouseDown={e => startItemDrag(e, item._cid)}
+            >
+              <img src={item.image} alt={item.name} draggable={false} className="w-full h-full object-cover pointer-events-none" />
+              <button
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); removeFromCanvas(item._cid); }}
+                className="absolute top-1.5 right-1.5 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              >
+                <X size={9} strokeWidth={2.5} className="text-white" />
+              </button>
+            </div>
+          ))}
         </div>
 
         {/* ── Resize handle (desktop only) ── */}
@@ -753,13 +835,15 @@ function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
           <div className="flex-1 overflow-y-auto scrollbar-hide p-2">
             <div className="grid grid-cols-3 gap-1.5">
               {filtered.map(item => (
-                <button
+                <div
                   key={item.id}
+                  draggable
+                  onDragStart={e => handleDragStart(e, item)}
                   onClick={() => addToCanvas(item)}
-                  className="aspect-square rounded-xl overflow-hidden bg-gray-100 hover:opacity-75 active:scale-95 transition-all"
+                  className="aspect-square rounded-xl overflow-hidden bg-gray-100 hover:opacity-75 active:scale-95 transition-all cursor-grab active:cursor-grabbing"
                 >
-                  <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                </button>
+                  <img src={item.image} alt={item.name} draggable={false} className="w-full h-full object-cover pointer-events-none" />
+                </div>
               ))}
             </div>
           </div>
