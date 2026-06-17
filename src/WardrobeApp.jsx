@@ -595,7 +595,7 @@ function TodayTab() {
 /* ─────────────────────────────────────────────────────────────────────────────
    CreateOutfitModal
    ───────────────────────────────────────────────────────────────────────────── */
-function CreateOutfitModal({ onClose }) {
+function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
   const [canvasItems, setCanvasItems] = useState([]);
   const [activeFilter, setActiveFilter] = useState('All');
   const [boardsOpen, setBoardsOpen] = useState(false);
@@ -615,15 +615,26 @@ function CreateOutfitModal({ onClose }) {
     <div className="fixed inset-0 z-50 bg-white flex flex-col">
 
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 flex-shrink-0">
+      <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-100 flex-shrink-0">
         <button
           onClick={onClose}
-          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors flex-shrink-0"
         >
           <X size={16} className="text-gray-600" />
         </button>
-        <p className="text-sm font-semibold text-gray-900">New Outfit</p>
-        <button className="px-4 py-1.5 bg-gray-900 text-white text-xs font-semibold rounded-full hover:bg-gray-700 transition-colors">
+        <p className="text-sm font-semibold text-gray-900 flex-1">New Outfit</p>
+        <button
+          onClick={() => { onSaveDraft(canvasItems); onClose(); }}
+          disabled={canvasItems.length === 0}
+          className="px-3.5 py-1.5 border border-gray-300 text-gray-700 text-xs font-semibold rounded-full hover:bg-gray-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          Save Draft
+        </button>
+        <button
+          onClick={() => { onSave(canvasItems); onClose(); }}
+          disabled={canvasItems.length === 0}
+          className="px-3.5 py-1.5 bg-gray-900 text-white text-xs font-semibold rounded-full hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        >
           Save
         </button>
       </div>
@@ -719,36 +730,130 @@ function CreateOutfitModal({ onClose }) {
   );
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   OutfitCard
+   ───────────────────────────────────────────────────────────────────────────── */
+function OutfitCard({ outfit }) {
+  const imgs = outfit.items.slice(0, 4);
+  const extra = outfit.items.length - 4;
+
+  return (
+    <div className="aspect-square rounded-2xl overflow-hidden bg-gray-100 relative cursor-pointer group">
+      {imgs.length === 0 ? (
+        <div className="w-full h-full flex items-center justify-center">
+          <Wand2 size={20} className="text-gray-300" />
+        </div>
+      ) : imgs.length === 1 ? (
+        <img src={imgs[0].image} alt="" className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300" />
+      ) : (
+        <div className={`grid h-full w-full ${imgs.length === 2 ? 'grid-cols-2' : 'grid-cols-2 grid-rows-2'}`}>
+          {imgs.map((item, i) => (
+            <div key={i} className="overflow-hidden">
+              <img src={item.image} alt="" className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300" />
+            </div>
+          ))}
+        </div>
+      )}
+      {extra > 0 && (
+        <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full">
+          +{extra}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StudioTab() {
   const [showCreate, setShowCreate] = useState(false);
+  const [view, setView]             = useState('saved');
+  const [savedOutfits, setSaved]    = useState([]);
+  const [draftOutfits, setDrafts]   = useState([]);
+
+  const handleSave = items => {
+    if (items.length === 0) return;
+    setSaved(prev => [{ id: Date.now(), items }, ...prev]);
+  };
+
+  const handleSaveDraft = items => {
+    if (items.length === 0) return;
+    setDrafts(prev => [{ id: Date.now(), items }, ...prev]);
+  };
+
+  const list = view === 'saved' ? savedOutfits : draftOutfits;
+
+  const emptyLabel = view === 'saved'
+    ? { title: 'No saved outfits', sub: 'Tap + to create your first look' }
+    : { title: 'No drafts', sub: 'Save a draft while building an outfit' };
 
   return (
     <>
-      <div className="flex flex-col h-full overflow-y-auto scrollbar-hide px-6 md:px-10 pb-28 md:pb-8">
-        <div className="pt-8 flex items-center justify-between mb-6">
-          <div>
+      <div className="flex flex-col h-full overflow-hidden">
+
+        {/* Header */}
+        <div className="px-6 md:px-10 pt-8 pb-4 flex-shrink-0">
+          <div className="flex items-center justify-between mb-5">
             <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Style Studio</h1>
-            <p className="text-sm text-gray-400 mt-0.5">Your saved outfits</p>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-900 hover:bg-gray-700 transition-colors shadow-sm"
+            >
+              <Plus size={17} strokeWidth={2.5} className="text-white" />
+            </button>
           </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-900 hover:bg-gray-700 transition-colors shadow-sm"
-          >
-            <Plus size={17} strokeWidth={2.5} className="text-white" />
-          </button>
+
+          {/* Saved / Drafts toggle */}
+          <div className="flex bg-gray-100 rounded-xl p-1 w-fit gap-1">
+            {[
+              { key: 'saved',  label: 'Saved',  count: savedOutfits.length },
+              { key: 'drafts', label: 'Drafts', count: draftOutfits.length },
+            ].map(({ key, label, count }) => (
+              <button
+                key={key}
+                onClick={() => setView(key)}
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  view === key
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {label}
+                {count > 0 && (
+                  <span className={`text-[11px] tabular-nums ${view === key ? 'text-gray-400' : 'text-gray-400'}`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Empty state */}
-        <div className="flex-1 flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
-            <Wand2 size={22} className="text-gray-300" />
-          </div>
-          <p className="text-sm font-semibold text-gray-800">No outfits yet</p>
-          <p className="text-sm text-gray-400 mt-1">Tap + to create your first look</p>
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto scrollbar-hide px-6 md:px-10 pb-28 md:pb-8">
+          {list.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
+                <Wand2 size={22} className="text-gray-300" />
+              </div>
+              <p className="text-sm font-semibold text-gray-800">{emptyLabel.title}</p>
+              <p className="text-sm text-gray-400 mt-1">{emptyLabel.sub}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+              {list.map(outfit => (
+                <OutfitCard key={outfit.id} outfit={outfit} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {showCreate && <CreateOutfitModal onClose={() => setShowCreate(false)} />}
+      {showCreate && (
+        <CreateOutfitModal
+          onClose={() => setShowCreate(false)}
+          onSave={handleSave}
+          onSaveDraft={handleSaveDraft}
+        />
+      )}
     </>
   );
 }
