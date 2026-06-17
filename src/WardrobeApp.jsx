@@ -455,14 +455,6 @@ function GridCard({ item, liked, onLike, onClick }) {
 
       </div>
 
-      {/* Item info */}
-      <div className="mt-2 px-0.5">
-        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-[0.12em]">
-          {item.brand}
-        </p>
-        <p className="text-sm font-medium text-gray-800 leading-snug mt-0.5">{item.name}</p>
-        <p className="text-sm text-gray-500 mt-0.5">{item.price}</p>
-      </div>
     </div>
   );
 }
