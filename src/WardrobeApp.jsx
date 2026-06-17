@@ -601,6 +601,7 @@ function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
   const [boardsOpen, setBoardsOpen] = useState(false);
   const [panelWidth, setPanelWidth] = useState(240);
   const [showExitWarning, setShowExitWarning] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [draggingCid, setDraggingCid] = useState(null);
   const canvasRef = useRef(null);
@@ -609,7 +610,7 @@ function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
   const ITEM_SIZE = 128;
 
   const requestClose = () => {
-    if (canvasItems.length > 0) setShowExitWarning(true);
+    if (isDirty) setShowExitWarning(true);
     else onClose();
   };
 
@@ -625,10 +626,13 @@ function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
       ...prev,
       { ...item, _cid: `${item.id}-${Date.now()}`, x: 20 + offset, y: 20 + offset },
     ]);
+    setIsDirty(true);
   };
 
-  const removeFromCanvas = cid =>
+  const removeFromCanvas = cid => {
     setCanvasItems(prev => prev.filter(i => i._cid !== cid));
+    setIsDirty(true);
+  };
 
   // ── HTML5 drag-and-drop: wardrobe → canvas ──
   const handleDragStart = (e, item) => {
@@ -656,6 +660,7 @@ function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
     const x = Math.max(0, Math.min(e.clientX - rect.left - ITEM_SIZE / 2, rect.width  - ITEM_SIZE));
     const y = Math.max(0, Math.min(e.clientY - rect.top  - ITEM_SIZE / 2, rect.height - ITEM_SIZE));
     setCanvasItems(prev => [...prev, { ...item, _cid: `${item.id}-${Date.now()}`, x, y }]);
+    setIsDirty(true);
   };
 
   // ── Mouse drag: reposition items already on canvas ──
@@ -675,6 +680,7 @@ function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
     };
     const onUp = () => {
       setDraggingCid(null);
+      setIsDirty(true);
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
@@ -713,7 +719,7 @@ function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
         </button>
         <p className="text-sm font-semibold text-gray-900 flex-1">New Outfit</p>
         <button
-          onClick={() => onSaveDraft(canvasItems)}
+          onClick={() => { onSaveDraft(canvasItems); setIsDirty(false); }}
           disabled={canvasItems.length === 0}
           className="px-3.5 py-1.5 border border-gray-300 text-gray-700 text-xs font-semibold rounded-full hover:bg-gray-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
