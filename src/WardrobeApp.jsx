@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Sun, Shirt, Wand2, Sparkles,
-  X, Heart, Plus, Search, ChevronRight, Pencil, Trash2,
+  X, Heart, Plus, Search, ChevronRight, Pencil, Trash2, Brush,
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -700,9 +700,38 @@ function GridCard({ item, onClick }) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   OrganizeCard
+   ───────────────────────────────────────────────────────────────────────────── */
+function OrganizeCard({ item, draggedId, selected, onSelect, onDragStart, onDragHover, onDragEnd }) {
+  return (
+    <div
+      draggable
+      onClick={onSelect}
+      onDragStart={onDragStart}
+      onDragOver={e => {
+        e.preventDefault();
+        if (draggedId === item.id) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        onDragHover(item.id, e.clientX, e.clientY, rect);
+      }}
+      onDrop={e => e.preventDefault()}
+      onDragEnd={onDragEnd}
+      className={`relative rounded-2xl overflow-hidden bg-gray-100 cursor-grab active:cursor-grabbing select-none transition-all duration-150 ${
+        draggedId === item.id ? 'opacity-40' : ''
+      } ${selected ? 'ring-[3px] ring-gray-900' : ''}`}
+    >
+      <div className="w-full aspect-square">
+        <img src={item.image} alt={item.name} loading="lazy" className="w-full h-full object-cover pointer-events-none" />
+      </div>
+      {selected && <div className="absolute inset-0 bg-black/25 pointer-events-none" />}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    WardrobeTab
    ───────────────────────────────────────────────────────────────────────────── */
-function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDeleteBoard, onEditBoard }) {
+function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDeleteBoard, onEditBoard, onDeleteItems }) {
   const [activeFilter, setActiveFilter] = useState('All');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -713,6 +742,12 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
   const [editDesc, setEditDesc] = useState('');
   const addMenuRef = useRef(null);
   const boardMenuRef = useRef(null);
+
+  const [organizeMode, setOrganizeMode] = useState(false);
+  const [selectedItemIds, setSelectedItemIds] = useState(new Set());
+  const [organizedItems, setOrganizedItems] = useState([]);
+  const [draggedId, setDraggedId] = useState(null);
+  const [showDeleteSelectedConfirm, setShowDeleteSelectedConfirm] = useState(false);
 
   useEffect(() => {
     if (!addMenuOpen) return;
@@ -732,11 +767,59 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
     return () => document.removeEventListener('mousedown', handler);
   }, [boardMenuOpen]);
 
+  useEffect(() => {
+    setOrganizeMode(false);
+    setSelectedItemIds(new Set());
+    setOrganizedItems([]);
+  }, [activeFilter, favoritesOnly]);
+
   const filtered = (() => {
     let list = activeFilter === 'All' ? items : items.filter(i => i.boards.includes(activeFilter));
     if (favoritesOnly) list = list.filter(i => likedItems.has(i.id));
     return list;
   })();
+
+  const enterOrganize = () => {
+    setOrganizedItems([...filtered]);
+    setSelectedItemIds(new Set());
+    setOrganizeMode(true);
+  };
+
+  const exitOrganize = () => {
+    setOrganizeMode(false);
+    setSelectedItemIds(new Set());
+    setOrganizedItems([]);
+    setDraggedId(null);
+  };
+
+  const toggleSelectItem = id => {
+    setSelectedItemIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const handleDragHover = (targetId, clientX, clientY, rect) => {
+    if (!draggedId || targetId === draggedId) return;
+    setOrganizedItems(prev => {
+      const from = prev.findIndex(i => i.id === draggedId);
+      const to = prev.findIndex(i => i.id === targetId);
+      if (from === -1 || to === -1 || from === to) return prev;
+      const midX = rect.left + rect.width / 2;
+      const midY = rect.top + rect.height / 2;
+      // Only reorder once the cursor crosses the midpoint in the direction of travel
+      const movingForward = from < to;
+      const pastThreshold = movingForward
+        ? (clientX > midX || clientY > midY)
+        : (clientX < midX || clientY < midY);
+      if (!pastThreshold) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -746,18 +829,35 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
         <div className="flex items-start justify-between mb-5">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-gray-900">My Wardrobe</h1>
-            <div className="flex items-center gap-3 mt-4">
-              <p className="text-3xl font-semibold text-gray-900">{activeFilter}</p>
+            <div className="mt-4">
+              <p className="text-3xl font-semibold text-gray-900 truncate">{activeFilter}</p>
+            </div>
+            <p className="text-sm text-gray-400 mt-0.5">{filtered.length} item{filtered.length !== 1 ? 's' : ''}</p>
+            <div className="min-h-[1.25rem] mt-0.5">
+              {activeFilter !== 'All' && boardMeta[activeFilter]?.description && (
+                <p className="text-sm text-gray-400 italic pl-3">{boardMeta[activeFilter].description}</p>
+              )}
+            </div>
+            <div className="flex items-center gap-2 mt-4">
+              <button
+                onClick={organizeMode ? exitOrganize : enterOrganize}
+                className={`flex items-center gap-1.5 px-3.5 h-9 rounded-full transition-colors text-sm font-medium ${
+                  organizeMode ? 'bg-gray-900 text-white hover:bg-gray-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {organizeMode ? <X size={13} strokeWidth={2.5} /> : <Brush size={13} strokeWidth={2} />}
+                {organizeMode ? 'Done' : 'Organize'}
+              </button>
               {activeFilter !== 'All' && (
                 <div className="relative" ref={boardMenuRef}>
                   <button
                     onClick={() => setBoardMenuOpen(o => o ? null : activeFilter)}
-                    className="text-gray-300 hover:text-gray-500 transition-colors text-2xl leading-none"
+                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors text-gray-700 text-xl leading-none"
                   >
                     ···
                   </button>
                   {boardMenuOpen && (
-                    <div className="absolute left-0 top-8 bg-white rounded-xl shadow-lg border border-gray-100 py-1 w-36 z-20">
+                    <div className="absolute left-0 top-11 bg-white rounded-xl shadow-lg border border-gray-100 py-1 w-36 z-20">
                       <button
                         onClick={() => {
                           setBoardMenuOpen(null);
@@ -780,10 +880,6 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
                 </div>
               )}
             </div>
-            <p className="text-sm text-gray-400 mt-0.5">{filtered.length} item{filtered.length !== 1 ? 's' : ''}</p>
-            {activeFilter !== 'All' && boardMeta[activeFilter]?.description && (
-              <p className="text-sm text-gray-400 mt-0.5 italic pl-3">{boardMeta[activeFilter].description}</p>
-            )}
           </div>
           <div className="flex items-center gap-2">
             <button className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
@@ -849,7 +945,7 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
         </div>
       </div>
 
-      {/* ── Masonry grid ── */}
+      {/* ── Grid ── */}
       <div className="flex-1 overflow-y-auto scrollbar-hide px-5 md:px-7 pb-28 md:pb-8">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -862,15 +958,117 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
         ) : (
           <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2">
             {filtered.map(item => (
-              <GridCard
-                key={item.id}
-                item={item}
-                onClick={onSelectItem}
-              />
+              <GridCard key={item.id} item={item} onClick={onSelectItem} />
             ))}
           </div>
         )}
       </div>
+
+      {/* ── Organize mode full-screen overlay ── */}
+      {organizeMode && (
+        <div className="fixed inset-0 z-50 bg-white flex flex-col">
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 md:px-7 pt-14 md:pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
+            <h2 className="text-base font-semibold text-gray-900">Organize Board</h2>
+            <button
+              onClick={exitOrganize}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <X size={16} className="text-gray-600" />
+            </button>
+          </div>
+
+          {/* Item grid */}
+          <div className="flex-1 overflow-y-auto scrollbar-hide px-5 md:px-7 pt-4 pb-36">
+            {organizedItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
+                  <Shirt size={22} className="text-gray-300" />
+                </div>
+                <p className="text-sm font-semibold text-gray-800">No items in this board</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2">
+                {organizedItems.map(item => (
+                  <OrganizeCard
+                    key={item.id}
+                    item={item}
+                    draggedId={draggedId}
+                    selected={selectedItemIds.has(item.id)}
+                    onSelect={() => toggleSelectItem(item.id)}
+                    onDragStart={() => setDraggedId(item.id)}
+                    onDragHover={handleDragHover}
+                    onDragEnd={() => setDraggedId(null)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Floating trash bar */}
+          <div className="absolute bottom-8 inset-x-0 flex justify-center pointer-events-none">
+            <div className="pointer-events-auto bg-white rounded-2xl shadow-2xl border border-gray-100 px-5 py-3 flex items-center gap-3">
+              {selectedItemIds.size > 0 && (
+                <span className="text-sm text-gray-500 tabular-nums">{selectedItemIds.size} selected</span>
+              )}
+              <div className="relative group">
+                <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 transition-opacity pointer-events-none ${
+                  selectedItemIds.size > 0 ? 'opacity-0 group-hover:opacity-100' : 'opacity-0'
+                }`}>
+                  <span className="text-xs font-semibold text-white bg-gray-800 rounded-lg px-2.5 py-1 whitespace-nowrap">Delete</span>
+                </div>
+                <button
+                  disabled={selectedItemIds.size === 0}
+                  onClick={() => setShowDeleteSelectedConfirm(true)}
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
+                    selectedItemIds.size > 0
+                      ? 'bg-red-50 text-red-500 hover:bg-red-100'
+                      : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                  }`}
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Delete selected confirmation */}
+          {showDeleteSelectedConfirm && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-sm backdrop-fade" onClick={() => setShowDeleteSelectedConfirm(false)} />
+              <div className="relative bg-white rounded-3xl shadow-2xl p-6 w-full max-w-xs modal-animate">
+                <h3 className="text-base font-semibold text-gray-900 mb-1">
+                  Delete {selectedItemIds.size} item{selectedItemIds.size !== 1 ? 's' : ''}?
+                </h3>
+                <p className="text-sm text-gray-500 mb-5 leading-relaxed">
+                  {selectedItemIds.size === 1 ? 'This item' : 'These items'} will be permanently removed from your wardrobe.
+                </p>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => {
+                      const toDelete = new Set(selectedItemIds);
+                      onDeleteItems(toDelete);
+                      setOrganizedItems(prev => prev.filter(i => !toDelete.has(i.id)));
+                      setSelectedItemIds(new Set());
+                      setShowDeleteSelectedConfirm(false);
+                    }}
+                    className="w-full py-2.5 bg-red-500 text-white text-sm font-semibold rounded-2xl hover:bg-red-600 transition-colors"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteSelectedConfirm(false)}
+                    className="w-full py-2.5 border border-gray-200 text-gray-700 text-sm font-semibold rounded-2xl hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Edit board popup ── */}
       {editBoard && (
@@ -887,6 +1085,7 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
                 <input
                   value={editName}
                   onChange={e => setEditName(e.target.value)}
+                  maxLength={20}
                   className="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
                   placeholder="Board name"
                   autoFocus
@@ -899,6 +1098,7 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
                 <textarea
                   value={editDesc}
                   onChange={e => setEditDesc(e.target.value)}
+                  maxLength={150}
                   rows={3}
                   className="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none leading-relaxed"
                   placeholder="Add a description…"
@@ -1557,6 +1757,15 @@ export default function WardrobeApp() {
     });
   };
 
+  const handleDeleteItems = ids => {
+    setItems(prev => prev.filter(i => !ids.has(i.id)));
+    setLikedItems(prev => {
+      const next = new Set(prev);
+      ids.forEach(id => next.delete(id));
+      return next;
+    });
+  };
+
   const [pendingOutfitItem, setPendingOutfitItem] = useState(null);
   const [pendingTargetCollage, setPendingTargetCollage] = useState(null);
   const [savedOutfits, setSavedOutfits]   = useState([]);
@@ -1632,6 +1841,7 @@ export default function WardrobeApp() {
           onSelectItem={setSelectedItem}
           onDeleteBoard={handleDeleteBoard}
           onEditBoard={handleEditBoard}
+          onDeleteItems={handleDeleteItems}
         />
       );
       case 'today':   return <TodayTab />;
@@ -1690,26 +1900,6 @@ export default function WardrobeApp() {
             );
           })}
         </nav>
-
-        {/* Wardrobe stats widget */}
-        <div className="mt-8 mx-0.5 p-4 bg-gray-50 rounded-2xl">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
-            Wardrobe Stats
-          </p>
-          {[
-            { label: 'Total Items', value: items.length },
-            { label: 'Favorites',   value: likedItems.size },
-            { label: 'Boards',      value: boards.length - 1 },
-          ].map(({ label, value }) => (
-            <div
-              key={label}
-              className="flex items-center justify-between py-2 border-b border-gray-200 last:border-0"
-            >
-              <p className="text-xs text-gray-500">{label}</p>
-              <p className="text-xs font-bold text-gray-900 tabular-nums">{value}</p>
-            </div>
-          ))}
-        </div>
 
         {/* Profile */}
         <div className="mt-auto">
