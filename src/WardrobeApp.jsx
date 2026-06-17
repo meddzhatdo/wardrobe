@@ -598,6 +598,7 @@ function TodayTab() {
 function CreateOutfitModal({ onClose }) {
   const [canvasItems, setCanvasItems] = useState([]);
   const [activeFilter, setActiveFilter] = useState('All');
+  const [boardsOpen, setBoardsOpen] = useState(false);
 
   const filtered =
     activeFilter === 'All'
@@ -661,21 +662,41 @@ function CreateOutfitModal({ onClose }) {
         {/* ── Mini wardrobe panel ── */}
         <div className="w-full md:w-60 flex flex-col flex-shrink-0 h-56 md:h-auto bg-white">
 
-          {/* Board filter chips */}
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide px-3 py-2.5 flex-shrink-0 border-b border-gray-100">
-            {BOARDS.map(board => (
-              <button
-                key={board}
-                onClick={() => setActiveFilter(board)}
-                className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  activeFilter === board
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                }`}
-              >
-                {board}
-              </button>
-            ))}
+          {/* Board filter — collapsible */}
+          <div className="flex-shrink-0 border-b border-gray-100">
+            <button
+              onClick={() => setBoardsOpen(o => !o)}
+              className="flex items-center justify-between w-full px-4 py-3 text-left"
+            >
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Board</p>
+                <p className="text-sm font-medium text-gray-800">{activeFilter}</p>
+              </div>
+              <ChevronRight
+                size={14}
+                className={`text-gray-400 transition-transform duration-200 flex-shrink-0 ${boardsOpen ? 'rotate-90' : ''}`}
+              />
+            </button>
+
+            {boardsOpen && (
+              <div className="border-t border-gray-100 py-1">
+                {BOARDS.map(board => {
+                  const active = activeFilter === board;
+                  return (
+                    <button
+                      key={board}
+                      onClick={() => setActiveFilter(board)}
+                      className={`flex items-center justify-between w-full px-4 py-2 text-sm transition-colors ${
+                        active ? 'text-gray-900 font-semibold' : 'text-gray-500 hover:text-gray-800'
+                      }`}
+                    >
+                      {board}
+                      {active && <div className="w-1.5 h-1.5 rounded-full bg-gray-900 flex-shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Items */}
