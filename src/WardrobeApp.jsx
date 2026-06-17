@@ -463,13 +463,14 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete }) {
               <div className="col-span-2 bg-gray-50 rounded-2xl px-4 py-3">
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-0.5">Material</p>
                 {editMode ? (
-                  <input
+                  <textarea
                     value={draft.material}
                     onChange={e => set('material', e.target.value)}
-                    className={`${editInput} text-sm font-medium text-gray-800 mt-0.5`}
+                    rows={2}
+                    className={`${editInput} text-sm font-medium text-gray-800 mt-0.5 resize-none leading-relaxed w-full`}
                   />
                 ) : (
-                  <p className="text-sm font-medium text-gray-800">{item.material}</p>
+                  <p className="text-sm font-medium text-gray-800 whitespace-pre-line">{item.material}</p>
                 )}
               </div>
 
