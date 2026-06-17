@@ -313,7 +313,7 @@ function countByBoard(items, board) {
 /* ─────────────────────────────────────────────────────────────────────────────
    AddToCollageModal
    ───────────────────────────────────────────────────────────────────────────── */
-function AddToCollageModal({ savedOutfits, draftOutfits, onClose, onCreateNew }) {
+function AddToCollageModal({ savedOutfits, draftOutfits, onClose, onCreateNew, onOpenCollage }) {
   const [view, setView] = useState('saved');
   const list = view === 'saved' ? savedOutfits : draftOutfits;
 
@@ -367,7 +367,7 @@ function AddToCollageModal({ savedOutfits, draftOutfits, onClose, onCreateNew })
               {list.map(outfit => {
                 const imgs = outfit.items.slice(0, 4);
                 return (
-                  <div key={outfit.id} className="flex-shrink-0 w-24 h-24 rounded-2xl overflow-hidden bg-gray-100 cursor-pointer hover:opacity-80 transition-opacity">
+                  <div key={outfit.id} onClick={() => onOpenCollage(outfit, view)} className="flex-shrink-0 w-24 h-24 rounded-2xl overflow-hidden bg-gray-100 cursor-pointer hover:opacity-80 transition-opacity">
                     {imgs.length === 0 ? (
                       <div className="w-full h-full flex items-center justify-center">
                         <Wand2 size={16} className="text-gray-300" />
@@ -409,7 +409,7 @@ function AddToCollageModal({ savedOutfits, draftOutfits, onClose, onCreateNew })
 /* ─────────────────────────────────────────────────────────────────────────────
    ItemModal
    ───────────────────────────────────────────────────────────────────────────── */
-function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onAddToOutfit, savedOutfits, draftOutfits }) {
+function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onAddToOutfit, onOpenCollage, savedOutfits, draftOutfits }) {
   const [editMode, setEditMode] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCollagePicker, setShowCollagePicker] = useState(false);
@@ -668,6 +668,7 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
           draftOutfits={draftOutfits}
           onClose={() => setShowCollagePicker(false)}
           onCreateNew={() => { setShowCollagePicker(false); onAddToOutfit(item); }}
+          onOpenCollage={(outfit, type) => { setShowCollagePicker(false); onOpenCollage(item, outfit, type); }}
         />
       )}
     </div>
@@ -859,7 +860,7 @@ function TodayTab() {
 /* ─────────────────────────────────────────────────────────────────────────────
    CreateOutfitModal
    ───────────────────────────────────────────────────────────────────────────── */
-function CreateOutfitModal({ initialItem, onClose, onSave, onSaveDraft }) {
+function CreateOutfitModal({ initialItem, initialCanvasItems, onClose, onSave, onSaveDraft }) {
   const [canvasItems, setCanvasItems] = useState([]);
   const [activeFilter, setActiveFilter] = useState('All');
   const [boardsOpen, setBoardsOpen] = useState(false);
@@ -874,11 +875,16 @@ function CreateOutfitModal({ initialItem, onClose, onSave, onSaveDraft }) {
   const ITEM_SIZE = 128;
 
   useEffect(() => {
-    if (!initialItem || !canvasRef.current) return;
+    if (!canvasRef.current) return;
+    const base = initialCanvasItems || [];
+    if (!initialItem) {
+      if (base.length > 0) { setCanvasItems(base); setIsDirty(true); }
+      return;
+    }
     const { width, height } = canvasRef.current.getBoundingClientRect();
     const x = Math.max(0, (width  - ITEM_SIZE) / 2);
     const y = Math.max(0, (height - ITEM_SIZE) / 2);
-    setCanvasItems([{ ...initialItem, _cid: `${initialItem.id}-${Date.now()}`, x, y }]);
+    setCanvasItems([...base, { ...initialItem, _cid: `${initialItem.id}-${Date.now()}`, x, y }]);
     setIsDirty(true);
   }, []);
 
@@ -1197,14 +1203,25 @@ function OutfitCard({ outfit }) {
   );
 }
 
-function StudioTab({ savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit, pendingOutfitItem, onClearPendingOutfit }) {
-  const [showCreate, setShowCreate] = useState(false);
-  const [createSeed, setCreateSeed] = useState(null);
-  const [view, setView]             = useState('saved');
+function StudioTab({ savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit, onUpdateSavedOutfit, onUpdateDraftOutfit, pendingOutfitItem, pendingTargetCollage, onClearPendingOutfit }) {
+  const [showCreate, setShowCreate]         = useState(false);
+  const [createSeed, setCreateSeed]         = useState(null);
+  const [initialCanvasItems, setInitialCanvasItems] = useState(null);
+  const [editingCollage, setEditingCollage] = useState(null);
+  const [view, setView]                     = useState('saved');
 
   useEffect(() => {
     if (!pendingOutfitItem) return;
     setCreateSeed(pendingOutfitItem);
+    if (pendingTargetCollage) {
+      const list = pendingTargetCollage.type === 'saved' ? savedOutfits : draftOutfits;
+      const outfit = list.find(o => o.id === pendingTargetCollage.id);
+      setInitialCanvasItems(outfit?.items || []);
+      setEditingCollage(pendingTargetCollage);
+    } else {
+      setInitialCanvasItems(null);
+      setEditingCollage(null);
+    }
     setShowCreate(true);
     onClearPendingOutfit();
   }, [pendingOutfitItem]);
@@ -1280,9 +1297,16 @@ function StudioTab({ savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit
       {showCreate && (
         <CreateOutfitModal
           initialItem={createSeed}
-          onClose={() => { setShowCreate(false); setCreateSeed(null); }}
-          onSave={onSaveOutfit}
-          onSaveDraft={onSaveDraftOutfit}
+          initialCanvasItems={initialCanvasItems}
+          onClose={() => { setShowCreate(false); setCreateSeed(null); setInitialCanvasItems(null); setEditingCollage(null); }}
+          onSave={items => {
+            if (editingCollage?.type === 'saved') onUpdateSavedOutfit(editingCollage.id, items);
+            else onSaveOutfit(items);
+          }}
+          onSaveDraft={items => {
+            if (editingCollage?.type === 'drafts') onUpdateDraftOutfit(editingCollage.id, items);
+            else onSaveDraftOutfit(items);
+          }}
         />
       )}
     </>
@@ -1357,6 +1381,7 @@ export default function WardrobeApp() {
   const [selectedItem, setSelectedItem]   = useState(null);
   const [items, setItems]                 = useState(ITEMS);
   const [pendingOutfitItem, setPendingOutfitItem] = useState(null);
+  const [pendingTargetCollage, setPendingTargetCollage] = useState(null);
   const [savedOutfits, setSavedOutfits]   = useState([]);
   const [draftOutfits, setDraftOutfits]   = useState([]);
   const [likedItems, setLikedItems]       = useState(
@@ -1391,6 +1416,14 @@ export default function WardrobeApp() {
 
   const handleAddToOutfit = item => {
     setPendingOutfitItem(item);
+    setPendingTargetCollage(null);
+    setActiveTab('studio');
+    setSelectedItem(null);
+  };
+
+  const handleOpenExistingCollage = (item, outfit, type) => {
+    setPendingOutfitItem(item);
+    setPendingTargetCollage({ id: outfit.id, type });
     setActiveTab('studio');
     setSelectedItem(null);
   };
@@ -1404,6 +1437,12 @@ export default function WardrobeApp() {
     if (items.length === 0) return;
     setDraftOutfits(prev => [{ id: Date.now(), items }, ...prev]);
   };
+
+  const updateSavedOutfit = (id, items) =>
+    setSavedOutfits(prev => prev.map(o => o.id === id ? { ...o, items } : o));
+
+  const updateDraftOutfit = (id, items) =>
+    setDraftOutfits(prev => prev.map(o => o.id === id ? { ...o, items } : o));
 
   const renderContent = () => {
     switch (activeTab) {
@@ -1420,8 +1459,11 @@ export default function WardrobeApp() {
           draftOutfits={draftOutfits}
           onSaveOutfit={handleSaveOutfit}
           onSaveDraftOutfit={handleSaveDraftOutfit}
+          onUpdateSavedOutfit={updateSavedOutfit}
+          onUpdateDraftOutfit={updateDraftOutfit}
           pendingOutfitItem={pendingOutfitItem}
-          onClearPendingOutfit={() => setPendingOutfitItem(null)}
+          pendingTargetCollage={pendingTargetCollage}
+          onClearPendingOutfit={() => { setPendingOutfitItem(null); setPendingTargetCollage(null); }}
         />
       );
       case 'stylist': return <StylistTab />;
@@ -1574,6 +1616,7 @@ export default function WardrobeApp() {
           onUpdate={updateItem}
           onDelete={deleteItem}
           onAddToOutfit={handleAddToOutfit}
+          onOpenCollage={handleOpenExistingCollage}
           savedOutfits={savedOutfits}
           draftOutfits={draftOutfits}
         />
