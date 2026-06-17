@@ -587,6 +587,17 @@ function GridCard({ item, liked, onLike, onClick }) {
    ───────────────────────────────────────────────────────────────────────────── */
 function WardrobeTab({ items, likedItems, onToggleLike, onSelectItem }) {
   const [activeFilter, setActiveFilter] = useState('All');
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const addMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (!addMenuOpen) return;
+    const handler = e => {
+      if (!addMenuRef.current?.contains(e.target)) setAddMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [addMenuOpen]);
 
   const filtered =
     activeFilter === 'All'
@@ -610,9 +621,27 @@ function WardrobeTab({ items, likedItems, onToggleLike, onSelectItem }) {
             <button className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
               <Search size={16} strokeWidth={2} className="text-gray-600" />
             </button>
-            <button className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-900 hover:bg-gray-700 transition-colors shadow-sm">
-              <Plus size={17} strokeWidth={2.5} className="text-white" />
-            </button>
+            <div className="relative" ref={addMenuRef}>
+              <button
+                onClick={() => setAddMenuOpen(o => !o)}
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-900 hover:bg-gray-700 transition-colors shadow-sm"
+              >
+                <Plus size={17} strokeWidth={2.5} className="text-white" />
+              </button>
+              {addMenuOpen && (
+                <div className="absolute right-0 top-11 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-36 z-20">
+                  {['Item', 'Board'].map(option => (
+                    <button
+                      key={option}
+                      onClick={() => setAddMenuOpen(false)}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
