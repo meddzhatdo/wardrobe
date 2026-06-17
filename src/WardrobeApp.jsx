@@ -421,12 +421,12 @@ function ItemModal({ item, liked, onToggleLike, onClose }) {
 function GridCard({ item, liked, onLike, onClick }) {
   return (
     <div
-      className="break-inside-avoid mb-3 cursor-pointer group"
+      className="break-inside-avoid mb-2 cursor-pointer group"
       onClick={() => onClick(item)}
     >
       {/* Image tile */}
       <div className="relative rounded-2xl overflow-hidden bg-gray-100">
-        <div className={`w-full ${RATIO[item.ratio] ?? 'aspect-[3/4]'}`}>
+        <div className="w-full aspect-square">
           <img
             src={item.image}
             alt={item.name}
@@ -536,7 +536,7 @@ function WardrobeTab({ likedItems, onToggleLike, onSelectItem }) {
             <p className="text-sm text-gray-400 mt-1">Tap + to add your first piece</p>
           </div>
         ) : (
-          <div className="columns-2 md:columns-3 xl:columns-4 gap-3">
+          <div className="columns-3 md:columns-4 xl:columns-5 gap-2">
             {filtered.map(item => (
               <GridCard
                 key={item.id}
