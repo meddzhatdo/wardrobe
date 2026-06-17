@@ -702,8 +702,9 @@ function GridCard({ item, onClick }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    WardrobeTab
    ───────────────────────────────────────────────────────────────────────────── */
-function WardrobeTab({ items, boards, boardMeta, onSelectItem, onDeleteBoard, onEditBoard }) {
+function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDeleteBoard, onEditBoard }) {
   const [activeFilter, setActiveFilter] = useState('All');
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [boardMenuOpen, setBoardMenuOpen] = useState(null);
   const [deleteConfirmBoard, setDeleteConfirmBoard] = useState(null);
@@ -731,10 +732,11 @@ function WardrobeTab({ items, boards, boardMeta, onSelectItem, onDeleteBoard, on
     return () => document.removeEventListener('mousedown', handler);
   }, [boardMenuOpen]);
 
-  const filtered =
-    activeFilter === 'All'
-      ? items
-      : items.filter(i => i.boards.includes(activeFilter));
+  const filtered = (() => {
+    let list = activeFilter === 'All' ? items : items.filter(i => i.boards.includes(activeFilter));
+    if (favoritesOnly) list = list.filter(i => likedItems.has(i.id));
+    return list;
+  })();
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -780,7 +782,7 @@ function WardrobeTab({ items, boards, boardMeta, onSelectItem, onDeleteBoard, on
             </div>
             <p className="text-sm text-gray-400 mt-0.5">{filtered.length} item{filtered.length !== 1 ? 's' : ''}</p>
             {activeFilter !== 'All' && boardMeta[activeFilter]?.description && (
-              <p className="text-sm text-gray-400 mt-0.5 italic">{boardMeta[activeFilter].description}</p>
+              <p className="text-sm text-gray-400 mt-0.5 italic pl-3">{boardMeta[activeFilter].description}</p>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -829,6 +831,21 @@ function WardrobeTab({ items, boards, boardMeta, onSelectItem, onDeleteBoard, on
               </button>
             );
           })}
+        </div>
+
+        {/* ── Favorites toggle ── */}
+        <div className="pb-3">
+          <button
+            onClick={() => setFavoritesOnly(o => !o)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              favoritesOnly
+                ? 'bg-rose-50 text-rose-500'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            }`}
+          >
+            <Heart size={13} className={favoritesOnly ? 'fill-rose-500' : ''} />
+            Favorites
+          </button>
         </div>
       </div>
 
@@ -1611,6 +1628,7 @@ export default function WardrobeApp() {
           items={items}
           boards={boards}
           boardMeta={boardMeta}
+          likedItems={likedItems}
           onSelectItem={setSelectedItem}
           onDeleteBoard={handleDeleteBoard}
           onEditBoard={handleEditBoard}
