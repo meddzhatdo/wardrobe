@@ -46,6 +46,20 @@ const GLOBAL_CSS = `
    ───────────────────────────────────────────────────────────────────────────── */
 const BOARDS = ['All', 'Workwear', 'Weekend', 'Evening', 'Basics', 'Outerwear'];
 
+const CATEGORIES = [
+  'Tops',
+  'Bottoms',
+  'Dresses & Jumpsuits',
+  'Outerwear',
+  'Knitwear & Sweaters',
+  'Shoes',
+  'Activewear / Athleisure',
+  'Accessories & Bags',
+  'Jewelry',
+  'Underwear & Sleepwear',
+  'Other',
+];
+
 const ITEMS = [
   {
     id: 1,
@@ -443,22 +457,35 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
 
             {/* Detail tiles */}
             <div className="grid grid-cols-2 gap-2.5 mb-5">
-              {(['category', 'size'] ).map(key => (
-                <div key={key} className="bg-gray-50 rounded-2xl px-4 py-3">
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-0.5">
-                    {key === 'category' ? 'Category' : 'Size'}
-                  </p>
-                  {editMode ? (
-                    <input
-                      value={draft[key]}
-                      onChange={e => set(key, e.target.value)}
-                      className={`${editInput} text-sm font-medium text-gray-800 mt-0.5`}
-                    />
-                  ) : (
-                    <p className="text-sm font-medium text-gray-800">{item[key]}</p>
-                  )}
-                </div>
-              ))}
+              {/* Category — dropdown in edit mode */}
+              <div className="bg-gray-50 rounded-2xl px-4 py-3">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-0.5">Category</p>
+                {editMode ? (
+                  <select
+                    value={draft.category}
+                    onChange={e => set('category', e.target.value)}
+                    className="w-full bg-transparent focus:outline-none text-sm font-medium text-gray-800 mt-0.5 cursor-pointer"
+                  >
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                ) : (
+                  <p className="text-sm font-medium text-gray-800">{item.category}</p>
+                )}
+              </div>
+
+              {/* Size — free text */}
+              <div className="bg-gray-50 rounded-2xl px-4 py-3">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-0.5">Size</p>
+                {editMode ? (
+                  <input
+                    value={draft.size}
+                    onChange={e => set('size', e.target.value)}
+                    className={`${editInput} text-sm font-medium text-gray-800 mt-0.5`}
+                  />
+                ) : (
+                  <p className="text-sm font-medium text-gray-800">{item.size}</p>
+                )}
+              </div>
 
               <div className="col-span-2 bg-gray-50 rounded-2xl px-4 py-3">
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-0.5">Material</p>
