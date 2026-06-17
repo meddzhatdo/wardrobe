@@ -372,7 +372,6 @@ function ItemModal({ item, liked, onToggleLike, onClose }) {
             <div className="grid grid-cols-2 gap-2.5 mb-5">
               {[
                 { label: 'Category', value: item.category },
-                { label: 'Color',    value: item.color    },
                 { label: 'Size',     value: item.size     },
               ].map(({ label, value }) => (
                 <div key={label} className="bg-gray-50 rounded-2xl px-4 py-3">
