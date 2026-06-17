@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Sun, Shirt, Wand2, Sparkles,
-  X, Heart, Plus, Search, ChevronRight, Pencil, Trash2, Brush,
+  X, Heart, Plus, Search, ChevronRight, Pencil, Trash2, Brush, Check, Layers,
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -409,10 +409,21 @@ function AddToCollageModal({ savedOutfits, draftOutfits, onClose, onCreateNew, o
 /* ─────────────────────────────────────────────────────────────────────────────
    ItemModal
    ───────────────────────────────────────────────────────────────────────────── */
-function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onAddToOutfit, onOpenCollage, savedOutfits, draftOutfits }) {
+function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onAddToOutfit, onOpenCollage, savedOutfits, draftOutfits, boards, onToggleBoard }) {
   const [editMode, setEditMode] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCollagePicker, setShowCollagePicker] = useState(false);
+  const [boardMenuOpen, setBoardMenuOpen] = useState(false);
+  const boardMenuRef = useRef(null);
+
+  useEffect(() => {
+    if (!boardMenuOpen) return;
+    const handler = e => {
+      if (!boardMenuRef.current?.contains(e.target)) setBoardMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [boardMenuOpen]);
   const [draft, setDraft] = useState({
     name: item.name,
     brand: item.brand,
@@ -499,46 +510,83 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
           />
         </div>
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
-          <div className="p-6">
-
-            {/* Brand + name + like */}
-            <div className="flex items-start justify-between gap-4 mb-3">
-              <div className="min-w-0 flex-1">
-                {editMode ? (
-                  <div className="space-y-1.5">
-                    <input
-                      value={draft.brand}
-                      onChange={e => set('brand', e.target.value)}
-                      placeholder="Brand"
-                      className={`${editInput} text-[11px] font-semibold text-gray-500 uppercase tracking-[0.18em] pb-0.5`}
-                    />
-                    <input
-                      value={draft.name}
-                      onChange={e => set('name', e.target.value)}
-                      placeholder="Item name"
-                      className={`${editInput} text-xl font-semibold text-gray-900 pb-0.5`}
-                    />
+        {/* Brand + name + action buttons — kept outside scroll container so tooltip renders over image */}
+        <div className="flex-shrink-0 px-6 pt-6 relative z-[1]">
+          <div className="flex items-start justify-between gap-4 mb-3">
+            <div className="min-w-0 flex-1">
+              {editMode ? (
+                <div className="space-y-1.5">
+                  <input
+                    value={draft.brand}
+                    onChange={e => set('brand', e.target.value)}
+                    placeholder="Brand"
+                    className={`${editInput} text-[11px] font-semibold text-gray-500 uppercase tracking-[0.18em] pb-0.5`}
+                  />
+                  <input
+                    value={draft.name}
+                    onChange={e => set('name', e.target.value)}
+                    placeholder="Item name"
+                    className={`${editInput} text-xl font-semibold text-gray-900 pb-0.5`}
+                  />
+                </div>
+              ) : (
+                <>
+                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.18em] mb-1">
+                    {item.brand}
+                  </p>
+                  <h2 className="text-xl font-semibold text-gray-900 leading-snug">{item.name}</h2>
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Board membership toggle */}
+              <div className="relative group/boards" ref={boardMenuRef}>
+                <button
+                  onClick={() => setBoardMenuOpen(o => !o)}
+                  className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all ${
+                    boardMenuOpen ? 'bg-gray-900 border-gray-900' : 'border-gray-200 bg-white hover:bg-gray-50'
+                  }`}
+                >
+                  <Layers size={15} className={boardMenuOpen ? 'text-white' : 'text-gray-400'} />
+                </button>
+                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[11px] rounded-lg whitespace-nowrap opacity-0 group-hover/boards:opacity-100 transition-opacity z-[20]">
+                  Move to board
+                </div>
+                {boardMenuOpen && (
+                  <div className="absolute top-11 right-0 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 min-w-[160px] z-10">
+                    {boards.filter(b => b !== 'All').length === 0 ? (
+                      <p className="px-4 py-2.5 text-xs text-gray-400">No boards yet</p>
+                    ) : boards.filter(b => b !== 'All').map(board => {
+                      const inBoard = item.boards.includes(board);
+                      return (
+                        <button
+                          key={board}
+                          onClick={() => onToggleBoard(item.id, board)}
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between gap-3"
+                        >
+                          <span className="truncate">{board}</span>
+                          {inBoard && <Check size={13} className="text-gray-900 flex-shrink-0" />}
+                        </button>
+                      );
+                    })}
                   </div>
-                ) : (
-                  <>
-                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.18em] mb-1">
-                      {item.brand}
-                    </p>
-                    <h2 className="text-xl font-semibold text-gray-900 leading-snug">{item.name}</h2>
-                  </>
                 )}
               </div>
               <button
                 onClick={() => onToggleLike(item.id)}
-                className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all flex-shrink-0 ${
+                className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all ${
                   liked ? 'bg-rose-50 border-rose-200' : 'border-gray-200 bg-white hover:bg-gray-50'
                 }`}
               >
                 <Heart size={15} className={liked ? 'text-rose-500 fill-rose-500' : 'text-gray-400'} />
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto scrollbar-hide">
+          <div className="px-6 pb-6">
 
             {/* Price */}
             {editMode ? (
@@ -680,10 +728,7 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
    ───────────────────────────────────────────────────────────────────────────── */
 function GridCard({ item, onClick }) {
   return (
-    <div
-      className="cursor-pointer group"
-      onClick={() => onClick(item)}
-    >
+    <div className="cursor-pointer group" onClick={() => onClick(item)}>
       <div className="relative rounded-2xl overflow-hidden bg-gray-100">
         <div className="w-full aspect-square">
           <img
@@ -731,7 +776,7 @@ function OrganizeCard({ item, draggedId, selected, onSelect, onDragStart, onDrag
 /* ─────────────────────────────────────────────────────────────────────────────
    WardrobeTab
    ───────────────────────────────────────────────────────────────────────────── */
-function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDeleteBoard, onEditBoard, onDeleteItems }) {
+function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDeleteBoard, onEditBoard, onDeleteItems, onCreateBoard, onToggleItemBoard }) {
   const [activeFilter, setActiveFilter] = useState('All');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -740,6 +785,9 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
   const [editBoard, setEditBoard] = useState(null);
   const [editName, setEditName] = useState('');
   const [editDesc, setEditDesc] = useState('');
+  const [newBoardOpen, setNewBoardOpen] = useState(false);
+  const [newBoardName, setNewBoardName] = useState('');
+  const [newBoardDesc, setNewBoardDesc] = useState('');
   const addMenuRef = useRef(null);
   const boardMenuRef = useRef(null);
 
@@ -894,15 +942,18 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
               </button>
               {addMenuOpen && (
                 <div className="absolute right-0 top-11 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-36 z-20">
-                  {['Item', 'Board'].map(option => (
-                    <button
-                      key={option}
-                      onClick={() => setAddMenuOpen(false)}
-                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      {option}
-                    </button>
-                  ))}
+                  <button
+                    onClick={() => setAddMenuOpen(false)}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Item
+                  </button>
+                  <button
+                    onClick={() => { setAddMenuOpen(false); setNewBoardName(''); setNewBoardDesc(''); setNewBoardOpen(true); }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Board
+                  </button>
                 </div>
               )}
             </div>
@@ -953,7 +1004,6 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
               <Shirt size={22} className="text-gray-300" />
             </div>
             <p className="text-sm font-semibold text-gray-800">No items in this board</p>
-            <p className="text-sm text-gray-400 mt-1">Tap + to add your first piece</p>
           </div>
         ) : (
           <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2">
@@ -1123,6 +1173,67 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
               </button>
               <button
                 onClick={() => setEditBoard(null)}
+                className="w-full py-2.5 border border-gray-200 text-gray-700 text-sm font-semibold rounded-2xl hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── New board modal ── */}
+      {newBoardOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm backdrop-fade" onClick={() => setNewBoardOpen(false)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl p-6 w-full max-w-xs modal-animate">
+            <h3 className="text-base font-semibold text-gray-900 mb-4">New Board</h3>
+
+            <div className="space-y-3 mb-6">
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest block mb-1">
+                  Name <span className="text-red-400">*</span>
+                </label>
+                <input
+                  value={newBoardName}
+                  onChange={e => setNewBoardName(e.target.value)}
+                  maxLength={20}
+                  className="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                  placeholder="Board name"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest block mb-1">
+                  Description <span className="text-gray-300 normal-case font-normal tracking-normal">optional</span>
+                </label>
+                <textarea
+                  value={newBoardDesc}
+                  onChange={e => setNewBoardDesc(e.target.value)}
+                  maxLength={150}
+                  rows={3}
+                  className="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none leading-relaxed"
+                  placeholder="Add a description…"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <button
+                disabled={!newBoardName.trim() || boards.includes(newBoardName.trim())}
+                onClick={() => {
+                  const name = newBoardName.trim();
+                  const desc = newBoardDesc.trim();
+                  onCreateBoard(name, desc);
+                  setActiveFilter(name);
+                  setNewBoardOpen(false);
+                }}
+                className="w-full py-2.5 bg-gray-900 text-white text-sm font-semibold rounded-2xl hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                Create
+              </button>
+              <button
+                onClick={() => setNewBoardOpen(false)}
                 className="w-full py-2.5 border border-gray-200 text-gray-700 text-sm font-semibold rounded-2xl hover:bg-gray-50 transition-colors"
               >
                 Cancel
@@ -1745,6 +1856,19 @@ export default function WardrobeApp() {
     setBoardMeta(prev => { const next = { ...prev }; delete next[name]; return next; });
   };
 
+  const handleToggleItemBoard = (itemId, board) => {
+    setItems(prev => prev.map(i => {
+      if (i.id !== itemId) return i;
+      const inBoard = i.boards.includes(board);
+      return { ...i, boards: inBoard ? i.boards.filter(b => b !== board) : [...i.boards, board] };
+    }));
+  };
+
+  const handleCreateBoard = (name, description) => {
+    setBoards(prev => [...prev, name]);
+    if (description) setBoardMeta(prev => ({ ...prev, [name]: { description } }));
+  };
+
   const handleEditBoard = (oldName, newName, description) => {
     setBoards(prev => prev.map(b => b === oldName ? newName : b));
     setItems(prev => prev.map(i => ({
@@ -1850,6 +1974,8 @@ export default function WardrobeApp() {
           onDeleteBoard={handleDeleteBoard}
           onEditBoard={handleEditBoard}
           onDeleteItems={handleDeleteItems}
+          onCreateBoard={handleCreateBoard}
+          onToggleItemBoard={handleToggleItemBoard}
         />
       );
       case 'today':   return <TodayTab />;
@@ -1999,6 +2125,8 @@ export default function WardrobeApp() {
           onOpenCollage={handleOpenExistingCollage}
           savedOutfits={savedOutfits}
           draftOutfits={draftOutfits}
+          boards={boards}
+          onToggleBoard={handleToggleItemBoard}
         />
       )}
     </div>
