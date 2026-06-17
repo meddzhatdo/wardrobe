@@ -600,6 +600,12 @@ function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
   const [activeFilter, setActiveFilter] = useState('All');
   const [boardsOpen, setBoardsOpen] = useState(false);
   const [panelWidth, setPanelWidth] = useState(240);
+  const [showExitWarning, setShowExitWarning] = useState(false);
+
+  const requestClose = () => {
+    if (canvasItems.length > 0) setShowExitWarning(true);
+    else onClose();
+  };
 
   const filtered =
     activeFilter === 'All'
@@ -635,7 +641,7 @@ function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-100 flex-shrink-0">
         <button
-          onClick={onClose}
+          onClick={requestClose}
           className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors flex-shrink-0"
         >
           <X size={16} className="text-gray-600" />
@@ -759,6 +765,38 @@ function CreateOutfitModal({ onClose, onSave, onSaveDraft }) {
           </div>
         </div>
       </div>
+
+      {/* ── Exit warning overlay ── */}
+      {showExitWarning && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/30 backdrop-blur-sm backdrop-fade">
+          <div className="bg-white rounded-3xl shadow-2xl p-6 mx-6 max-w-xs w-full modal-animate">
+            <h3 className="text-base font-semibold text-gray-900 mb-1">Discard outfit?</h3>
+            <p className="text-sm text-gray-500 mb-5 leading-relaxed">
+              You have unsaved changes. Save a draft to continue later, or discard and exit.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => { onSaveDraft(canvasItems); onClose(); }}
+                className="w-full py-2.5 border border-gray-200 text-gray-800 text-sm font-semibold rounded-2xl hover:bg-gray-50 transition-colors"
+              >
+                Save Draft & Exit
+              </button>
+              <button
+                onClick={onClose}
+                className="w-full py-2.5 bg-red-500 text-white text-sm font-semibold rounded-2xl hover:bg-red-600 transition-colors"
+              >
+                Discard
+              </button>
+              <button
+                onClick={() => setShowExitWarning(false)}
+                className="w-full py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                Keep Editing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
