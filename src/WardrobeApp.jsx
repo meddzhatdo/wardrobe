@@ -592,41 +592,143 @@ function TodayTab() {
   );
 }
 
-function StudioTab() {
+/* ─────────────────────────────────────────────────────────────────────────────
+   CreateOutfitModal
+   ───────────────────────────────────────────────────────────────────────────── */
+function CreateOutfitModal({ onClose }) {
+  const [canvasItems, setCanvasItems] = useState([]);
+  const [activeFilter, setActiveFilter] = useState('All');
+
+  const filtered =
+    activeFilter === 'All'
+      ? ITEMS
+      : ITEMS.filter(i => i.boards.includes(activeFilter));
+
+  const addToCanvas = item =>
+    setCanvasItems(prev => [...prev, { ...item, _cid: `${item.id}-${Date.now()}` }]);
+
+  const removeFromCanvas = cid =>
+    setCanvasItems(prev => prev.filter(i => i._cid !== cid));
+
   return (
-    <div className="flex flex-col h-full overflow-y-auto scrollbar-hide px-6 md:px-10 pb-28 md:pb-8">
-      <div className="pt-8 mb-7">
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Style Studio</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Build & save complete outfits</p>
+    <div className="fixed inset-0 z-50 bg-white flex flex-col">
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 flex-shrink-0">
+        <button
+          onClick={onClose}
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+        >
+          <X size={16} className="text-gray-600" />
+        </button>
+        <p className="text-sm font-semibold text-gray-900">New Outfit</p>
+        <button className="px-4 py-1.5 bg-gray-900 text-white text-xs font-semibold rounded-full hover:bg-gray-700 transition-colors">
+          Save
+        </button>
       </div>
 
-      {/* Canvas placeholder */}
-      <div className="flex-1 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center min-h-64 mb-6">
-        <div className="w-14 h-14 bg-violet-100 rounded-2xl flex items-center justify-center mb-4">
-          <Wand2 size={24} className="text-violet-400" />
+      {/* Body — canvas left, wardrobe panel right */}
+      <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
+
+        {/* ── Collage canvas ── */}
+        <div className="flex-1 bg-gray-50 relative overflow-hidden border-b md:border-b-0 md:border-r border-gray-100">
+          {canvasItems.length === 0 ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-8 select-none">
+              <div className="w-12 h-12 border-2 border-dashed border-gray-300 rounded-2xl flex items-center justify-center mb-3">
+                <Plus size={20} className="text-gray-300" />
+              </div>
+              <p className="text-sm font-medium text-gray-400">Pick pieces from your wardrobe</p>
+            </div>
+          ) : (
+            <div className="absolute inset-0 overflow-y-auto scrollbar-hide p-4">
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {canvasItems.map(item => (
+                  <div key={item._cid} className="relative group aspect-square rounded-xl overflow-hidden bg-gray-200">
+                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => removeFromCanvas(item._cid)}
+                      className="absolute top-1.5 right-1.5 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X size={9} strokeWidth={2.5} className="text-white" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-        <p className="text-sm font-semibold text-gray-700">Drag pieces here</p>
-        <p className="text-xs text-gray-400 mt-1">Build your perfect look</p>
-      </div>
 
-      {/* Thumbnail grid skeleton */}
-      <div>
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Saved Outfits</p>
-        <div className="grid grid-cols-3 gap-2.5">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="aspect-square rounded-2xl bg-gray-100 animate-pulse"
-              style={{ animationDelay: `${i * 0.08}s` }}
-            />
-          ))}
+        {/* ── Mini wardrobe panel ── */}
+        <div className="w-full md:w-60 flex flex-col flex-shrink-0 h-56 md:h-auto bg-white">
+
+          {/* Board filter chips */}
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide px-3 py-2.5 flex-shrink-0 border-b border-gray-100">
+            {BOARDS.map(board => (
+              <button
+                key={board}
+                onClick={() => setActiveFilter(board)}
+                className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  activeFilter === board
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                }`}
+              >
+                {board}
+              </button>
+            ))}
+          </div>
+
+          {/* Items */}
+          <div className="flex-1 overflow-y-auto scrollbar-hide p-2">
+            <div className="grid grid-cols-3 gap-1.5">
+              {filtered.map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => addToCanvas(item)}
+                  className="aspect-square rounded-xl overflow-hidden bg-gray-100 hover:opacity-75 active:scale-95 transition-all"
+                >
+                  <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
-
-      <p className="mt-8 text-center text-xs font-semibold text-gray-300 uppercase tracking-[0.18em]">
-        Coming Soon
-      </p>
     </div>
+  );
+}
+
+function StudioTab() {
+  const [showCreate, setShowCreate] = useState(false);
+
+  return (
+    <>
+      <div className="flex flex-col h-full overflow-y-auto scrollbar-hide px-6 md:px-10 pb-28 md:pb-8">
+        <div className="pt-8 flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Style Studio</h1>
+            <p className="text-sm text-gray-400 mt-0.5">Your saved outfits</p>
+          </div>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-900 hover:bg-gray-700 transition-colors shadow-sm"
+          >
+            <Plus size={17} strokeWidth={2.5} className="text-white" />
+          </button>
+        </div>
+
+        {/* Empty state */}
+        <div className="flex-1 flex flex-col items-center justify-center py-20 text-center">
+          <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
+            <Wand2 size={22} className="text-gray-300" />
+          </div>
+          <p className="text-sm font-semibold text-gray-800">No outfits yet</p>
+          <p className="text-sm text-gray-400 mt-1">Tap + to create your first look</p>
+        </div>
+      </div>
+
+      {showCreate && <CreateOutfitModal onClose={() => setShowCreate(false)} />}
+    </>
   );
 }
 
