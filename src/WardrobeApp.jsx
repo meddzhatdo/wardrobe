@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Sun, Shirt, Wand2, Sparkles,
   X, Heart, Plus, Search, ChevronRight, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal,
-  Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut,
+  Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut, Download, Eraser,
 } from 'lucide-react';
 import { supabase } from './supabase.js';
 
@@ -459,12 +459,236 @@ function AddToCollageModal({ savedOutfits, draftOutfits, onClose, onCreateNew, o
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   BackgroundEraserModal
+   ───────────────────────────────────────────────────────────────────────────── */
+function BackgroundEraserModal({ image, onSave, onClose }) {
+  const canvasRef = useRef(null);
+  const [brushSize, setBrushSize] = useState(24);
+  const [isErasing, setIsErasing] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const lastPos = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    fetch(image)
+      .then(r => r.blob())
+      .then(blob => {
+        const blobUrl = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+          URL.revokeObjectURL(blobUrl);
+          const MAX = 1200;
+          const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+          canvas.width  = Math.round(img.naturalWidth  * scale);
+          canvas.height = Math.round(img.naturalHeight * scale);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          setHistory([ctx.getImageData(0, 0, canvas.width, canvas.height)]);
+          setLoaded(true);
+        };
+        img.src = blobUrl;
+      })
+      .catch(() => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          canvas.width  = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          setHistory([ctx.getImageData(0, 0, canvas.width, canvas.height)]);
+          setLoaded(true);
+        };
+        img.src = image;
+      });
+  }, [image]);
+
+  const getPos = (e) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width  / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const pt = e.touches ? e.touches[0] : e;
+    return { x: (pt.clientX - rect.left) * scaleX, y: (pt.clientY - rect.top) * scaleY };
+  };
+
+  const scaledRadius = () => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    return brushSize * (canvas.width / rect.width);
+  };
+
+  const erasePoint = (ctx, x, y) => {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.arc(x, y, scaledRadius(), 0, Math.PI * 2);
+    ctx.fill();
+  };
+
+  const eraseLine = (ctx, x0, y0, x1, y1) => {
+    const r = scaledRadius();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.lineWidth  = r * 2;
+    ctx.lineCap    = 'round';
+    ctx.lineJoin   = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+  };
+
+  const onPointerDown = (e) => {
+    e.preventDefault();
+    const pos = getPos(e);
+    erasePoint(canvasRef.current.getContext('2d'), pos.x, pos.y);
+    lastPos.current = pos;
+    setIsErasing(true);
+  };
+
+  const onPointerMove = (e) => {
+    e.preventDefault();
+    if (!isErasing) return;
+    const pos = getPos(e);
+    eraseLine(canvasRef.current.getContext('2d'), lastPos.current.x, lastPos.current.y, pos.x, pos.y);
+    lastPos.current = pos;
+  };
+
+  const onPointerUp = () => {
+    if (!isErasing) return;
+    setIsErasing(false);
+    const canvas = canvasRef.current;
+    const snap = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+    setHistory(h => [...h.slice(-19), snap]);
+  };
+
+  const undo = () => {
+    if (history.length <= 1) return;
+    const newH = history.slice(0, -1);
+    setHistory(newH);
+    const canvas = canvasRef.current;
+    canvas.getContext('2d').putImageData(newH[newH.length - 1], 0, 0);
+  };
+
+  const reset = () => {
+    if (!history.length) return;
+    const canvas = canvasRef.current;
+    canvas.getContext('2d').putImageData(history[0], 0, 0);
+    setHistory(h => [h[0]]);
+  };
+
+  const handleSave = () => {
+    setSaving(true);
+    canvasRef.current.toBlob(blob => onSave(blob), 'image/png');
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/85 p-4 md:p-6">
+
+      {/* Header row */}
+      <div className="w-full max-w-lg flex items-center justify-between mb-3 flex-shrink-0">
+        <h3 className="text-sm font-semibold text-white">Erase Background</h3>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={undo}
+            disabled={history.length <= 1}
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-white/60 hover:text-white disabled:opacity-25 transition-colors rounded-lg hover:bg-white/10"
+          >
+            <Undo2 size={13} /> Undo
+          </button>
+          <button
+            onClick={reset}
+            className="px-3 py-1.5 text-xs font-medium text-white/60 hover:text-white transition-colors rounded-lg hover:bg-white/10"
+          >
+            Reset
+          </button>
+          <button
+            onClick={onClose}
+            className="ml-1 w-7 h-7 flex items-center justify-center text-white/60 hover:text-white transition-colors rounded-lg hover:bg-white/10"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      </div>
+
+      {/* Canvas area */}
+      <div
+        className="w-full max-w-lg flex-1 flex items-center justify-center rounded-2xl overflow-hidden relative"
+        style={{
+          minHeight: 0,
+          backgroundImage: 'repeating-conic-gradient(#666 0% 25%, #444 0% 50%)',
+          backgroundSize: '20px 20px',
+        }}
+      >
+        {!loaded && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Loader2 size={24} className="text-white/50 animate-spin" />
+          </div>
+        )}
+        <canvas
+          ref={canvasRef}
+          style={{
+            maxWidth: '100%',
+            maxHeight: '100%',
+            display: 'block',
+            cursor: 'crosshair',
+            touchAction: 'none',
+            opacity: loaded ? 1 : 0,
+          }}
+          onMouseDown={onPointerDown}
+          onMouseMove={onPointerMove}
+          onMouseUp={onPointerUp}
+          onMouseLeave={onPointerUp}
+          onTouchStart={onPointerDown}
+          onTouchMove={onPointerMove}
+          onTouchEnd={onPointerUp}
+        />
+      </div>
+
+      {/* Controls */}
+      <div className="w-full max-w-lg flex-shrink-0 mt-3 space-y-3">
+        <div className="flex items-center gap-3 px-1">
+          <Brush size={13} className="text-white/40 flex-shrink-0" />
+          <input
+            type="range" min={4} max={60} value={brushSize}
+            onChange={e => setBrushSize(Number(e.target.value))}
+            className="flex-1 accent-white"
+          />
+          <div
+            className="flex-shrink-0 rounded-full bg-white/80 transition-all"
+            style={{ width: Math.max(8, Math.min(brushSize * 0.8, 40)), height: Math.max(8, Math.min(brushSize * 0.8, 40)) }}
+          />
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 text-sm font-medium text-white/70 border border-white/20 rounded-2xl hover:bg-white/10 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !loaded}
+            className="flex-1 py-3 text-sm font-medium bg-white text-gray-900 rounded-2xl hover:bg-gray-100 transition-colors disabled:opacity-50"
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    ItemModal
    ───────────────────────────────────────────────────────────────────────────── */
-function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onAddToOutfit, onOpenCollage, savedOutfits, draftOutfits, boards, onToggleBoard }) {
+function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onAddToOutfit, onOpenCollage, savedOutfits, draftOutfits, boards, onToggleBoard, onUpdateImage }) {
   const [editMode, setEditMode] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCollagePicker, setShowCollagePicker] = useState(false);
+  const [showEraser, setShowEraser] = useState(false);
   const [boardMenuOpen, setBoardMenuOpen] = useState(false);
   const boardMenuRef = useRef(null);
 
@@ -566,6 +790,15 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
             alt={item.name}
             className="w-full h-full object-contain"
           />
+          {editMode && (
+            <button
+              onClick={() => setShowEraser(true)}
+              className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-4 py-2 bg-white/90 backdrop-blur-sm text-xs font-semibold text-gray-700 rounded-full shadow-md hover:bg-white border border-gray-200 transition-colors whitespace-nowrap"
+            >
+              <Eraser size={13} />
+              Edit background
+            </button>
+          )}
         </div>
 
         {/* Brand + name + action buttons — kept outside scroll container so tooltip renders over image */}
@@ -597,6 +830,34 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
               )}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Save image to device */}
+              <div className="relative group/download">
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(item.image);
+                      if (!res.ok) { window.open(item.image, '_blank'); return; }
+                      const blob = await res.blob();
+                      const extMap = { 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' };
+                      const ext = extMap[blob.type] || 'jpg';
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `${item.name || 'item'}.${ext}`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch {
+                      window.open(item.image, '_blank');
+                    }
+                  }}
+                  className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition-all"
+                >
+                  <Download size={15} className="text-gray-400" />
+                </button>
+                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[11px] rounded-lg whitespace-nowrap opacity-0 group-hover/download:opacity-100 transition-opacity z-[20]">
+                  Save image
+                </div>
+              </div>
               {/* Board membership toggle */}
               <div className="relative group/boards" ref={boardMenuRef}>
                 <button
@@ -783,6 +1044,18 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
           onOpenCollage={(outfit, type) => { setShowCollagePicker(false); onOpenCollage(item, outfit, type); }}
         />
       )}
+
+      {showEraser && (
+        <BackgroundEraserModal
+          image={item.image}
+          onClose={() => setShowEraser(false)}
+          onSave={blob => {
+            setShowEraser(false);
+            setEditMode(false);
+            onUpdateImage?.(item.id, blob);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -794,12 +1067,12 @@ function GridCard({ item, onClick }) {
   return (
     <div className="cursor-pointer group" onClick={() => onClick(item)}>
       <div className="relative rounded-2xl overflow-hidden bg-gray-100">
-        <div className="w-full aspect-square">
+        <div className="w-full aspect-[3/4] p-3">
           <img
             src={item.image}
             alt={item.name}
             loading="lazy"
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-[1.04]"
           />
         </div>
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/6 transition-colors duration-300 pointer-events-none" />
@@ -1070,7 +1343,7 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
             <p className="text-sm font-semibold text-gray-800">No items in this board</p>
           </div>
         ) : (
-          <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
             {filtered.map(item => (
               <GridCard key={item.id} item={item} onClick={onSelectItem} />
             ))}
@@ -1103,7 +1376,7 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
                 <p className="text-sm font-semibold text-gray-800">No items in this board</p>
               </div>
             ) : (
-              <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
                 {organizedItems.map(item => (
                   <OrganizeCard
                     key={item.id}
@@ -1392,7 +1665,7 @@ function TodayTab() {
 /* ─────────────────────────────────────────────────────────────────────────────
    CreateOutfitModal
    ───────────────────────────────────────────────────────────────────────────── */
-function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, onClose, onPublish, onAutoSave, onDetachCollage }) {
+function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, onClose, onPublish, onAutoSave, onDetachCollage, items = [], boards = ['All'] }) {
   const [canvasItems, setCanvasItems] = useState([]);
   const [activeFilter, setActiveFilter] = useState('All');
   const [boardsOpen, setBoardsOpen] = useState(false);
@@ -1491,8 +1764,8 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, on
 
   const filtered =
     activeFilter === 'All'
-      ? ITEMS
-      : ITEMS.filter(i => i.boards.includes(activeFilter));
+      ? items
+      : items.filter(i => i.boards.includes(activeFilter));
 
   // Click-to-add: cascade items from center so they don't stack
   const addToCanvas = item => {
@@ -1544,7 +1817,7 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, on
   const handleDrop = e => {
     e.preventDefault();
     setIsDragOver(false);
-    const item = ITEMS.find(i => i.id === Number(e.dataTransfer.getData('itemId')));
+    const item = items.find(i => i.id === Number(e.dataTransfer.getData('itemId')));
     if (!item) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(e.clientX - rect.left - ITEM_SIZE / 2, rect.width  - ITEM_SIZE));
@@ -2026,10 +2299,10 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, on
                 onClick={e => e.stopPropagation()}
               >
                 <div
-                  className={`w-full h-full rounded-xl overflow-hidden bg-gray-200 transition-shadow ${draggingCid === item._cid ? 'shadow-2xl' : 'shadow-sm'} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}
+                  className={`w-full h-full ${isSelected ? 'ring-2 ring-blue-400 rounded-xl' : ''}`}
                   style={item.flipX ? { transform: 'scaleX(-1)' } : undefined}
                 >
-                  <img src={item.image} alt={item.name} draggable={false} className="w-full h-full object-cover pointer-events-none" />
+                  <img src={item.image} alt={item.name} draggable={false} className="w-full h-full object-contain pointer-events-none" />
                 </div>
                 {/* Selection handles */}
                 {isSelected && (
@@ -2074,7 +2347,7 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, on
 
             {boardsOpen && (
               <div className="border-t border-gray-100 py-1">
-                {BOARDS.map(board => {
+                {boards.map(board => {
                   const active = activeFilter === board;
                   return (
                     <button
@@ -2102,9 +2375,9 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, on
                   draggable
                   onDragStart={e => handleDragStart(e, item)}
                   onClick={() => addToCanvas(item)}
-                  className="aspect-square rounded-xl overflow-hidden bg-gray-100 hover:opacity-75 active:scale-95 transition-all cursor-grab active:cursor-grabbing"
+                  className="aspect-square rounded-xl overflow-hidden bg-[#f0f0f0] bg-[repeating-conic-gradient(#e0e0e0_0%_25%,#f0f0f0_0%_50%)] [background-size:12px_12px] hover:opacity-75 active:scale-95 transition-all cursor-grab active:cursor-grabbing"
                 >
-                  <img src={item.image} alt={item.name} draggable={false} className="w-full h-full object-cover pointer-events-none" />
+                  <img src={item.image} alt={item.name} draggable={false} className="w-full h-full object-contain pointer-events-none" />
                 </div>
               ))}
             </div>
@@ -2119,8 +2392,72 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, on
 /* ─────────────────────────────────────────────────────────────────────────────
    OutfitCard
    ───────────────────────────────────────────────────────────────────────────── */
+async function saveCollageAsPng(outfit) {
+  const { items = [], bgColor = '#FFFFFF', canvasWidth = 480, canvasHeight = 679, name } = outfit;
+  const SCALE = 2;
+  const W = canvasWidth * SCALE;
+  const H = canvasHeight * SCALE;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, W, H);
+  if (bgColor !== '#FFFFFF') {
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  const bitmaps = await Promise.all(
+    items.map(async item => {
+      try {
+        const res = await fetch(item.image);
+        if (!res.ok) return null;
+        return createImageBitmap(await res.blob());
+      } catch { return null; }
+    })
+  );
+
+  items.forEach((item, idx) => {
+    const bitmap = bitmaps[idx];
+    if (!bitmap) return;
+    const x   = (item.x   ?? 0)   * SCALE;
+    const y   = (item.y   ?? 0)   * SCALE;
+    const w   = (item.w   ?? 128) * SCALE;
+    const h   = (item.h   ?? 128) * SCALE;
+    const rot = (item.rotation ?? 0) * Math.PI / 180;
+    const imgAspect = bitmap.width / bitmap.height;
+    const boxAspect = w / h;
+    let drawW, drawH, offX = 0, offY = 0;
+    if (imgAspect > boxAspect) {
+      drawW = w; drawH = w / imgAspect; offY = (h - drawH) / 2;
+    } else {
+      drawH = h; drawW = h * imgAspect; offX = (w - drawW) / 2;
+    }
+    ctx.save();
+    ctx.translate(x + w / 2, y + h / 2);
+    ctx.rotate(rot);
+    if (item.flipX) ctx.scale(-1, 1);
+    ctx.drawImage(bitmap, -w / 2 + offX, -h / 2 + offY, drawW, drawH);
+    ctx.restore();
+    bitmap.close();
+  });
+
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${name || 'outfit'}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, 'image/png');
+}
+
 function OutfitCard({ outfit, onDelete, onEdit, isDraft }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const dotsRef = useRef(null);
   const dropdownRef = useRef(null);
   const { items = [], bgColor = '#FFFFFF', canvasWidth = 480, canvasHeight = 679 } = outfit;
@@ -2164,16 +2501,11 @@ function OutfitCard({ outfit, onDelete, onEdit, isDraft }) {
                 top: `${(item.y / canvasHeight) * 100}%`,
                 width: `${(w / canvasWidth) * 100}%`,
                 height: `${(h / canvasHeight) * 100}%`,
-                transform: `rotate(${rot}deg)`,
+                transform: item.flipX ? `rotate(${rot}deg) scaleX(-1)` : `rotate(${rot}deg)`,
                 zIndex: idx + 1,
               }}
             >
-              <div
-                className="w-full h-full rounded-xl overflow-hidden"
-                style={item.flipX ? { transform: 'scaleX(-1)' } : undefined}
-              >
-                <img src={item.image} alt={item.name} draggable={false} className="w-full h-full object-cover" />
-              </div>
+              <img src={item.image} alt={item.name} draggable={false} className="w-full h-full object-contain pointer-events-none" />
             </div>
           );
         })}
@@ -2204,10 +2536,16 @@ function OutfitCard({ outfit, onDelete, onEdit, isDraft }) {
       {menuOpen && (
         <div ref={dropdownRef} className="absolute top-full right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 p-1 w-40 z-20 overflow-hidden">
           <button
-            onClick={e => e.stopPropagation()}
-            className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
+            onClick={async e => {
+              e.stopPropagation();
+              setMenuOpen(false);
+              setSaving(true);
+              try { await saveCollageAsPng(outfit); } finally { setSaving(false); }
+            }}
+            disabled={saving}
+            className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50"
           >
-            Save to device
+            {saving ? 'Saving…' : 'Save to device'}
           </button>
           <button
             onClick={e => { e.stopPropagation(); setMenuOpen(false); onDelete?.(); }}
@@ -2221,7 +2559,7 @@ function OutfitCard({ outfit, onDelete, onEdit, isDraft }) {
   );
 }
 
-function StudioTab({ savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit, onUpdateSavedOutfit, onUpdateDraftOutfit, onRemoveDraftOutfit, onRemoveSavedOutfit, pendingOutfitItem, pendingTargetCollage, onClearPendingOutfit }) {
+function StudioTab({ savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit, onUpdateSavedOutfit, onUpdateDraftOutfit, onRemoveDraftOutfit, onRemoveSavedOutfit, pendingOutfitItem, pendingTargetCollage, onClearPendingOutfit, items, boards }) {
   const [showCreate, setShowCreate]         = useState(false);
   const [createSeed, setCreateSeed]         = useState(null);
   const [initialCanvasItems, setInitialCanvasItems] = useState(null);
@@ -2314,7 +2652,7 @@ function StudioTab({ savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit
               <p className="text-sm text-gray-400 mt-1">{emptyLabel.sub}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
               {list.map(outfit => (
                 <OutfitCard
                   key={outfit.id}
@@ -2360,6 +2698,8 @@ function StudioTab({ savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit
             }
           }}
           onDetachCollage={() => setEditingCollage(null)}
+          items={items}
+          boards={boards}
         />
       )}
     </>
@@ -2438,6 +2778,25 @@ function fileToBase64(file) {
   });
 }
 
+async function convertToPng(file) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      canvas.toBlob(blob => {
+        resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' }));
+      }, 'image/png');
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
 async function enrichItem({ imageUrl, imageFile, name, brand, category, material, color }) {
   const body = imageFile
     ? { imageBase64: await fileToBase64(imageFile), mediaType: imageFile.type, name, brand, category, material, color }
@@ -2460,13 +2819,26 @@ function AddMethodModal({ onClose, onImageSelected }) {
     if (!file) return;
     setProcessing(true);
     try {
-      const { removeBackground } = await import('@imgly/background-removal');
-      const blob = await removeBackground(file);
-      const processedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' });
+      const buffer = await file.arrayBuffer();
+      const resultBlob = await new Promise((resolve, reject) => {
+        const worker = new Worker(
+          new URL('./bgRemovalWorker.js', import.meta.url),
+          { type: 'module' },
+        );
+        worker.onmessage = ({ data }) => {
+          worker.terminate();
+          if (data.ok) resolve(new Blob([data.buffer], { type: 'image/png' }));
+          else reject(new Error(data.message));
+        };
+        worker.onerror = (err) => { worker.terminate(); reject(err); };
+        worker.postMessage({ buffer, name: file.name, type: file.type }, [buffer]);
+      });
+      const processedFile = new File([resultBlob], file.name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' });
       onImageSelected(processedFile);
     } catch (err) {
-      console.error('Background removal failed, using original:', err);
-      onImageSelected(file);
+      console.error('Background removal failed, converting to PNG:', err);
+      const converted = await convertToPng(file);
+      onImageSelected(converted);
     }
   };
 
@@ -2537,7 +2909,9 @@ function AddMethodModal({ onClose, onImageSelected }) {
 }
 
 function AddItemModal({ onClose, onAdd, initialImage }) {
-  const previewUrl = initialImage ? URL.createObjectURL(initialImage) : null;
+  const [imageFile, setImageFile] = useState(initialImage ?? null);
+  const [previewUrl, setPreviewUrl] = useState(() => initialImage ? URL.createObjectURL(initialImage) : null);
+  const [showEraser, setShowEraser] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     name: '', brand: '', price: '', size: '', material: '', color: '',
@@ -2546,12 +2920,19 @@ function AddItemModal({ onClose, onAdd, initialImage }) {
 
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
   const editInput = "w-full bg-transparent border-b border-gray-200 focus:border-gray-500 focus:outline-none transition-colors text-sm font-medium text-gray-800 pb-0.5";
-  const canSave = form.name.trim() && (initialImage || true);
+
+  const handleEraserSave = (blob) => {
+    const newFile = new File([blob], 'edited.png', { type: 'image/png' });
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setImageFile(newFile);
+    setPreviewUrl(URL.createObjectURL(newFile));
+    setShowEraser(false);
+  };
 
   const handleAdd = () => {
-    if (!canSave || saving) return;
+    if (!form.name.trim() || saving) return;
     setSaving(true);
-    onAdd(form, initialImage);
+    onAdd(form, imageFile);
     onClose();
   };
 
@@ -2584,11 +2965,26 @@ function AddItemModal({ onClose, onAdd, initialImage }) {
         {/* Hero image */}
         {previewUrl && (
           <div
-            className="flex-shrink-0 h-64 overflow-hidden"
+            className="relative flex-shrink-0 h-64 overflow-hidden"
             style={{ backgroundImage: 'repeating-conic-gradient(#e5e7eb 0% 25%, #f9fafb 0% 50%)', backgroundSize: '20px 20px' }}
           >
             <img src={previewUrl} alt="" className="w-full h-full object-contain" />
+            <button
+              onClick={() => setShowEraser(true)}
+              className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-4 py-2 bg-white/90 backdrop-blur-sm text-xs font-semibold text-gray-700 rounded-full shadow-md hover:bg-white border border-gray-200 transition-colors whitespace-nowrap"
+            >
+              <Eraser size={13} />
+              Edit background
+            </button>
           </div>
+        )}
+
+        {showEraser && (
+          <BackgroundEraserModal
+            image={previewUrl}
+            onClose={() => setShowEraser(false)}
+            onSave={handleEraserSave}
+          />
         )}
 
         <div className="flex-1 overflow-y-auto scrollbar-hide">
@@ -2619,10 +3015,6 @@ function AddItemModal({ onClose, onAdd, initialImage }) {
                 >
                   {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-              </div>
-              <div>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Color</p>
-                <input value={form.color} onChange={e => set('color', e.target.value)} placeholder="e.g. Sand" className={editInput} />
               </div>
               <div>
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Size</p>
@@ -2670,7 +3062,26 @@ function dbItemToApp(row) {
 }
 
 function dbOutfitToApp(row) {
-  return { id: row.id, name: row.name, items: row.canvas_items, thumbnail: row.thumbnail };
+  const ci = row.canvas_items;
+  const isLegacyArray = Array.isArray(ci);
+  return {
+    id: row.id,
+    name: row.name,
+    thumbnail: row.thumbnail,
+    items:       isLegacyArray ? ci          : (ci?.items       ?? []),
+    bgColor:     isLegacyArray ? '#FFFFFF'   : (ci?.bgColor     ?? '#FFFFFF'),
+    canvasWidth:  isLegacyArray ? 480        : (ci?.canvasWidth  ?? 480),
+    canvasHeight: isLegacyArray ? 679        : (ci?.canvasHeight ?? 679),
+  };
+}
+
+function collageToDbPayload(collage) {
+  return {
+    items:       collage.items       ?? [],
+    bgColor:     collage.bgColor     ?? '#FFFFFF',
+    canvasWidth:  collage.canvasWidth  ?? 480,
+    canvasHeight: collage.canvasHeight ?? 679,
+  };
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -2807,6 +3218,10 @@ const SHOE_SIZES = ['5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', 
 function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onSignOut }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft]     = useState(profile);
+
+  useEffect(() => {
+    if (!editing) setDraft(profile);
+  }, [profile]);
 
   const stats = [
     { label: 'Items',   value: items.length },
@@ -3186,6 +3601,18 @@ export default function WardrobeApp() {
     if (user) await supabase.from('items').delete().eq('id', id).eq('user_id', user.id);
   };
 
+  const updateItemImage = async (id, blob) => {
+    if (!user) return;
+    const path = `${user.id}/${Date.now()}-edited.png`;
+    const file = new File([blob], 'edited.png', { type: 'image/png' });
+    const { error: uploadErr } = await supabase.storage.from('item-images').upload(path, file);
+    if (uploadErr) { console.error('Image upload error:', uploadErr); return; }
+    const { data: { publicUrl } } = supabase.storage.from('item-images').getPublicUrl(path);
+    setItems(prev => prev.map(i => i.id === id ? { ...i, image: publicUrl } : i));
+    setSelectedItem(prev => prev?.id === id ? { ...prev, image: publicUrl } : prev);
+    await supabase.from('items').update({ image_url: publicUrl }).eq('id', id).eq('user_id', user.id);
+  };
+
   const addItem = async (form, imageFile) => {
     const tempId = `temp-${Date.now()}`;
     const previewUrl = imageFile ? URL.createObjectURL(imageFile) : '';
@@ -3199,7 +3626,8 @@ export default function WardrobeApp() {
     try {
       let imageUrl = '';
       if (imageFile && user) {
-        const path = `${user.id}/${Date.now()}-${imageFile.name}`;
+        const safeName = imageFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const path = `${user.id}/${Date.now()}-${safeName}`;
         const { error: uploadErr } = await supabase.storage.from('item-images').upload(path, imageFile);
         if (!uploadErr) {
           imageUrl = supabase.storage.from('item-images').getPublicUrl(path).data.publicUrl;
@@ -3251,7 +3679,7 @@ export default function WardrobeApp() {
   const handleSaveOutfit = async collage => {
     if (!collage.items.length) return;
     const { data } = await supabase.from('outfits').insert({
-      user_id: user.id, name: collage.name || '', canvas_items: collage.items, thumbnail: collage.thumbnail || '', is_draft: false,
+      user_id: user.id, name: collage.name || '', canvas_items: collageToDbPayload(collage), thumbnail: collage.thumbnail || '', is_draft: false,
     }).select().single();
     if (data) setSavedOutfits(prev => [dbOutfitToApp(data), ...prev]);
   };
@@ -3259,19 +3687,19 @@ export default function WardrobeApp() {
   const handleSaveDraftOutfit = async collage => {
     if (!collage.items.length) return;
     const { data } = await supabase.from('outfits').insert({
-      user_id: user.id, name: collage.name || '', canvas_items: collage.items, thumbnail: collage.thumbnail || '', is_draft: true,
+      user_id: user.id, name: collage.name || '', canvas_items: collageToDbPayload(collage), thumbnail: collage.thumbnail || '', is_draft: true,
     }).select().single();
     if (data) setDraftOutfits(prev => [dbOutfitToApp(data), ...prev]);
   };
 
   const updateSavedOutfit = async (id, collage) => {
     setSavedOutfits(prev => prev.map(o => o.id === id ? { ...o, ...collage } : o));
-    await supabase.from('outfits').update({ canvas_items: collage.items, thumbnail: collage.thumbnail || '' }).eq('id', id);
+    await supabase.from('outfits').update({ canvas_items: collageToDbPayload(collage), thumbnail: collage.thumbnail || '' }).eq('id', id);
   };
 
   const updateDraftOutfit = async (id, collage) => {
     setDraftOutfits(prev => prev.map(o => o.id === id ? { ...o, ...collage } : o));
-    await supabase.from('outfits').update({ canvas_items: collage.items, thumbnail: collage.thumbnail || '' }).eq('id', id);
+    await supabase.from('outfits').update({ canvas_items: collageToDbPayload(collage), thumbnail: collage.thumbnail || '' }).eq('id', id);
   };
 
   const handleRemoveDraftOutfit = async id => {
@@ -3288,11 +3716,12 @@ export default function WardrobeApp() {
   const handleUpdateProfile = async updates => {
     setProfile(updates);
     if (user) {
-      await supabase.from('profiles').update({
+      await supabase.from('profiles').upsert({
+        id: user.id,
         name: updates.name, bio: updates.bio,
         top_size: updates.topSize, bottom_size: updates.bottomSize, shoe_size: updates.shoeSize,
         styles: updates.styles,
-      }).eq('id', user.id);
+      });
     }
   };
 
@@ -3332,6 +3761,8 @@ export default function WardrobeApp() {
           pendingOutfitItem={pendingOutfitItem}
           pendingTargetCollage={pendingTargetCollage}
           onClearPendingOutfit={() => { setPendingOutfitItem(null); setPendingTargetCollage(null); }}
+          items={items}
+          boards={boards}
         />
       );
       case 'stylist': return <StylistTab />;
@@ -3488,6 +3919,7 @@ export default function WardrobeApp() {
           onClose={() => setSelectedItem(null)}
           onUpdate={updateItem}
           onDelete={deleteItem}
+          onUpdateImage={updateItemImage}
           onAddToOutfit={handleAddToOutfit}
           onOpenCollage={handleOpenExistingCollage}
           savedOutfits={savedOutfits}
