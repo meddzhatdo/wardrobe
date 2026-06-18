@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Sun, Shirt, Wand2, Sparkles,
   X, Heart, Plus, Search, ChevronRight, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal,
-  Undo2, Redo2,
+  Undo2, Redo2, Loader2, ImageIcon, Camera,
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -75,6 +75,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=500&q=80',
     ratio: 'portrait',
     liked: false,
+    attributes: { layerType: 'outer', sleeveLength: 'long', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#C8B89A', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Muted' },
   },
   {
     id: 2,
@@ -89,6 +91,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=500&q=80',
     ratio: 'tall',
     liked: true,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#F5F0E8', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Pastel' },
   },
   {
     id: 3,
@@ -103,6 +107,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=500&q=80',
     ratio: 'square',
     liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+    colorProfile: { primaryHex: '#FFFFFF', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Muted' },
   },
   {
     id: 4,
@@ -117,6 +123,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=500&q=80',
     ratio: 'portrait',
     liked: false,
+    attributes: { layerType: 'base', sleeveLength: 'long', warmthRating: 'warm' },
+    colorProfile: { primaryHex: '#C19A6B', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Muted' },
   },
   {
     id: 5,
@@ -131,6 +139,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1542272454315-4c01d7abdf4a?auto=format&fit=crop&w=500&q=80',
     ratio: 'tall',
     liked: true,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#7B93B4', colorFamily: 'Blue', undertone: 'Cool', vibrancy: 'Muted' },
   },
   {
     id: 6,
@@ -145,6 +155,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?auto=format&fit=crop&w=500&q=80',
     ratio: 'portrait',
     liked: false,
+    attributes: { layerType: 'outer', sleeveLength: 'long', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#C8922A', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Muted' },
   },
   {
     id: 7,
@@ -159,6 +171,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=500&q=80',
     ratio: 'square',
     liked: true,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+    colorProfile: { primaryHex: '#B5733B', colorFamily: 'Brown', undertone: 'Warm', vibrancy: 'Muted' },
   },
   {
     id: 8,
@@ -173,6 +187,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1594938298603-c8148c4b02e0?auto=format&fit=crop&w=500&q=80',
     ratio: 'portrait',
     liked: false,
+    attributes: { layerType: 'base', sleeveLength: 'none', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#F2EDE4', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Pastel' },
   },
   {
     id: 9,
@@ -187,6 +203,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?auto=format&fit=crop&w=500&q=80',
     ratio: 'tall',
     liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#A89880', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Muted' },
   },
   {
     id: 10,
@@ -201,6 +219,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=500&q=80',
     ratio: 'square',
     liked: true,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+    colorProfile: { primaryHex: '#8B4513', colorFamily: 'Brown', undertone: 'Warm', vibrancy: 'Deep' },
   },
   {
     id: 11,
@@ -215,6 +235,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=500&q=80',
     ratio: 'portrait',
     liked: false,
+    attributes: { layerType: 'base', sleeveLength: 'long', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#FAFAFA', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Muted' },
   },
   {
     id: 12,
@@ -229,6 +251,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1583744946564-b432d563933f?auto=format&fit=crop&w=500&q=80',
     ratio: 'tall',
     liked: true,
+    attributes: { layerType: 'outer', sleeveLength: 'long', warmthRating: 'heavy' },
+    colorProfile: { primaryHex: '#C19A6B', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Muted' },
   },
   {
     id: 13,
@@ -243,6 +267,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1583496661160-fb5974ca5f59?auto=format&fit=crop&w=500&q=80',
     ratio: 'portrait',
     liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#E8D5A3', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Pastel' },
   },
   {
     id: 14,
@@ -257,6 +283,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=500&q=80',
     ratio: 'square',
     liked: false,
+    attributes: { layerType: 'mid', sleeveLength: 'long', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#1A1A1A', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Deep' },
   },
   {
     id: 15,
@@ -271,6 +299,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?auto=format&fit=crop&w=500&q=80',
     ratio: 'portrait',
     liked: true,
+    attributes: { layerType: 'mid', sleeveLength: 'long', warmthRating: 'warm' },
+    colorProfile: { primaryHex: '#D4C5A9', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Pastel' },
   },
   {
     id: 16,
@@ -285,6 +315,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=500&q=80',
     ratio: 'tall',
     liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'short', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#E8B4C8', colorFamily: 'Pink', undertone: 'Cool', vibrancy: 'Pastel' },
   },
 ];
 
@@ -451,9 +483,13 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
     size: item.size,
     material: item.material,
     notes: item.notes || '',
+    attributes: item.attributes || { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+    colorProfile: item.colorProfile || { primaryHex: '', colorFamily: '', undertone: 'Neutral', vibrancy: 'Muted' },
   });
 
   const set = (key, val) => setDraft(d => ({ ...d, [key]: val }));
+  const setAttr = (key, val) => setDraft(d => ({ ...d, attributes: { ...d.attributes, [key]: val } }));
+  const setColor = (key, val) => setDraft(d => ({ ...d, colorProfile: { ...d.colorProfile, [key]: val } }));
 
   const handleSave = () => {
     onUpdate(item.id, draft);
@@ -465,6 +501,8 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
       name: item.name, brand: item.brand, price: item.price,
       category: item.category, size: item.size, material: item.material,
       notes: item.notes || '',
+      attributes: item.attributes || { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+      colorProfile: item.colorProfile || { primaryHex: '', colorFamily: '', undertone: 'Neutral', vibrancy: 'Muted' },
     });
     setEditMode(false);
   };
@@ -521,11 +559,11 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
         </div>
 
         {/* Hero image */}
-        <div className="relative flex-shrink-0 h-72 md:h-80 bg-gray-100 overflow-hidden">
+        <div className="relative flex-shrink-0 h-72 md:h-80 bg-gray-50 overflow-hidden">
           <img
             src={item.image}
             alt={item.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
           />
         </div>
 
@@ -687,6 +725,7 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
                   <p className="text-sm text-gray-300 italic">No notes added</p>
                 )}
               </div>
+
             </div>
 
             {/* Bottom actions — view mode only */}
@@ -800,7 +839,7 @@ function OrganizeCard({ item, draggedId, selected, onSelect, onDragStart, onDrag
 /* ─────────────────────────────────────────────────────────────────────────────
    WardrobeTab
    ───────────────────────────────────────────────────────────────────────────── */
-function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDeleteBoard, onEditBoard, onDeleteItems, onCreateBoard, onToggleItemBoard }) {
+function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDeleteBoard, onEditBoard, onDeleteItems, onCreateBoard, onToggleItemBoard, onAddItem }) {
   const [activeFilter, setActiveFilter] = useState('All');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -967,7 +1006,7 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
               {addMenuOpen && (
                 <div className="absolute right-0 top-11 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-36 z-20">
                   <button
-                    onClick={() => setAddMenuOpen(false)}
+                    onClick={() => { setAddMenuOpen(false); onAddItem(); }}
                     className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     Item
@@ -2387,12 +2426,234 @@ function StylistTab() {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   AddItemModal
+   ───────────────────────────────────────────────────────────────────────────── */
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function enrichItem({ imageUrl, imageFile, name, brand, category, material, color }) {
+  const body = imageFile
+    ? { imageBase64: await fileToBase64(imageFile), mediaType: imageFile.type, name, brand, category, material, color }
+    : { imageUrl, name, brand, category, material, color };
+  const res = await fetch('/api/enrich-item', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error('Enrichment failed');
+  return res.json();
+}
+
+function AddMethodModal({ onClose, onImageSelected }) {
+  const fileInputRef = useRef(null);
+  const [processing, setProcessing] = useState(false);
+
+  const handleFileChange = async e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setProcessing(true);
+    try {
+      const { removeBackground } = await import('@imgly/background-removal');
+      const blob = await removeBackground(file);
+      const processedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' });
+      onImageSelected(processedFile);
+    } catch (err) {
+      console.error('Background removal failed, using original:', err);
+      onImageSelected(file);
+    }
+  };
+
+  if (processing) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm backdrop-fade" />
+        <div className="relative bg-white rounded-3xl px-10 py-8 flex flex-col items-center gap-4 shadow-2xl">
+          <Loader2 size={26} className="text-gray-400 animate-spin" />
+          <div className="text-center">
+            <p className="text-sm font-semibold text-gray-900">Removing background</p>
+            <p className="text-xs text-gray-400 mt-0.5">This may take a moment…</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-6">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm backdrop-fade" onClick={onClose} />
+      <div className="relative w-full md:w-[360px] bg-white rounded-t-[2rem] md:rounded-[2rem] shadow-2xl modal-animate">
+        <div className="flex justify-center pt-3 pb-1 md:hidden">
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+        </div>
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+        >
+          <X size={14} strokeWidth={2.5} className="text-gray-500" />
+        </button>
+
+        <div className="px-6 pt-6 pb-2">
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Add item</p>
+        </div>
+
+        <div className="px-3 pb-6">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+          >
+            <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <ImageIcon size={18} className="text-gray-600" />
+            </div>
+            <span className="text-sm font-medium text-gray-900">Add from photo gallery</span>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+
+          <div className="mx-4 border-t border-gray-100" />
+
+          <div className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl opacity-40 cursor-not-allowed">
+            <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Camera size={18} className="text-gray-600" />
+            </div>
+            <span className="text-sm font-medium text-gray-900">Take a photo</span>
+            <span className="ml-auto text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Soon</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddItemModal({ onClose, onAdd, initialImage }) {
+  const previewUrl = initialImage ? URL.createObjectURL(initialImage) : null;
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    name: '', brand: '', price: '', size: '', material: '', color: '',
+    category: CATEGORIES[0], notes: '',
+  });
+
+  const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
+  const editInput = "w-full bg-transparent border-b border-gray-200 focus:border-gray-500 focus:outline-none transition-colors text-sm font-medium text-gray-800 pb-0.5";
+  const canSave = form.name.trim() && (initialImage || true);
+
+  const handleAdd = () => {
+    if (!canSave || saving) return;
+    setSaving(true);
+    onAdd(form, initialImage);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-6">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm backdrop-fade" onClick={onClose} />
+      <div className="relative w-full md:w-[440px] bg-white rounded-t-[2rem] md:rounded-[2rem] shadow-2xl overflow-hidden modal-animate max-h-[92vh] flex flex-col">
+
+        <div className="flex justify-center pt-3 pb-1 md:hidden flex-shrink-0">
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+        </div>
+
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5">
+          <button
+            onClick={handleAdd}
+            disabled={saving || !form.name.trim()}
+            className="px-3 py-1.5 bg-gray-900 text-white text-xs font-semibold rounded-full hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-md flex items-center gap-1.5"
+          >
+            {saving && <Loader2 size={11} className="animate-spin" />}
+            Add
+          </button>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-md hover:shadow-lg transition-shadow"
+          >
+            <X size={14} strokeWidth={2.5} className="text-gray-500" />
+          </button>
+        </div>
+
+        {/* Hero image */}
+        {previewUrl && (
+          <div
+            className="flex-shrink-0 h-64 overflow-hidden"
+            style={{ backgroundImage: 'repeating-conic-gradient(#e5e7eb 0% 25%, #f9fafb 0% 50%)', backgroundSize: '20px 20px' }}
+          >
+            <img src={previewUrl} alt="" className="w-full h-full object-contain" />
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto scrollbar-hide">
+          <div className="px-6 pt-6 pb-6 space-y-5">
+            <div className="space-y-3">
+              <input
+                autoFocus
+                value={form.name}
+                onChange={e => set('name', e.target.value)}
+                placeholder="Item name *"
+                className={`${editInput} text-lg`}
+              />
+              <input
+                value={form.brand}
+                onChange={e => set('brand', e.target.value)}
+                placeholder="Brand"
+                className={editInput}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Category</p>
+                <select
+                  value={form.category}
+                  onChange={e => set('category', e.target.value)}
+                  className="w-full bg-transparent focus:outline-none text-sm font-medium text-gray-800 cursor-pointer border-b border-gray-200 pb-0.5"
+                >
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Color</p>
+                <input value={form.color} onChange={e => set('color', e.target.value)} placeholder="e.g. Sand" className={editInput} />
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Size</p>
+                <input value={form.size} onChange={e => set('size', e.target.value)} placeholder="e.g. S" className={editInput} />
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Price</p>
+                <input value={form.price} onChange={e => set('price', e.target.value)} placeholder="e.g. $120" className={editInput} />
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Material</p>
+              <input value={form.material} onChange={e => set('material', e.target.value)} placeholder="e.g. 100% Silk" className={editInput} />
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    Root — WardrobeApp
    ───────────────────────────────────────────────────────────────────────────── */
 export default function WardrobeApp() {
   const [activeTab, setActiveTab]         = useState('wardrobe');
   const [selectedItem, setSelectedItem]   = useState(null);
   const [items, setItems]                 = useState(ITEMS);
+  const [addStep, setAddStep]             = useState(null); // null | 'picker' | 'form'
+  const [addItemFile, setAddItemFile]     = useState(null);
   const [boards, setBoards]               = useState(BOARDS);
   const [boardMeta, setBoardMeta]         = useState({});
 
@@ -2482,6 +2743,48 @@ export default function WardrobeApp() {
     setSelectedItem(null);
   };
 
+  const addItem = async (form, imageFile) => {
+    const newId = Math.max(...items.map(i => i.id)) + 1;
+    const imageUrl = imageFile ? URL.createObjectURL(imageFile) : '';
+    const newItem = {
+      id: newId,
+      name: form.name,
+      brand: form.brand,
+      price: form.price,
+      size: form.size,
+      material: form.material,
+      color: form.color,
+      category: form.category,
+      notes: form.notes,
+      image: imageUrl,
+      boards: [],
+      liked: false,
+      ratio: 'portrait',
+      attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+      colorProfile: { primaryHex: '', colorFamily: '', undertone: 'Neutral', vibrancy: 'Muted' },
+      _enriching: true,
+    };
+    setItems(prev => [newItem, ...prev]);
+    try {
+      const result = await enrichItem({
+        imageFile: imageFile || null,
+        imageUrl: imageFile ? null : imageUrl,
+        name: form.name,
+        brand: form.brand,
+        category: form.category,
+        material: form.material,
+        color: form.color,
+      });
+      setItems(prev => prev.map(i =>
+        i.id === newId ? { ...i, ...result, _enriching: false } : i
+      ));
+    } catch {
+      setItems(prev => prev.map(i =>
+        i.id === newId ? { ...i, _enriching: false } : i
+      ));
+    }
+  };
+
   const handleAddToOutfit = item => {
     setPendingOutfitItem(item);
     setPendingTargetCollage(null);
@@ -2532,6 +2835,7 @@ export default function WardrobeApp() {
           onDeleteItems={handleDeleteItems}
           onCreateBoard={handleCreateBoard}
           onToggleItemBoard={handleToggleItemBoard}
+          onAddItem={() => setAddStep('picker')}
         />
       );
       case 'today':   return <TodayTab />;
@@ -2685,6 +2989,21 @@ export default function WardrobeApp() {
           draftOutfits={draftOutfits}
           boards={boards}
           onToggleBoard={handleToggleItemBoard}
+        />
+      )}
+
+      {addStep === 'picker' && (
+        <AddMethodModal
+          onClose={() => setAddStep(null)}
+          onImageSelected={file => { setAddItemFile(file); setAddStep('form'); }}
+        />
+      )}
+
+      {addStep === 'form' && (
+        <AddItemModal
+          onClose={() => { setAddStep(null); setAddItemFile(null); }}
+          onAdd={addItem}
+          initialImage={addItemFile}
         />
       )}
     </div>
