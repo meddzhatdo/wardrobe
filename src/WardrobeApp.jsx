@@ -572,14 +572,19 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
                   </div>
                 )}
               </div>
-              <button
-                onClick={() => onToggleLike(item.id)}
-                className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all ${
-                  liked ? 'bg-rose-50 border-rose-200' : 'border-gray-200 bg-white hover:bg-gray-50'
-                }`}
-              >
-                <Heart size={15} className={liked ? 'text-rose-500 fill-rose-500' : 'text-gray-400'} />
-              </button>
+              <div className="relative group/like">
+                <button
+                  onClick={() => onToggleLike(item.id)}
+                  className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all ${
+                    liked ? 'bg-rose-50 border-rose-200' : 'border-gray-200 bg-white hover:bg-gray-50'
+                  }`}
+                >
+                  <Heart size={15} className={liked ? 'text-rose-500 fill-rose-500' : 'text-gray-400'} />
+                </button>
+                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[11px] rounded-lg whitespace-nowrap opacity-0 group-hover/like:opacity-100 transition-opacity z-[20]">
+                  Favorite item
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1019,11 +1024,11 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
         <div className="fixed inset-0 z-50 bg-white flex flex-col">
 
           {/* Header */}
-          <div className="flex items-center justify-between px-5 md:px-7 pt-14 md:pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
-            <h2 className="text-base font-semibold text-gray-900">Organize Board</h2>
+          <div className="relative flex items-center justify-center px-5 md:px-7 pt-14 md:pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
+            <h2 className="text-xl font-semibold text-gray-900">Organize Board</h2>
             <button
               onClick={exitOrganize}
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+              className="absolute right-5 md:right-7 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
             >
               <X size={16} className="text-gray-600" />
             </button>
@@ -1862,6 +1867,11 @@ export default function WardrobeApp() {
       const inBoard = i.boards.includes(board);
       return { ...i, boards: inBoard ? i.boards.filter(b => b !== board) : [...i.boards, board] };
     }));
+    setSelectedItem(prev => {
+      if (prev?.id !== itemId) return prev;
+      const inBoard = prev.boards.includes(board);
+      return { ...prev, boards: inBoard ? prev.boards.filter(b => b !== board) : [...prev.boards, board] };
+    });
   };
 
   const handleCreateBoard = (name, description) => {
