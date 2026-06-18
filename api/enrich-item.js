@@ -6,9 +6,9 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { imageUrl, name, brand, category, material, color } = req.body;
+  const { imageUrl, imageBase64, mediaType, name, brand, category, material, color } = req.body;
 
-  if (!imageUrl) return res.status(400).json({ error: 'imageUrl is required' });
+  if (!imageUrl && !imageBase64) return res.status(400).json({ error: 'imageUrl or imageBase64 is required' });
 
   const systemPrompt = `You are a fashion AI that returns structured JSON describing a garment's attributes and color profile. Return ONLY valid JSON — no markdown, no explanation.`;
 
@@ -56,7 +56,9 @@ Rules:
             content: [
               {
                 type: 'image',
-                source: { type: 'url', url: imageUrl },
+                source: imageBase64
+                  ? { type: 'base64', media_type: mediaType || 'image/jpeg', data: imageBase64 }
+                  : { type: 'url', url: imageUrl },
               },
               {
                 type: 'text',

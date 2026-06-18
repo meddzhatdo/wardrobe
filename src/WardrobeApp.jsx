@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Sun, Shirt, Wand2, Sparkles,
   X, Heart, Plus, Search, ChevronRight, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal,
-  Undo2, Redo2, Loader2,
+  Undo2, Redo2, Loader2, ImageIcon, Camera,
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -559,11 +559,11 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
         </div>
 
         {/* Hero image */}
-        <div className="relative flex-shrink-0 h-72 md:h-80 bg-gray-100 overflow-hidden">
+        <div className="relative flex-shrink-0 h-72 md:h-80 bg-gray-50 overflow-hidden">
           <img
             src={item.image}
             alt={item.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain"
           />
         </div>
 
@@ -726,95 +726,6 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
                 )}
               </div>
 
-              {/* Attributes */}
-              <div className="col-span-2 bg-gray-50 rounded-2xl px-4 py-3">
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Attributes</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: 'Layer', key: 'layerType', options: ['none', 'base', 'mid', 'outer'] },
-                    { label: 'Sleeve', key: 'sleeveLength', options: ['none', 'short', 'long'] },
-                    { label: 'Warmth', key: 'warmthRating', options: ['none', 'light', 'warm', 'heavy'] },
-                  ].map(({ label, key, options }) => (
-                    <div key={key}>
-                      <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">{label}</p>
-                      {editMode ? (
-                        <select
-                          value={draft.attributes[key]}
-                          onChange={e => setAttr(key, e.target.value)}
-                          className="w-full bg-transparent focus:outline-none text-xs font-medium text-gray-800 cursor-pointer"
-                        >
-                          {options.map(o => <option key={o} value={o}>{o}</option>)}
-                        </select>
-                      ) : (
-                        <p className="text-xs font-medium text-gray-800 capitalize">{item.attributes?.[key] ?? '—'}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Color Profile */}
-              <div className="col-span-2 bg-gray-50 rounded-2xl px-4 py-3">
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Color Profile</p>
-                <div className="flex items-center gap-3 mb-2.5">
-                  {editMode ? (
-                    <input
-                      type="color"
-                      value={draft.colorProfile.primaryHex || '#000000'}
-                      onChange={e => setColor('primaryHex', e.target.value)}
-                      className="w-8 h-8 rounded-full border border-gray-200 cursor-pointer p-0.5 bg-transparent flex-shrink-0"
-                    />
-                  ) : (
-                    <div
-                      className="w-8 h-8 rounded-full border border-gray-200 flex-shrink-0"
-                      style={{ backgroundColor: item.colorProfile?.primaryHex || '#e5e7eb' }}
-                    />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    {editMode ? (
-                      <input
-                        value={draft.colorProfile.primaryHex}
-                        onChange={e => setColor('primaryHex', e.target.value)}
-                        placeholder="#000000"
-                        className={`${editInput} text-xs font-mono text-gray-700`}
-                      />
-                    ) : (
-                      <p className="text-xs font-mono text-gray-700">{item.colorProfile?.primaryHex || '—'}</p>
-                    )}
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: 'Family', key: 'colorFamily', options: null },
-                    { label: 'Undertone', key: 'undertone', options: ['Warm', 'Cool', 'Neutral'] },
-                    { label: 'Vibrancy', key: 'vibrancy', options: ['Vibrant', 'Pastel', 'Muted', 'Deep'] },
-                  ].map(({ label, key, options }) => (
-                    <div key={key}>
-                      <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">{label}</p>
-                      {editMode ? (
-                        options ? (
-                          <select
-                            value={draft.colorProfile[key]}
-                            onChange={e => setColor(key, e.target.value)}
-                            className="w-full bg-transparent focus:outline-none text-xs font-medium text-gray-800 cursor-pointer"
-                          >
-                            {options.map(o => <option key={o} value={o}>{o}</option>)}
-                          </select>
-                        ) : (
-                          <input
-                            value={draft.colorProfile[key]}
-                            onChange={e => setColor(key, e.target.value)}
-                            placeholder="e.g. Blue"
-                            className={`${editInput} text-xs font-medium text-gray-800`}
-                          />
-                        )
-                      ) : (
-                        <p className="text-xs font-medium text-gray-800">{item.colorProfile?.[key] || '—'}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
 
             {/* Bottom actions — view mode only */}
@@ -928,7 +839,7 @@ function OrganizeCard({ item, draggedId, selected, onSelect, onDragStart, onDrag
 /* ─────────────────────────────────────────────────────────────────────────────
    WardrobeTab
    ───────────────────────────────────────────────────────────────────────────── */
-function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDeleteBoard, onEditBoard, onDeleteItems, onCreateBoard, onToggleItemBoard }) {
+function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDeleteBoard, onEditBoard, onDeleteItems, onCreateBoard, onToggleItemBoard, onAddItem }) {
   const [activeFilter, setActiveFilter] = useState('All');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -1095,7 +1006,7 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
               {addMenuOpen && (
                 <div className="absolute right-0 top-11 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-36 z-20">
                   <button
-                    onClick={() => { setAddMenuOpen(false); setShowAddItem(true); }}
+                    onClick={() => { setAddMenuOpen(false); onAddItem(); }}
                     className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     Item
@@ -2517,31 +2428,129 @@ function StylistTab() {
 /* ─────────────────────────────────────────────────────────────────────────────
    AddItemModal
    ───────────────────────────────────────────────────────────────────────────── */
-async function enrichItem({ imageUrl, name, brand, category, material, color }) {
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function enrichItem({ imageUrl, imageFile, name, brand, category, material, color }) {
+  const body = imageFile
+    ? { imageBase64: await fileToBase64(imageFile), mediaType: imageFile.type, name, brand, category, material, color }
+    : { imageUrl, name, brand, category, material, color };
   const res = await fetch('/api/enrich-item', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ imageUrl, name, brand, category, material, color }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error('Enrichment failed');
   return res.json();
 }
 
-function AddItemModal({ onClose, onAdd }) {
+function AddMethodModal({ onClose, onImageSelected }) {
+  const fileInputRef = useRef(null);
+  const [processing, setProcessing] = useState(false);
+
+  const handleFileChange = async e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setProcessing(true);
+    try {
+      const { removeBackground } = await import('@imgly/background-removal');
+      const blob = await removeBackground(file);
+      const processedFile = new File([blob], file.name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' });
+      onImageSelected(processedFile);
+    } catch (err) {
+      console.error('Background removal failed, using original:', err);
+      onImageSelected(file);
+    }
+  };
+
+  if (processing) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm backdrop-fade" />
+        <div className="relative bg-white rounded-3xl px-10 py-8 flex flex-col items-center gap-4 shadow-2xl">
+          <Loader2 size={26} className="text-gray-400 animate-spin" />
+          <div className="text-center">
+            <p className="text-sm font-semibold text-gray-900">Removing background</p>
+            <p className="text-xs text-gray-400 mt-0.5">This may take a moment…</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-6">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm backdrop-fade" onClick={onClose} />
+      <div className="relative w-full md:w-[360px] bg-white rounded-t-[2rem] md:rounded-[2rem] shadow-2xl modal-animate">
+        <div className="flex justify-center pt-3 pb-1 md:hidden">
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+        </div>
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+        >
+          <X size={14} strokeWidth={2.5} className="text-gray-500" />
+        </button>
+
+        <div className="px-6 pt-6 pb-2">
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Add item</p>
+        </div>
+
+        <div className="px-3 pb-6">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+          >
+            <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <ImageIcon size={18} className="text-gray-600" />
+            </div>
+            <span className="text-sm font-medium text-gray-900">Add from photo gallery</span>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+
+          <div className="mx-4 border-t border-gray-100" />
+
+          <div className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl opacity-40 cursor-not-allowed">
+            <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Camera size={18} className="text-gray-600" />
+            </div>
+            <span className="text-sm font-medium text-gray-900">Take a photo</span>
+            <span className="ml-auto text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Soon</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddItemModal({ onClose, onAdd, initialImage }) {
+  const previewUrl = initialImage ? URL.createObjectURL(initialImage) : null;
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     name: '', brand: '', price: '', size: '', material: '', color: '',
-    category: CATEGORIES[0], imageUrl: '', notes: '',
+    category: CATEGORIES[0], notes: '',
   });
 
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
-
   const editInput = "w-full bg-transparent border-b border-gray-200 focus:border-gray-500 focus:outline-none transition-colors text-sm font-medium text-gray-800 pb-0.5";
+  const canSave = form.name.trim() && (initialImage || true);
 
-  const handleAdd = async () => {
-    if (!form.name.trim() || !form.imageUrl.trim()) return;
+  const handleAdd = () => {
+    if (!canSave || saving) return;
     setSaving(true);
-    onAdd(form);
+    onAdd(form, initialImage);
     onClose();
   };
 
@@ -2557,7 +2566,7 @@ function AddItemModal({ onClose, onAdd }) {
         <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5">
           <button
             onClick={handleAdd}
-            disabled={saving || !form.name.trim() || !form.imageUrl.trim()}
+            disabled={saving || !form.name.trim()}
             className="px-3 py-1.5 bg-gray-900 text-white text-xs font-semibold rounded-full hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-md flex items-center gap-1.5"
           >
             {saving && <Loader2 size={11} className="animate-spin" />}
@@ -2571,40 +2580,32 @@ function AddItemModal({ onClose, onAdd }) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
-          <div className="px-6 pt-8 pb-6 space-y-5">
-            <div>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Add Item</p>
-              <div className="space-y-3">
-                <input
-                  autoFocus
-                  value={form.name}
-                  onChange={e => set('name', e.target.value)}
-                  placeholder="Item name *"
-                  className={`${editInput} text-lg`}
-                />
-                <input
-                  value={form.brand}
-                  onChange={e => set('brand', e.target.value)}
-                  placeholder="Brand"
-                  className={editInput}
-                />
-              </div>
-            </div>
+        {/* Hero image */}
+        {previewUrl && (
+          <div
+            className="flex-shrink-0 h-64 overflow-hidden"
+            style={{ backgroundImage: 'repeating-conic-gradient(#e5e7eb 0% 25%, #f9fafb 0% 50%)', backgroundSize: '20px 20px' }}
+          >
+            <img src={previewUrl} alt="" className="w-full h-full object-contain" />
+          </div>
+        )}
 
-            <div>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Image URL *</p>
+        <div className="flex-1 overflow-y-auto scrollbar-hide">
+          <div className="px-6 pt-6 pb-6 space-y-5">
+            <div className="space-y-3">
               <input
-                value={form.imageUrl}
-                onChange={e => set('imageUrl', e.target.value)}
-                placeholder="https://…"
+                autoFocus
+                value={form.name}
+                onChange={e => set('name', e.target.value)}
+                placeholder="Item name *"
+                className={`${editInput} text-lg`}
+              />
+              <input
+                value={form.brand}
+                onChange={e => set('brand', e.target.value)}
+                placeholder="Brand"
                 className={editInput}
               />
-              {form.imageUrl && (
-                <div className="mt-2 w-20 h-20 rounded-xl overflow-hidden bg-gray-100">
-                  <img src={form.imageUrl} alt="" className="w-full h-full object-cover" onError={e => { e.target.style.display = 'none'; }} />
-                </div>
-              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -2637,12 +2638,6 @@ function AddItemModal({ onClose, onAdd }) {
               <input value={form.material} onChange={e => set('material', e.target.value)} placeholder="e.g. 100% Silk" className={editInput} />
             </div>
 
-            <div className="bg-gray-50 rounded-2xl px-4 py-3 flex items-start gap-3">
-              <Sparkles size={14} className="text-gray-400 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-gray-500 leading-relaxed">
-                After adding, AI will automatically analyze the image to fill in layer type, sleeve length, warmth, and color profile.
-              </p>
-            </div>
           </div>
         </div>
       </div>
@@ -2657,7 +2652,8 @@ export default function WardrobeApp() {
   const [activeTab, setActiveTab]         = useState('wardrobe');
   const [selectedItem, setSelectedItem]   = useState(null);
   const [items, setItems]                 = useState(ITEMS);
-  const [showAddItem, setShowAddItem]     = useState(false);
+  const [addStep, setAddStep]             = useState(null); // null | 'picker' | 'form'
+  const [addItemFile, setAddItemFile]     = useState(null);
   const [boards, setBoards]               = useState(BOARDS);
   const [boardMeta, setBoardMeta]         = useState({});
 
@@ -2747,8 +2743,9 @@ export default function WardrobeApp() {
     setSelectedItem(null);
   };
 
-  const addItem = async (form) => {
+  const addItem = async (form, imageFile) => {
     const newId = Math.max(...items.map(i => i.id)) + 1;
+    const imageUrl = imageFile ? URL.createObjectURL(imageFile) : '';
     const newItem = {
       id: newId,
       name: form.name,
@@ -2759,7 +2756,7 @@ export default function WardrobeApp() {
       color: form.color,
       category: form.category,
       notes: form.notes,
-      image: form.imageUrl,
+      image: imageUrl,
       boards: [],
       liked: false,
       ratio: 'portrait',
@@ -2770,7 +2767,8 @@ export default function WardrobeApp() {
     setItems(prev => [newItem, ...prev]);
     try {
       const result = await enrichItem({
-        imageUrl: form.imageUrl,
+        imageFile: imageFile || null,
+        imageUrl: imageFile ? null : imageUrl,
         name: form.name,
         brand: form.brand,
         category: form.category,
@@ -2837,6 +2835,7 @@ export default function WardrobeApp() {
           onDeleteItems={handleDeleteItems}
           onCreateBoard={handleCreateBoard}
           onToggleItemBoard={handleToggleItemBoard}
+          onAddItem={() => setAddStep('picker')}
         />
       );
       case 'today':   return <TodayTab />;
@@ -2993,10 +2992,18 @@ export default function WardrobeApp() {
         />
       )}
 
-      {showAddItem && (
+      {addStep === 'picker' && (
+        <AddMethodModal
+          onClose={() => setAddStep(null)}
+          onImageSelected={file => { setAddItemFile(file); setAddStep('form'); }}
+        />
+      )}
+
+      {addStep === 'form' && (
         <AddItemModal
-          onClose={() => setShowAddItem(false)}
+          onClose={() => { setAddStep(null); setAddItemFile(null); }}
           onAdd={addItem}
+          initialImage={addItemFile}
         />
       )}
     </div>

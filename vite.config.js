@@ -4,6 +4,9 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  optimizeDeps: {
+    exclude: ['@imgly/background-removal'],
+  },
   server: {
     // Proxy /api to vercel dev (port 3000) when running `npm run dev` alongside `vercel dev`
     proxy: {
