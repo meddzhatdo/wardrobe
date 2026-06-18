@@ -7,8 +7,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Sun, Shirt, Wand2, Sparkles,
   X, Heart, Plus, Search, ChevronRight, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal,
-  Undo2, Redo2, Loader2, ImageIcon, Camera,
+  Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut,
 } from 'lucide-react';
+import { supabase } from './supabase.js';
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Global Styles (injected once into <head>)
@@ -2646,76 +2647,438 @@ function AddItemModal({ onClose, onAdd, initialImage }) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Root — WardrobeApp
+   DB ↔ App shape converters
    ───────────────────────────────────────────────────────────────────────────── */
-export default function WardrobeApp() {
-  const [activeTab, setActiveTab]         = useState('wardrobe');
-  const [selectedItem, setSelectedItem]   = useState(null);
-  const [items, setItems]                 = useState(ITEMS);
-  const [addStep, setAddStep]             = useState(null); // null | 'picker' | 'form'
-  const [addItemFile, setAddItemFile]     = useState(null);
-  const [boards, setBoards]               = useState(BOARDS);
-  const [boardMeta, setBoardMeta]         = useState({});
-
-  const handleDeleteBoard = name => {
-    setBoards(prev => prev.filter(b => b !== name));
-    setBoardMeta(prev => { const next = { ...prev }; delete next[name]; return next; });
+function dbItemToApp(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    brand: row.brand,
+    price: row.price,
+    size: row.size,
+    material: row.material,
+    color: row.color,
+    category: row.category,
+    notes: row.notes,
+    image: row.image_url,
+    boards: row.board_names || [],
+    liked: row.liked,
+    ratio: 'portrait',
+    attributes: row.attributes || { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+    colorProfile: row.color_profile || { primaryHex: '', colorFamily: '', undertone: 'Neutral', vibrancy: 'Muted' },
   };
+}
 
-  const handleToggleItemBoard = (itemId, board) => {
-    setItems(prev => prev.map(i => {
-      if (i.id !== itemId) return i;
-      const inBoard = i.boards.includes(board);
-      return { ...i, boards: inBoard ? i.boards.filter(b => b !== board) : [...i.boards, board] };
-    }));
-    setSelectedItem(prev => {
-      if (prev?.id !== itemId) return prev;
-      const inBoard = prev.boards.includes(board);
-      return { ...prev, boards: inBoard ? prev.boards.filter(b => b !== board) : [...prev.boards, board] };
-    });
-  };
+function dbOutfitToApp(row) {
+  return { id: row.id, name: row.name, items: row.canvas_items, thumbnail: row.thumbnail };
+}
 
-  const handleCreateBoard = (name, description) => {
-    setBoards(prev => [...prev, name]);
-    if (description) setBoardMeta(prev => ({ ...prev, [name]: { description } }));
-  };
+/* ─────────────────────────────────────────────────────────────────────────────
+   AuthScreen
+   ───────────────────────────────────────────────────────────────────────────── */
+function AuthScreen() {
+  const [mode, setMode]       = useState('signin');
+  const [name, setName]       = useState('');
+  const [email, setEmail]     = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState('');
 
-  const handleEditBoard = (oldName, newName, description) => {
-    setBoards(prev => prev.map(b => b === oldName ? newName : b));
-    setItems(prev => prev.map(i => ({
-      ...i,
-      boards: i.boards.map(b => b === oldName ? newName : b),
-    })));
-    setBoardMeta(prev => {
-      const next = { ...prev };
-      delete next[oldName];
-      if (description) next[newName] = { description };
-      return next;
-    });
-  };
-
-  const handleDeleteItems = (ids, board) => {
-    if (board === 'All') {
-      setItems(prev => prev.filter(i => !ids.has(i.id)));
-      setLikedItems(prev => {
-        const next = new Set(prev);
-        ids.forEach(id => next.delete(id));
-        return next;
-      });
-    } else {
-      setItems(prev => prev.map(i =>
-        ids.has(i.id) ? { ...i, boards: i.boards.filter(b => b !== board) } : i
-      ));
+  const handleSubmit = async e => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      if (mode === 'signup') {
+        const { data, error: err } = await supabase.auth.signUp({ email, password });
+        if (err) throw err;
+        if (data.user) {
+          await supabase.from('profiles').insert({
+            id: data.user.id,
+            name: name.trim(),
+            bio: '',
+            top_size: '',
+            bottom_size: '',
+            shoe_size: '',
+            styles: [],
+          });
+        }
+      } else {
+        const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+        if (err) throw err;
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+      <div className="w-full max-w-sm">
+        {/* Logo */}
+        <div className="text-center mb-10">
+          <p className="text-[10px] font-bold text-gray-300 uppercase tracking-[0.22em] mb-1">est. 2024</p>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Vêtu</h1>
+          <p className="text-sm text-gray-400 mt-1">Your digital wardrobe</p>
+        </div>
+
+        {/* Card */}
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
+          {/* Mode toggle */}
+          <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
+            {[{ key: 'signin', label: 'Sign In' }, { key: 'signup', label: 'Sign Up' }].map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => { setMode(key); setError(''); }}
+                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+                  mode === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === 'signup' && (
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="Your name"
+                  required
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-gray-400 transition-colors"
+                />
+              </div>
+            )}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-gray-400 transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Password</label>
+              <input
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                minLength={6}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-gray-400 transition-colors"
+              />
+            </div>
+
+            {error && <p className="text-xs text-red-500 bg-red-50 rounded-xl px-4 py-3">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {loading && <Loader2 size={15} className="animate-spin" />}
+              {mode === 'signup' ? 'Create account' : 'Sign in'}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ProfileTab
+   ───────────────────────────────────────────────────────────────────────────── */
+const STYLE_TAGS = ['Minimalist', 'Classic', 'Casual', 'Streetwear', 'Formal', 'Bohemian', 'Athletic', 'Romantic'];
+const TOP_SIZES  = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+const BOTTOM_SIZES = ['24', '25', '26', '27', '28', '29', '30', '32', 'XS', 'S', 'M', 'L', 'XL'];
+const SHOE_SIZES = ['5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10', '11', '12'];
+
+function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onSignOut }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft]     = useState(profile);
+
+  const stats = [
+    { label: 'Items',   value: items.length },
+    { label: 'Boards',  value: boards.filter(b => b !== 'All').length },
+    { label: 'Outfits', value: savedOutfits.length },
+  ];
+
+  const toggleStyle = tag => {
+    setDraft(d => ({
+      ...d,
+      styles: d.styles.includes(tag) ? d.styles.filter(s => s !== tag) : [...d.styles, tag],
+    }));
+  };
+
+  const handleSave = () => {
+    onUpdateProfile(draft);
+    setEditing(false);
+  };
+
+  const handleCancel = () => {
+    setDraft(profile);
+    setEditing(false);
+  };
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <div className="max-w-lg mx-auto px-5 pt-8 pb-32 md:pt-10">
+
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-xl font-bold text-gray-900">Profile</h2>
+          {editing ? (
+            <div className="flex gap-2">
+              <button
+                onClick={handleCancel}
+                className="px-4 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                className="px-4 py-1.5 text-sm font-medium bg-gray-900 text-white rounded-full hover:bg-gray-700 transition-colors"
+              >
+                Save
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setEditing(true)}
+              className="flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 border border-gray-200 rounded-full hover:border-gray-400 transition-all"
+            >
+              <Pencil size={13} />
+              Edit
+            </button>
+          )}
+        </div>
+
+        {/* Avatar + name + bio */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 shadow-md mb-4 flex items-center justify-center">
+            {!profile.name && <User size={28} className="text-white/80" />}
+          </div>
+
+          {editing ? (
+            <input
+              value={draft.name}
+              onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+              placeholder="Your name"
+              className="text-xl font-bold text-gray-900 text-center bg-transparent border-b-2 border-gray-300 focus:border-gray-900 outline-none pb-0.5 mb-2 w-48"
+            />
+          ) : (
+            <h3 className="text-xl font-bold text-gray-900 mb-1">{profile.name || 'Add your name'}</h3>
+          )}
+
+          {editing ? (
+            <textarea
+              value={draft.bio}
+              onChange={e => setDraft(d => ({ ...d, bio: e.target.value }))}
+              placeholder="Add a short bio…"
+              rows={2}
+              className="text-sm text-gray-500 text-center bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 outline-none focus:border-gray-400 resize-none w-full max-w-xs mt-1"
+            />
+          ) : (
+            <p className="text-sm text-gray-400 text-center mt-0.5">
+              {profile.bio || 'Add a short bio'}
+            </p>
+          )}
+        </div>
+
+        {/* Stats */}
+        <div className="flex gap-0 justify-center mb-8 py-5 border-y border-gray-100">
+          {stats.map((s, i) => (
+            <div key={s.label} className={`flex flex-col items-center flex-1 ${i > 0 ? 'border-l border-gray-100' : ''}`}>
+              <span className="text-2xl font-bold text-gray-900">{s.value}</span>
+              <span className="text-xs text-gray-400 mt-0.5">{s.label}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Sizes */}
+        <section className="mb-8">
+          <h4 className="text-sm font-semibold text-gray-700 mb-3">My Sizes</h4>
+          <div className="space-y-3">
+            {[
+              { key: 'topSize',    label: 'Top',    options: TOP_SIZES },
+              { key: 'bottomSize', label: 'Bottom', options: BOTTOM_SIZES },
+              { key: 'shoeSize',   label: 'Shoes',  options: SHOE_SIZES },
+            ].map(({ key, label, options }) => (
+              <div key={key} className="flex items-center gap-3">
+                <span className="text-sm text-gray-500 w-14 flex-shrink-0">{label}</span>
+                {editing ? (
+                  <div className="flex gap-1.5 flex-wrap">
+                    {options.map(opt => (
+                      <button
+                        key={opt}
+                        onClick={() => setDraft(d => ({ ...d, [key]: opt }))}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                          draft[key] === opt
+                            ? 'bg-gray-900 text-white'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <span className={`text-sm font-medium px-3 py-1 rounded-lg ${profile[key] ? 'bg-gray-100 text-gray-800' : 'text-gray-300'}`}>
+                    {profile[key] || 'Not set'}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Style preferences */}
+        <section className="mb-8">
+          <h4 className="text-sm font-semibold text-gray-700 mb-3">Style Preferences</h4>
+          <div className="flex flex-wrap gap-2">
+            {STYLE_TAGS.map(tag => {
+              const selected = editing ? draft.styles.includes(tag) : profile.styles.includes(tag);
+              return (
+                <button
+                  key={tag}
+                  onClick={() => editing && toggleStyle(tag)}
+                  className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
+                    selected
+                      ? 'bg-gray-900 text-white'
+                      : editing
+                        ? 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                        : 'bg-gray-100 text-gray-400'
+                  } ${!editing ? 'cursor-default' : ''}`}
+                >
+                  {tag}
+                </button>
+              );
+            })}
+          </div>
+          {!editing && profile.styles.length === 0 && (
+            <p className="text-sm text-gray-300 mt-2">Tap Edit to add your style preferences</p>
+          )}
+        </section>
+
+        {/* Settings (placeholders) */}
+        <section>
+          <h4 className="text-sm font-semibold text-gray-700 mb-3">Settings</h4>
+          <div className="space-y-1">
+            {[
+              { label: 'Notifications', sublabel: 'Coming soon' },
+              { label: 'Privacy',       sublabel: 'Coming soon' },
+              { label: 'Appearance',    sublabel: 'Coming soon' },
+            ].map(({ label, sublabel }) => (
+              <div
+                key={label}
+                className="flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                <div>
+                  <p className="text-sm font-medium text-gray-700">{label}</p>
+                  <p className="text-xs text-gray-400">{sublabel}</p>
+                </div>
+                <ChevronRight size={15} className="text-gray-300" />
+              </div>
+            ))}
+            <button
+              onClick={onSignOut}
+              className="flex items-center gap-3 w-full px-4 py-3.5 rounded-xl hover:bg-red-50 transition-colors group mt-2"
+            >
+              <LogOut size={15} className="text-red-400 group-hover:text-red-500" />
+              <p className="text-sm font-medium text-red-400 group-hover:text-red-500">Sign out</p>
+            </button>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Root — WardrobeApp
+   ───────────────────────────────────────────────────────────────────────────── */
+export default function WardrobeApp() {
+  const [user, setUser]                   = useState(null);
+  const [authLoading, setAuthLoading]     = useState(true);
+  const [activeTab, setActiveTab]         = useState('wardrobe');
+  const [selectedItem, setSelectedItem]   = useState(null);
+  const [items, setItems]                 = useState([]);
+  const [addStep, setAddStep]             = useState(null);
+  const [addItemFile, setAddItemFile]     = useState(null);
+  const [boards, setBoards]               = useState(['All']);
+  const [boardMeta, setBoardMeta]         = useState({});
+  const [profile, setProfile]             = useState({
+    name: '', bio: '', topSize: '', bottomSize: '', shoeSize: '', styles: [],
+  });
   const [pendingOutfitItem, setPendingOutfitItem] = useState(null);
   const [pendingTargetCollage, setPendingTargetCollage] = useState(null);
   const [savedOutfits, setSavedOutfits]   = useState([]);
   const [draftOutfits, setDraftOutfits]   = useState([]);
-  const [likedItems, setLikedItems]       = useState(
-    () => new Set(ITEMS.filter(i => i.liked).map(i => i.id))
-  );
+  const [likedItems, setLikedItems]       = useState(() => new Set());
+
+  // ── Auth + data loading ──────────────────────────────────────────────────
+  const loadUserData = async (uid) => {
+    const [profileRes, itemsRes, boardsRes, outfitsRes] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', uid).single(),
+      supabase.from('items').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
+      supabase.from('boards').select('*').eq('user_id', uid).order('created_at'),
+      supabase.from('outfits').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
+    ]);
+
+    if (profileRes.data) {
+      const p = profileRes.data;
+      setProfile({ name: p.name, bio: p.bio, topSize: p.top_size, bottomSize: p.bottom_size, shoeSize: p.shoe_size, styles: p.styles });
+    }
+
+    if (itemsRes.data) {
+      const appItems = itemsRes.data.map(dbItemToApp);
+      setItems(appItems);
+      setLikedItems(new Set(appItems.filter(i => i.liked).map(i => i.id)));
+    }
+
+    if (boardsRes.data) {
+      setBoards(['All', ...boardsRes.data.map(b => b.name)]);
+      const meta = {};
+      boardsRes.data.forEach(b => { if (b.description) meta[b.name] = { description: b.description }; });
+      setBoardMeta(meta);
+    }
+
+    if (outfitsRes.data) {
+      setSavedOutfits(outfitsRes.data.filter(o => !o.is_draft).map(dbOutfitToApp));
+      setDraftOutfits(outfitsRes.data.filter(o => o.is_draft).map(dbOutfitToApp));
+    }
+  };
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) loadUserData(session.user.id);
+      setAuthLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const u = session?.user ?? null;
+      setUser(u);
+      if (u) loadUserData(u.id);
+      else {
+        setItems([]); setBoards(['All']); setBoardMeta({});
+        setSavedOutfits([]); setDraftOutfits([]); setLikedItems(new Set());
+        setProfile({ name: '', bio: '', topSize: '', bottomSize: '', shoeSize: '', styles: [] });
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Inject global CSS once
   useEffect(() => {
@@ -2725,66 +3088,152 @@ export default function WardrobeApp() {
     return () => document.head.removeChild(el);
   }, []);
 
-  const toggleLike = id =>
-    setLikedItems(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+  // ── Board handlers ───────────────────────────────────────────────────────
+  const handleDeleteBoard = async name => {
+    setBoards(prev => prev.filter(b => b !== name));
+    setBoardMeta(prev => { const next = { ...prev }; delete next[name]; return next; });
+    if (user) await supabase.from('boards').delete().eq('user_id', user.id).eq('name', name);
+  };
+
+  const handleToggleItemBoard = async (itemId, board) => {
+    let nextBoards;
+    setItems(prev => prev.map(i => {
+      if (i.id !== itemId) return i;
+      const inBoard = i.boards.includes(board);
+      nextBoards = inBoard ? i.boards.filter(b => b !== board) : [...i.boards, board];
+      return { ...i, boards: nextBoards };
+    }));
+    setSelectedItem(prev => {
+      if (prev?.id !== itemId) return prev;
+      const inBoard = prev.boards.includes(board);
+      return { ...prev, boards: inBoard ? prev.boards.filter(b => b !== board) : [...prev.boards, board] };
+    });
+    if (user && nextBoards !== undefined) {
+      await supabase.from('items').update({ board_names: nextBoards }).eq('id', itemId).eq('user_id', user.id);
+    }
+  };
+
+  const handleCreateBoard = async (name, description) => {
+    setBoards(prev => [...prev, name]);
+    if (description) setBoardMeta(prev => ({ ...prev, [name]: { description } }));
+    if (user) await supabase.from('boards').insert({ user_id: user.id, name, description: description || '' });
+  };
+
+  const handleEditBoard = async (oldName, newName, description) => {
+    setBoards(prev => prev.map(b => b === oldName ? newName : b));
+    setItems(prev => prev.map(i => ({ ...i, boards: i.boards.map(b => b === oldName ? newName : b) })));
+    setBoardMeta(prev => {
+      const next = { ...prev };
+      delete next[oldName];
+      if (description) next[newName] = { description };
       return next;
     });
-
-  const updateItem = (id, updates) => {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i));
-    setSelectedItem(prev => prev?.id === id ? { ...prev, ...updates } : prev);
-  };
-
-  const deleteItem = id => {
-    setItems(prev => prev.filter(i => i.id !== id));
-    setLikedItems(prev => { const next = new Set(prev); next.delete(id); return next; });
-    setSelectedItem(null);
-  };
-
-  const addItem = async (form, imageFile) => {
-    const newId = Math.max(...items.map(i => i.id)) + 1;
-    const imageUrl = imageFile ? URL.createObjectURL(imageFile) : '';
-    const newItem = {
-      id: newId,
-      name: form.name,
-      brand: form.brand,
-      price: form.price,
-      size: form.size,
-      material: form.material,
-      color: form.color,
-      category: form.category,
-      notes: form.notes,
-      image: imageUrl,
-      boards: [],
-      liked: false,
-      ratio: 'portrait',
-      attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
-      colorProfile: { primaryHex: '', colorFamily: '', undertone: 'Neutral', vibrancy: 'Muted' },
-      _enriching: true,
-    };
-    setItems(prev => [newItem, ...prev]);
-    try {
-      const result = await enrichItem({
-        imageFile: imageFile || null,
-        imageUrl: imageFile ? null : imageUrl,
-        name: form.name,
-        brand: form.brand,
-        category: form.category,
-        material: form.material,
-        color: form.color,
-      });
-      setItems(prev => prev.map(i =>
-        i.id === newId ? { ...i, ...result, _enriching: false } : i
-      ));
-    } catch {
-      setItems(prev => prev.map(i =>
-        i.id === newId ? { ...i, _enriching: false } : i
+    if (user) {
+      await supabase.from('boards').update({ name: newName, description: description || '' }).eq('user_id', user.id).eq('name', oldName);
+      const affectedItems = items.filter(i => i.boards.includes(oldName));
+      await Promise.all(affectedItems.map(i =>
+        supabase.from('items').update({ board_names: i.boards.map(b => b === oldName ? newName : b) }).eq('id', i.id).eq('user_id', user.id)
       ));
     }
   };
 
+  const handleDeleteItems = async (ids, board) => {
+    if (board === 'All') {
+      setItems(prev => prev.filter(i => !ids.has(i.id)));
+      setLikedItems(prev => { const next = new Set(prev); ids.forEach(id => next.delete(id)); return next; });
+      if (user) await supabase.from('items').delete().in('id', [...ids]).eq('user_id', user.id);
+    } else {
+      setItems(prev => prev.map(i => ids.has(i.id) ? { ...i, boards: i.boards.filter(b => b !== board) } : i));
+      if (user) {
+        const affectedItems = items.filter(i => ids.has(i.id));
+        await Promise.all(affectedItems.map(i =>
+          supabase.from('items').update({ board_names: i.boards.filter(b => b !== board) }).eq('id', i.id).eq('user_id', user.id)
+        ));
+      }
+    }
+  };
+
+  // ── Item handlers ────────────────────────────────────────────────────────
+  const toggleLike = async id => {
+    const nowLiked = !likedItems.has(id);
+    setLikedItems(prev => { const next = new Set(prev); nowLiked ? next.add(id) : next.delete(id); return next; });
+    if (user) await supabase.from('items').update({ liked: nowLiked }).eq('id', id).eq('user_id', user.id);
+  };
+
+  const updateItem = async (id, updates) => {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, ...updates } : i));
+    setSelectedItem(prev => prev?.id === id ? { ...prev, ...updates } : prev);
+    if (user) {
+      const dbUpdates = {};
+      if (updates.name      !== undefined) dbUpdates.name      = updates.name;
+      if (updates.brand     !== undefined) dbUpdates.brand     = updates.brand;
+      if (updates.price     !== undefined) dbUpdates.price     = updates.price;
+      if (updates.size      !== undefined) dbUpdates.size      = updates.size;
+      if (updates.material  !== undefined) dbUpdates.material  = updates.material;
+      if (updates.color     !== undefined) dbUpdates.color     = updates.color;
+      if (updates.category  !== undefined) dbUpdates.category  = updates.category;
+      if (updates.notes     !== undefined) dbUpdates.notes     = updates.notes;
+      if (Object.keys(dbUpdates).length) {
+        await supabase.from('items').update(dbUpdates).eq('id', id).eq('user_id', user.id);
+      }
+    }
+  };
+
+  const deleteItem = async id => {
+    setItems(prev => prev.filter(i => i.id !== id));
+    setLikedItems(prev => { const next = new Set(prev); next.delete(id); return next; });
+    setSelectedItem(null);
+    if (user) await supabase.from('items').delete().eq('id', id).eq('user_id', user.id);
+  };
+
+  const addItem = async (form, imageFile) => {
+    const tempId = `temp-${Date.now()}`;
+    const previewUrl = imageFile ? URL.createObjectURL(imageFile) : '';
+    setItems(prev => [{
+      id: tempId, ...form, image: previewUrl, boards: [], liked: false, ratio: 'portrait',
+      attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+      colorProfile: { primaryHex: '', colorFamily: '', undertone: 'Neutral', vibrancy: 'Muted' },
+      _enriching: true,
+    }, ...prev]);
+
+    try {
+      let imageUrl = '';
+      if (imageFile && user) {
+        const path = `${user.id}/${Date.now()}-${imageFile.name}`;
+        const { error: uploadErr } = await supabase.storage.from('item-images').upload(path, imageFile);
+        if (!uploadErr) {
+          imageUrl = supabase.storage.from('item-images').getPublicUrl(path).data.publicUrl;
+        }
+      }
+
+      const { data: dbItem, error: dbErr } = await supabase.from('items').insert({
+        user_id: user.id,
+        name: form.name, brand: form.brand, price: form.price, size: form.size,
+        material: form.material, color: form.color, category: form.category, notes: form.notes,
+        image_url: imageUrl, liked: false, board_names: [],
+        attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+        color_profile: { primaryHex: '', colorFamily: '', undertone: 'Neutral', vibrancy: 'Muted' },
+      }).select().single();
+
+      if (dbErr) throw dbErr;
+
+      setItems(prev => prev.map(i => i.id === tempId ? { ...i, id: dbItem.id, image: imageUrl || previewUrl } : i));
+
+      const result = await enrichItem({
+        imageUrl: imageUrl || null,
+        imageFile: imageUrl ? null : imageFile,
+        name: form.name, brand: form.brand, category: form.category, material: form.material, color: form.color,
+      });
+
+      setItems(prev => prev.map(i => i.id === dbItem.id ? { ...i, ...result, _enriching: false } : i));
+      await supabase.from('items').update({ attributes: result.attributes, color_profile: result.colorProfile }).eq('id', dbItem.id);
+    } catch (err) {
+      console.error('addItem error:', err);
+      setItems(prev => prev.map(i => i.id === tempId ? { ...i, _enriching: false } : i));
+    }
+  };
+
+  // ── Outfit handlers ──────────────────────────────────────────────────────
   const handleAddToOutfit = item => {
     setPendingOutfitItem(item);
     setPendingTargetCollage(null);
@@ -2799,27 +3248,58 @@ export default function WardrobeApp() {
     setSelectedItem(null);
   };
 
-  const handleSaveOutfit = collage => {
+  const handleSaveOutfit = async collage => {
     if (!collage.items.length) return;
-    setSavedOutfits(prev => [{ id: Date.now(), ...collage }, ...prev]);
+    const { data } = await supabase.from('outfits').insert({
+      user_id: user.id, name: collage.name || '', canvas_items: collage.items, thumbnail: collage.thumbnail || '', is_draft: false,
+    }).select().single();
+    if (data) setSavedOutfits(prev => [dbOutfitToApp(data), ...prev]);
   };
 
-  const handleSaveDraftOutfit = collage => {
+  const handleSaveDraftOutfit = async collage => {
     if (!collage.items.length) return;
-    setDraftOutfits(prev => [{ id: Date.now(), ...collage }, ...prev]);
+    const { data } = await supabase.from('outfits').insert({
+      user_id: user.id, name: collage.name || '', canvas_items: collage.items, thumbnail: collage.thumbnail || '', is_draft: true,
+    }).select().single();
+    if (data) setDraftOutfits(prev => [dbOutfitToApp(data), ...prev]);
   };
 
-  const updateSavedOutfit = (id, collage) =>
+  const updateSavedOutfit = async (id, collage) => {
     setSavedOutfits(prev => prev.map(o => o.id === id ? { ...o, ...collage } : o));
+    await supabase.from('outfits').update({ canvas_items: collage.items, thumbnail: collage.thumbnail || '' }).eq('id', id);
+  };
 
-  const updateDraftOutfit = (id, collage) =>
+  const updateDraftOutfit = async (id, collage) => {
     setDraftOutfits(prev => prev.map(o => o.id === id ? { ...o, ...collage } : o));
+    await supabase.from('outfits').update({ canvas_items: collage.items, thumbnail: collage.thumbnail || '' }).eq('id', id);
+  };
 
-  const handleRemoveDraftOutfit = id =>
+  const handleRemoveDraftOutfit = async id => {
     setDraftOutfits(prev => prev.filter(o => o.id !== id));
+    await supabase.from('outfits').delete().eq('id', id);
+  };
 
-  const handleRemoveSavedOutfit = id =>
+  const handleRemoveSavedOutfit = async id => {
     setSavedOutfits(prev => prev.filter(o => o.id !== id));
+    await supabase.from('outfits').delete().eq('id', id);
+  };
+
+  // ── Profile handler ──────────────────────────────────────────────────────
+  const handleUpdateProfile = async updates => {
+    setProfile(updates);
+    if (user) {
+      await supabase.from('profiles').update({
+        name: updates.name, bio: updates.bio,
+        top_size: updates.topSize, bottom_size: updates.bottomSize, shoe_size: updates.shoeSize,
+        styles: updates.styles,
+      }).eq('id', user.id);
+    }
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setActiveTab('wardrobe');
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -2855,9 +3335,29 @@ export default function WardrobeApp() {
         />
       );
       case 'stylist': return <StylistTab />;
+      case 'profile': return (
+        <ProfileTab
+          items={items}
+          boards={boards}
+          savedOutfits={savedOutfits}
+          profile={profile}
+          onUpdateProfile={handleUpdateProfile}
+          onSignOut={handleSignOut}
+        />
+      );
       default: return null;
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 size={24} className="animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (!user) return <AuthScreen />;
 
   return (
     <div className="flex h-screen bg-white overflow-hidden antialiased font-sans">
@@ -2899,10 +3399,15 @@ export default function WardrobeApp() {
 
         {/* Profile */}
         <div className="mt-auto">
-          <button className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl hover:bg-gray-100 transition-colors group">
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-colors group ${
+              activeTab === 'profile' ? 'bg-gray-100' : 'hover:bg-gray-100'
+            }`}
+          >
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 flex-shrink-0 shadow-sm" />
             <div className="text-left min-w-0">
-              <p className="text-sm font-semibold text-gray-900">Sofia M.</p>
+              <p className="text-sm font-semibold text-gray-900">{profile.name}</p>
               <p className="text-xs text-gray-400">View profile</p>
             </div>
             <ChevronRight
@@ -2927,7 +3432,7 @@ export default function WardrobeApp() {
             <button className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">
               <Search size={15} className="text-gray-600" />
             </button>
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 shadow-sm" />
+            <button onClick={() => setActiveTab('profile')} className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 shadow-sm" />
           </div>
         </div>
 
