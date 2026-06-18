@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Sun, Shirt, Wand2, Sparkles,
   X, Heart, Plus, Search, ChevronRight, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal,
-  Undo2, Redo2,
+  Undo2, Redo2, Loader2,
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -75,6 +75,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=500&q=80',
     ratio: 'portrait',
     liked: false,
+    attributes: { layerType: 'outer', sleeveLength: 'long', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#C8B89A', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Muted' },
   },
   {
     id: 2,
@@ -89,6 +91,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=500&q=80',
     ratio: 'tall',
     liked: true,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#F5F0E8', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Pastel' },
   },
   {
     id: 3,
@@ -103,6 +107,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=500&q=80',
     ratio: 'square',
     liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+    colorProfile: { primaryHex: '#FFFFFF', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Muted' },
   },
   {
     id: 4,
@@ -117,6 +123,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=500&q=80',
     ratio: 'portrait',
     liked: false,
+    attributes: { layerType: 'base', sleeveLength: 'long', warmthRating: 'warm' },
+    colorProfile: { primaryHex: '#C19A6B', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Muted' },
   },
   {
     id: 5,
@@ -131,6 +139,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1542272454315-4c01d7abdf4a?auto=format&fit=crop&w=500&q=80',
     ratio: 'tall',
     liked: true,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#7B93B4', colorFamily: 'Blue', undertone: 'Cool', vibrancy: 'Muted' },
   },
   {
     id: 6,
@@ -145,6 +155,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?auto=format&fit=crop&w=500&q=80',
     ratio: 'portrait',
     liked: false,
+    attributes: { layerType: 'outer', sleeveLength: 'long', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#C8922A', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Muted' },
   },
   {
     id: 7,
@@ -159,6 +171,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=500&q=80',
     ratio: 'square',
     liked: true,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+    colorProfile: { primaryHex: '#B5733B', colorFamily: 'Brown', undertone: 'Warm', vibrancy: 'Muted' },
   },
   {
     id: 8,
@@ -173,6 +187,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1594938298603-c8148c4b02e0?auto=format&fit=crop&w=500&q=80',
     ratio: 'portrait',
     liked: false,
+    attributes: { layerType: 'base', sleeveLength: 'none', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#F2EDE4', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Pastel' },
   },
   {
     id: 9,
@@ -187,6 +203,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?auto=format&fit=crop&w=500&q=80',
     ratio: 'tall',
     liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#A89880', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Muted' },
   },
   {
     id: 10,
@@ -201,6 +219,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=500&q=80',
     ratio: 'square',
     liked: true,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+    colorProfile: { primaryHex: '#8B4513', colorFamily: 'Brown', undertone: 'Warm', vibrancy: 'Deep' },
   },
   {
     id: 11,
@@ -215,6 +235,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=500&q=80',
     ratio: 'portrait',
     liked: false,
+    attributes: { layerType: 'base', sleeveLength: 'long', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#FAFAFA', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Muted' },
   },
   {
     id: 12,
@@ -229,6 +251,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1583744946564-b432d563933f?auto=format&fit=crop&w=500&q=80',
     ratio: 'tall',
     liked: true,
+    attributes: { layerType: 'outer', sleeveLength: 'long', warmthRating: 'heavy' },
+    colorProfile: { primaryHex: '#C19A6B', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Muted' },
   },
   {
     id: 13,
@@ -243,6 +267,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1583496661160-fb5974ca5f59?auto=format&fit=crop&w=500&q=80',
     ratio: 'portrait',
     liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#E8D5A3', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Pastel' },
   },
   {
     id: 14,
@@ -257,6 +283,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=500&q=80',
     ratio: 'square',
     liked: false,
+    attributes: { layerType: 'mid', sleeveLength: 'long', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#1A1A1A', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Deep' },
   },
   {
     id: 15,
@@ -271,6 +299,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?auto=format&fit=crop&w=500&q=80',
     ratio: 'portrait',
     liked: true,
+    attributes: { layerType: 'mid', sleeveLength: 'long', warmthRating: 'warm' },
+    colorProfile: { primaryHex: '#D4C5A9', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Pastel' },
   },
   {
     id: 16,
@@ -285,6 +315,8 @@ const ITEMS = [
     image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=500&q=80',
     ratio: 'tall',
     liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'short', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#E8B4C8', colorFamily: 'Pink', undertone: 'Cool', vibrancy: 'Pastel' },
   },
 ];
 
@@ -451,9 +483,13 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
     size: item.size,
     material: item.material,
     notes: item.notes || '',
+    attributes: item.attributes || { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+    colorProfile: item.colorProfile || { primaryHex: '', colorFamily: '', undertone: 'Neutral', vibrancy: 'Muted' },
   });
 
   const set = (key, val) => setDraft(d => ({ ...d, [key]: val }));
+  const setAttr = (key, val) => setDraft(d => ({ ...d, attributes: { ...d.attributes, [key]: val } }));
+  const setColor = (key, val) => setDraft(d => ({ ...d, colorProfile: { ...d.colorProfile, [key]: val } }));
 
   const handleSave = () => {
     onUpdate(item.id, draft);
@@ -465,6 +501,8 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
       name: item.name, brand: item.brand, price: item.price,
       category: item.category, size: item.size, material: item.material,
       notes: item.notes || '',
+      attributes: item.attributes || { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+      colorProfile: item.colorProfile || { primaryHex: '', colorFamily: '', undertone: 'Neutral', vibrancy: 'Muted' },
     });
     setEditMode(false);
   };
@@ -686,6 +724,96 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
                 ) : (
                   <p className="text-sm text-gray-300 italic">No notes added</p>
                 )}
+              </div>
+
+              {/* Attributes */}
+              <div className="col-span-2 bg-gray-50 rounded-2xl px-4 py-3">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Attributes</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: 'Layer', key: 'layerType', options: ['none', 'base', 'mid', 'outer'] },
+                    { label: 'Sleeve', key: 'sleeveLength', options: ['none', 'short', 'long'] },
+                    { label: 'Warmth', key: 'warmthRating', options: ['none', 'light', 'warm', 'heavy'] },
+                  ].map(({ label, key, options }) => (
+                    <div key={key}>
+                      <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">{label}</p>
+                      {editMode ? (
+                        <select
+                          value={draft.attributes[key]}
+                          onChange={e => setAttr(key, e.target.value)}
+                          className="w-full bg-transparent focus:outline-none text-xs font-medium text-gray-800 cursor-pointer"
+                        >
+                          {options.map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      ) : (
+                        <p className="text-xs font-medium text-gray-800 capitalize">{item.attributes?.[key] ?? '—'}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Color Profile */}
+              <div className="col-span-2 bg-gray-50 rounded-2xl px-4 py-3">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Color Profile</p>
+                <div className="flex items-center gap-3 mb-2.5">
+                  {editMode ? (
+                    <input
+                      type="color"
+                      value={draft.colorProfile.primaryHex || '#000000'}
+                      onChange={e => setColor('primaryHex', e.target.value)}
+                      className="w-8 h-8 rounded-full border border-gray-200 cursor-pointer p-0.5 bg-transparent flex-shrink-0"
+                    />
+                  ) : (
+                    <div
+                      className="w-8 h-8 rounded-full border border-gray-200 flex-shrink-0"
+                      style={{ backgroundColor: item.colorProfile?.primaryHex || '#e5e7eb' }}
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    {editMode ? (
+                      <input
+                        value={draft.colorProfile.primaryHex}
+                        onChange={e => setColor('primaryHex', e.target.value)}
+                        placeholder="#000000"
+                        className={`${editInput} text-xs font-mono text-gray-700`}
+                      />
+                    ) : (
+                      <p className="text-xs font-mono text-gray-700">{item.colorProfile?.primaryHex || '—'}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: 'Family', key: 'colorFamily', options: null },
+                    { label: 'Undertone', key: 'undertone', options: ['Warm', 'Cool', 'Neutral'] },
+                    { label: 'Vibrancy', key: 'vibrancy', options: ['Vibrant', 'Pastel', 'Muted', 'Deep'] },
+                  ].map(({ label, key, options }) => (
+                    <div key={key}>
+                      <p className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">{label}</p>
+                      {editMode ? (
+                        options ? (
+                          <select
+                            value={draft.colorProfile[key]}
+                            onChange={e => setColor(key, e.target.value)}
+                            className="w-full bg-transparent focus:outline-none text-xs font-medium text-gray-800 cursor-pointer"
+                          >
+                            {options.map(o => <option key={o} value={o}>{o}</option>)}
+                          </select>
+                        ) : (
+                          <input
+                            value={draft.colorProfile[key]}
+                            onChange={e => setColor(key, e.target.value)}
+                            placeholder="e.g. Blue"
+                            className={`${editInput} text-xs font-medium text-gray-800`}
+                          />
+                        )
+                      ) : (
+                        <p className="text-xs font-medium text-gray-800">{item.colorProfile?.[key] || '—'}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -967,7 +1095,7 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
               {addMenuOpen && (
                 <div className="absolute right-0 top-11 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-36 z-20">
                   <button
-                    onClick={() => setAddMenuOpen(false)}
+                    onClick={() => { setAddMenuOpen(false); setShowAddItem(true); }}
                     className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                   >
                     Item
@@ -2387,12 +2515,149 @@ function StylistTab() {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   AddItemModal
+   ───────────────────────────────────────────────────────────────────────────── */
+async function enrichItem({ imageUrl, name, brand, category, material, color }) {
+  const res = await fetch('/api/enrich-item', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imageUrl, name, brand, category, material, color }),
+  });
+  if (!res.ok) throw new Error('Enrichment failed');
+  return res.json();
+}
+
+function AddItemModal({ onClose, onAdd }) {
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    name: '', brand: '', price: '', size: '', material: '', color: '',
+    category: CATEGORIES[0], imageUrl: '', notes: '',
+  });
+
+  const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
+
+  const editInput = "w-full bg-transparent border-b border-gray-200 focus:border-gray-500 focus:outline-none transition-colors text-sm font-medium text-gray-800 pb-0.5";
+
+  const handleAdd = async () => {
+    if (!form.name.trim() || !form.imageUrl.trim()) return;
+    setSaving(true);
+    onAdd(form);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-6">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm backdrop-fade" onClick={onClose} />
+      <div className="relative w-full md:w-[440px] bg-white rounded-t-[2rem] md:rounded-[2rem] shadow-2xl overflow-hidden modal-animate max-h-[92vh] flex flex-col">
+
+        <div className="flex justify-center pt-3 pb-1 md:hidden flex-shrink-0">
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+        </div>
+
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5">
+          <button
+            onClick={handleAdd}
+            disabled={saving || !form.name.trim() || !form.imageUrl.trim()}
+            className="px-3 py-1.5 bg-gray-900 text-white text-xs font-semibold rounded-full hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-md flex items-center gap-1.5"
+          >
+            {saving && <Loader2 size={11} className="animate-spin" />}
+            Add
+          </button>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-md hover:shadow-lg transition-shadow"
+          >
+            <X size={14} strokeWidth={2.5} className="text-gray-500" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto scrollbar-hide">
+          <div className="px-6 pt-8 pb-6 space-y-5">
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Add Item</p>
+              <div className="space-y-3">
+                <input
+                  autoFocus
+                  value={form.name}
+                  onChange={e => set('name', e.target.value)}
+                  placeholder="Item name *"
+                  className={`${editInput} text-lg`}
+                />
+                <input
+                  value={form.brand}
+                  onChange={e => set('brand', e.target.value)}
+                  placeholder="Brand"
+                  className={editInput}
+                />
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Image URL *</p>
+              <input
+                value={form.imageUrl}
+                onChange={e => set('imageUrl', e.target.value)}
+                placeholder="https://…"
+                className={editInput}
+              />
+              {form.imageUrl && (
+                <div className="mt-2 w-20 h-20 rounded-xl overflow-hidden bg-gray-100">
+                  <img src={form.imageUrl} alt="" className="w-full h-full object-cover" onError={e => { e.target.style.display = 'none'; }} />
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Category</p>
+                <select
+                  value={form.category}
+                  onChange={e => set('category', e.target.value)}
+                  className="w-full bg-transparent focus:outline-none text-sm font-medium text-gray-800 cursor-pointer border-b border-gray-200 pb-0.5"
+                >
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Color</p>
+                <input value={form.color} onChange={e => set('color', e.target.value)} placeholder="e.g. Sand" className={editInput} />
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Size</p>
+                <input value={form.size} onChange={e => set('size', e.target.value)} placeholder="e.g. S" className={editInput} />
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Price</p>
+                <input value={form.price} onChange={e => set('price', e.target.value)} placeholder="e.g. $120" className={editInput} />
+              </div>
+            </div>
+
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Material</p>
+              <input value={form.material} onChange={e => set('material', e.target.value)} placeholder="e.g. 100% Silk" className={editInput} />
+            </div>
+
+            <div className="bg-gray-50 rounded-2xl px-4 py-3 flex items-start gap-3">
+              <Sparkles size={14} className="text-gray-400 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-gray-500 leading-relaxed">
+                After adding, AI will automatically analyze the image to fill in layer type, sleeve length, warmth, and color profile.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    Root — WardrobeApp
    ───────────────────────────────────────────────────────────────────────────── */
 export default function WardrobeApp() {
   const [activeTab, setActiveTab]         = useState('wardrobe');
   const [selectedItem, setSelectedItem]   = useState(null);
   const [items, setItems]                 = useState(ITEMS);
+  const [showAddItem, setShowAddItem]     = useState(false);
   const [boards, setBoards]               = useState(BOARDS);
   const [boardMeta, setBoardMeta]         = useState({});
 
@@ -2480,6 +2745,46 @@ export default function WardrobeApp() {
     setItems(prev => prev.filter(i => i.id !== id));
     setLikedItems(prev => { const next = new Set(prev); next.delete(id); return next; });
     setSelectedItem(null);
+  };
+
+  const addItem = async (form) => {
+    const newId = Math.max(...items.map(i => i.id)) + 1;
+    const newItem = {
+      id: newId,
+      name: form.name,
+      brand: form.brand,
+      price: form.price,
+      size: form.size,
+      material: form.material,
+      color: form.color,
+      category: form.category,
+      notes: form.notes,
+      image: form.imageUrl,
+      boards: [],
+      liked: false,
+      ratio: 'portrait',
+      attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+      colorProfile: { primaryHex: '', colorFamily: '', undertone: 'Neutral', vibrancy: 'Muted' },
+      _enriching: true,
+    };
+    setItems(prev => [newItem, ...prev]);
+    try {
+      const result = await enrichItem({
+        imageUrl: form.imageUrl,
+        name: form.name,
+        brand: form.brand,
+        category: form.category,
+        material: form.material,
+        color: form.color,
+      });
+      setItems(prev => prev.map(i =>
+        i.id === newId ? { ...i, ...result, _enriching: false } : i
+      ));
+    } catch {
+      setItems(prev => prev.map(i =>
+        i.id === newId ? { ...i, _enriching: false } : i
+      ));
+    }
   };
 
   const handleAddToOutfit = item => {
@@ -2685,6 +2990,13 @@ export default function WardrobeApp() {
           draftOutfits={draftOutfits}
           boards={boards}
           onToggleBoard={handleToggleItemBoard}
+        />
+      )}
+
+      {showAddItem && (
+        <AddItemModal
+          onClose={() => setShowAddItem(false)}
+          onAdd={addItem}
         />
       )}
     </div>
