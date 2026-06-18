@@ -6,7 +6,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Sun, Shirt, Wand2, Sparkles,
-  X, Heart, Plus, Search, ChevronRight, Pencil, Trash2, Brush, Check, Layers,
+  X, Heart, Plus, Search, ChevronRight, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal,
+  Undo2, Redo2,
 } from 'lucide-react';
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -337,7 +338,7 @@ function AddToCollageModal({ savedOutfits, draftOutfits, onClose, onCreateNew, o
         <div className="px-5 pb-4">
           <div className="flex bg-gray-100 rounded-xl p-1 gap-1 w-fit">
             {[
-              { key: 'saved',  label: 'Saved',  count: savedOutfits.length },
+              { key: 'saved',  label: 'Published',  count: savedOutfits.length },
               { key: 'drafts', label: 'Drafts', count: draftOutfits.length },
             ].map(({ key, label, count }) => (
               <button
@@ -359,30 +360,48 @@ function AddToCollageModal({ savedOutfits, draftOutfits, onClose, onCreateNew, o
           {list.length === 0 ? (
             <div className="flex items-center justify-center h-24">
               <p className="text-sm text-gray-400">
-                {view === 'saved' ? 'No saved collages yet' : 'No drafts yet'}
+                {view === 'saved' ? 'No published collages yet' : 'No drafts yet'}
               </p>
             </div>
           ) : (
             <div className="flex gap-2.5 overflow-x-auto scrollbar-hide pb-1">
               {list.map(outfit => {
-                const imgs = outfit.items.slice(0, 4);
+                const { items = [], bgColor = '#FFFFFF', canvasWidth = 480, canvasHeight = 679 } = outfit;
+                const thumbBg = bgColor === '#FFFFFF' ? { backgroundColor: '#F3F5F4' } : { backgroundColor: bgColor };
                 return (
-                  <div key={outfit.id} onClick={() => onOpenCollage(outfit, view)} className="flex-shrink-0 w-24 h-24 rounded-2xl overflow-hidden bg-gray-100 cursor-pointer hover:opacity-80 transition-opacity">
-                    {imgs.length === 0 ? (
+                  <div
+                    key={outfit.id}
+                    onClick={() => onOpenCollage(outfit, view)}
+                    className="flex-shrink-0 rounded-2xl overflow-hidden cursor-pointer hover:opacity-80 transition-opacity relative"
+                    style={{ width: 68, height: 96, ...thumbBg }}
+                  >
+                    {items.length === 0 ? (
                       <div className="w-full h-full flex items-center justify-center">
                         <Wand2 size={16} className="text-gray-300" />
                       </div>
-                    ) : imgs.length === 1 ? (
-                      <img src={imgs[0].image} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className={`grid h-full w-full ${imgs.length === 2 ? 'grid-cols-2' : 'grid-cols-2 grid-rows-2'}`}>
-                        {imgs.map((item, i) => (
-                          <div key={i} className="overflow-hidden">
-                            <img src={item.image} alt="" className="w-full h-full object-cover" />
+                    ) : items.map((item, idx) => {
+                      const w = item.w ?? 128;
+                      const h = item.h ?? 128;
+                      const rot = item.rotation ?? 0;
+                      return (
+                        <div
+                          key={item._cid ?? idx}
+                          style={{
+                            position: 'absolute',
+                            left: `${(item.x / canvasWidth) * 100}%`,
+                            top: `${(item.y / canvasHeight) * 100}%`,
+                            width: `${(w / canvasWidth) * 100}%`,
+                            height: `${(h / canvasHeight) * 100}%`,
+                            transform: `rotate(${rot}deg)`,
+                            zIndex: idx + 1,
+                          }}
+                        >
+                          <div className="w-full h-full rounded-sm overflow-hidden" style={item.flipX ? { transform: 'scaleX(-1)' } : undefined}>
+                            <img src={item.image} alt="" draggable={false} className="w-full h-full object-cover" />
                           </div>
-                        ))}
-                      </div>
-                    )}
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
@@ -1333,37 +1352,101 @@ function TodayTab() {
 /* ─────────────────────────────────────────────────────────────────────────────
    CreateOutfitModal
    ───────────────────────────────────────────────────────────────────────────── */
-function CreateOutfitModal({ initialItem, initialCanvasItems, onClose, onSave, onSaveDraft }) {
+function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, onClose, onPublish, onAutoSave, onDetachCollage }) {
   const [canvasItems, setCanvasItems] = useState([]);
   const [activeFilter, setActiveFilter] = useState('All');
   const [boardsOpen, setBoardsOpen] = useState(false);
-  const [panelWidth, setPanelWidth] = useState(240);
-  const [showExitWarning, setShowExitWarning] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [draggingCid, setDraggingCid] = useState(null);
+  const [selectedCid, setSelectedCid] = useState(null);
+  const [bgColor, setBgColor] = useState(initialBgColor ?? '#FFFFFF');
+  const [bgLayerSelected, setBgLayerSelected] = useState(false);
+  const [hexInput, setHexInput] = useState((initialBgColor ?? '#FFFFFF').replace('#', ''));
+  const [layerDragging, setLayerDragging] = useState(null);
+  const [layerMenuState, setLayerMenuState] = useState(null); // { cid, rect }
   const canvasRef = useRef(null);
   const dragOffset = useRef({ x: 0, y: 0 });
+  const bgRowRef = useRef(null);
+  const layerMenuRef = useRef(null);
+  const collageMenuRef = useRef(null);
+  const historyRef = useRef([]);
+  const futureRef = useRef([]);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const [collageMenuOpen, setCollageMenuOpen] = useState(false);
 
   const ITEM_SIZE = 128;
+  const DOT_GRID_STYLE = {
+    backgroundColor: '#F3F5F4',
+    backgroundImage: 'radial-gradient(circle, #C6C9CC 1.5px, transparent 1.5px)',
+    backgroundSize: '28px 28px',
+    backgroundPosition: 'center',
+  };
+  const bgStyle = bgColor === '#FFFFFF' ? DOT_GRID_STYLE : { backgroundColor: bgColor };
+  const swatchStyle = bgColor === '#FFFFFF'
+    ? { ...DOT_GRID_STYLE, backgroundSize: '7px 7px', backgroundImage: 'radial-gradient(circle, #C6C9CC 1px, transparent 1px)' }
+    : { backgroundColor: bgColor };
+  const BG_COLORS = [
+    //           red        orange     yellow     green      blue       purple     pink
+    /* light  */ '#FFFFFF','#FFF3E0','#FFFDE7','#F1F8E9','#E3F2FD','#F3E5F5','#FCE4EC',
+    /* mid    */ '#F44336','#FF9800','#FFEB3B','#4CAF50','#2196F3','#9C27B0','#E91E63',
+    /* dark   */ '#B71C1C','#E65100','#F57F17','#1B5E20','#0D47A1','#4A148C','#880E4F',
+    /* darker */ '#7B0000','#7C2900','#5D3A00','#0A3D0C','#0A1F5C','#1A0033','#000000',
+  ];
+
+  const pushHistory = snapshot => {
+    historyRef.current = [...historyRef.current, snapshot];
+    futureRef.current = [];
+    setCanUndo(true);
+    setCanRedo(false);
+  };
+
+  const undo = () => {
+    if (!historyRef.current.length) return;
+    const prev = historyRef.current[historyRef.current.length - 1];
+    historyRef.current = historyRef.current.slice(0, -1);
+    futureRef.current = [canvasItems, ...futureRef.current];
+    setCanvasItems(prev);
+    setCanUndo(historyRef.current.length > 0);
+    setCanRedo(true);
+  };
+
+  const redo = () => {
+    if (!futureRef.current.length) return;
+    const next = futureRef.current[0];
+    futureRef.current = futureRef.current.slice(1);
+    historyRef.current = [...historyRef.current, canvasItems];
+    setCanvasItems(next);
+    setCanUndo(true);
+    setCanRedo(futureRef.current.length > 0);
+  };
 
   useEffect(() => {
     if (!canvasRef.current) return;
     const base = initialCanvasItems || [];
     if (!initialItem) {
-      if (base.length > 0) { setCanvasItems(base); setIsDirty(true); }
+      if (base.length > 0) setCanvasItems(base);
       return;
     }
     const { width, height } = canvasRef.current.getBoundingClientRect();
     const x = Math.max(0, (width  - ITEM_SIZE) / 2);
     const y = Math.max(0, (height - ITEM_SIZE) / 2);
-    setCanvasItems([...base, { ...initialItem, _cid: `${initialItem.id}-${Date.now()}`, x, y }]);
-    setIsDirty(true);
+    setCanvasItems([...base, { ...initialItem, _cid: `${initialItem.id}-${Date.now()}`, x, y, w: ITEM_SIZE, h: ITEM_SIZE, rotation: 0 }]);
   }, []);
 
-  const requestClose = () => {
-    if (isDirty) setShowExitWarning(true);
-    else onClose();
+  const buildSnapshot = () => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    return {
+      items: canvasItems,
+      bgColor,
+      canvasWidth: rect?.width ?? 480,
+      canvasHeight: rect?.height ?? 679,
+    };
+  };
+
+  const handleClose = () => {
+    onAutoSave(buildSnapshot());
+    onClose();
   };
 
   const filtered =
@@ -1371,19 +1454,34 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, onClose, onSave, o
       ? ITEMS
       : ITEMS.filter(i => i.boards.includes(activeFilter));
 
-  // Click-to-add: cascade items from top-left so they don't stack
+  // Click-to-add: cascade items from center so they don't stack
   const addToCanvas = item => {
-    const offset = (canvasItems.length % 8) * 24;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const cw = rect?.width ?? 480;
+    const ch = rect?.height ?? 679;
+    const offset = (canvasItems.length % 7) * 20;
+    const x = Math.max(0, Math.min((cw - ITEM_SIZE) / 2 - 60 + offset, cw - ITEM_SIZE));
+    const y = Math.max(0, Math.min((ch - ITEM_SIZE) / 2 - 60 + offset, ch - ITEM_SIZE));
+    pushHistory(canvasItems);
     setCanvasItems(prev => [
       ...prev,
-      { ...item, _cid: `${item.id}-${Date.now()}`, x: 20 + offset, y: 20 + offset },
+      { ...item, _cid: `${item.id}-${Date.now()}`, x, y, w: ITEM_SIZE, h: ITEM_SIZE, rotation: 0 },
     ]);
-    setIsDirty(true);
+  };
+
+  const duplicateItem = cid => {
+    const item = canvasItems.find(i => i._cid === cid);
+    if (!item) return;
+    const newCid = `${item.id}-${Date.now()}`;
+    const newItem = { ...item, _cid: newCid, x: item.x + 20, y: item.y + 20 };
+    pushHistory(canvasItems);
+    setCanvasItems(prev => [...prev, newItem]);
+    setSelectedCid(newCid);
   };
 
   const removeFromCanvas = cid => {
+    pushHistory(canvasItems);
     setCanvasItems(prev => prev.filter(i => i._cid !== cid));
-    setIsDirty(true);
   };
 
   // ── HTML5 drag-and-drop: wardrobe → canvas ──
@@ -1411,28 +1509,29 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, onClose, onSave, o
     const rect = canvasRef.current.getBoundingClientRect();
     const x = Math.max(0, Math.min(e.clientX - rect.left - ITEM_SIZE / 2, rect.width  - ITEM_SIZE));
     const y = Math.max(0, Math.min(e.clientY - rect.top  - ITEM_SIZE / 2, rect.height - ITEM_SIZE));
-    setCanvasItems(prev => [...prev, { ...item, _cid: `${item.id}-${Date.now()}`, x, y }]);
-    setIsDirty(true);
+    pushHistory(canvasItems);
+    setCanvasItems(prev => [...prev, { ...item, _cid: `${item.id}-${Date.now()}`, x, y, w: ITEM_SIZE, h: ITEM_SIZE, rotation: 0 }]);
   };
 
   // ── Mouse drag: reposition items already on canvas ──
   const startItemDrag = (e, cid) => {
     e.preventDefault();
     e.stopPropagation();
+    setSelectedCid(cid);
+    pushHistory(canvasItems);
     const item = canvasItems.find(i => i._cid === cid);
+    const itemW = item.w ?? ITEM_SIZE;
+    const itemH = item.h ?? ITEM_SIZE;
     dragOffset.current = { x: e.clientX - item.x, y: e.clientY - item.y };
     setDraggingCid(cid);
 
     const onMove = e => {
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const x = Math.max(0, Math.min(e.clientX - dragOffset.current.x, rect.width  - ITEM_SIZE));
-      const y = Math.max(0, Math.min(e.clientY - dragOffset.current.y, rect.height - ITEM_SIZE));
+      const x = e.clientX - dragOffset.current.x;
+      const y = e.clientY - dragOffset.current.y;
       setCanvasItems(prev => prev.map(i => i._cid === cid ? { ...i, x, y } : i));
     };
     const onUp = () => {
       setDraggingCid(null);
-      setIsDirty(true);
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
     };
@@ -1440,15 +1539,52 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, onClose, onSave, o
     window.addEventListener('mouseup', onUp);
   };
 
-  // ── Panel resize handle ──
-  const startDrag = e => {
+  // ── Resize: drag a corner handle to change w/h ──
+  const startResizeDrag = (e, cid, corner) => {
     e.preventDefault();
+    e.stopPropagation();
+    pushHistory(canvasItems);
+    const item = canvasItems.find(i => i._cid === cid);
     const startX = e.clientX;
-    const startWidth = panelWidth;
+    const startW = item.w ?? ITEM_SIZE;
+    const startH = item.h ?? ITEM_SIZE;
+    const ratio = startW / startH;
+    const startItemX = item.x;
+    const startItemY = item.y;
 
     const onMove = e => {
-      const delta = startX - e.clientX;
-      setPanelWidth(Math.min(480, Math.max(200, startWidth + delta)));
+      const dx = e.clientX - startX;
+      setCanvasItems(prev => prev.map(i => {
+        if (i._cid !== cid) return i;
+        let x = startItemX, y = startItemY, w, h, flipX;
+        if (corner === 'se') {
+          const rawW = startW + dx;
+          flipX = rawW < 0;
+          w = Math.max(10, Math.abs(rawW)); h = w / ratio;
+          x = flipX ? startItemX - w : startItemX;
+        }
+        if (corner === 'sw') {
+          const rawW = startW - dx;
+          flipX = rawW < 0;
+          w = Math.max(10, Math.abs(rawW)); h = w / ratio;
+          x = flipX ? startItemX + startW : startItemX + startW - w;
+        }
+        if (corner === 'ne') {
+          const rawW = startW + dx;
+          flipX = rawW < 0;
+          w = Math.max(10, Math.abs(rawW)); h = w / ratio;
+          x = flipX ? startItemX - w : startItemX;
+          y = startItemY + startH - h;
+        }
+        if (corner === 'nw') {
+          const rawW = startW - dx;
+          flipX = rawW < 0;
+          w = Math.max(10, Math.abs(rawW)); h = w / ratio;
+          x = flipX ? startItemX + startW : startItemX + startW - w;
+          y = startItemY + startH - h;
+        }
+        return { ...i, x, y, w, h, flipX };
+      }));
     };
     const onUp = () => {
       window.removeEventListener('mousemove', onMove);
@@ -1456,56 +1592,370 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, onClose, onSave, o
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
+  };
+
+  // ── Rotate: drag the top handle to spin the item ──
+  const startRotateDrag = (e, cid) => {
+    e.preventDefault();
+    e.stopPropagation();
+    pushHistory(canvasItems);
+    const item = canvasItems.find(i => i._cid === cid);
+    const w = item.w ?? ITEM_SIZE;
+    const h = item.h ?? ITEM_SIZE;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const centerX = rect.left + item.x + w / 2;
+    const centerY = rect.top  + item.y + h / 2;
+
+    const onMove = e => {
+      const raw = Math.atan2(e.clientY - centerY, e.clientX - centerX) * (180 / Math.PI) + 90;
+      const nearest90 = Math.round(raw / 90) * 90;
+      const angle = Math.abs(raw - nearest90) < 8 ? nearest90 : raw;
+      setCanvasItems(prev => prev.map(i => i._cid === cid ? { ...i, rotation: angle } : i));
+    };
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  // ── Layer reorder drag ──
+  const startLayerDrag = (e, cid) => {
+    e.preventDefault();
+    e.stopPropagation();
+    pushHistory(canvasItems);
+    setLayerDragging(cid);
+    const onMove = e => {
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const row = el?.closest('[data-layer-cid]');
+      const hoverCid = row?.dataset?.layerCid;
+      if (hoverCid && hoverCid !== cid) {
+        setCanvasItems(prev => {
+          const arr = [...prev];
+          const from = arr.findIndex(i => i._cid === cid);
+          const to   = arr.findIndex(i => i._cid === hoverCid);
+          if (from === -1 || to === -1) return prev;
+          const [moved] = arr.splice(from, 1);
+          arr.splice(to, 0, moved);
+          return arr;
+        });
+      }
+    };
+    const onUp = () => {
+      setLayerDragging(null);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  };
+
+  const moveLayerTo = (cid, dir) => {
+    pushHistory(canvasItems);
+    setCanvasItems(prev => {
+      const arr = [...prev];
+      const idx = arr.findIndex(i => i._cid === cid);
+      if (idx === -1) return prev;
+      const [item] = arr.splice(idx, 1);
+      if (dir === 'top')         arr.push(item);
+      else if (dir === 'bottom') arr.unshift(item);
+      else if (dir === 'up')     arr.splice(Math.min(idx + 1, arr.length), 0, item);
+      else if (dir === 'down')   arr.splice(Math.max(idx - 1, 0), 0, item);
+      return arr;
+    });
+    setLayerMenuState(null);
+  };
+
+  useEffect(() => {
+    if (!layerMenuState) return;
+    const handler = e => {
+      if (layerMenuRef.current && !layerMenuRef.current.contains(e.target)) {
+        setLayerMenuState(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [layerMenuState]);
+
+  useEffect(() => {
+    if (!collageMenuOpen) return;
+    const handler = e => {
+      if (collageMenuRef.current && !collageMenuRef.current.contains(e.target)) {
+        setCollageMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [collageMenuOpen]);
+
+  const startNewCollage = () => {
+    setCanvasItems([]);
+    setSelectedCid(null);
+    setBgLayerSelected(false);
+    setBgColor('#FFFFFF');
+    setHexInput('FFFFFF');
+
+    historyRef.current = [];
+    futureRef.current = [];
+    setCanUndo(false);
+    setCanRedo(false);
+    setCollageMenuOpen(false);
+    onDetachCollage?.();
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col">
 
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3.5 border-b border-gray-100 flex-shrink-0">
+      <div className="relative z-[1100] flex items-center px-4 py-3.5 border-b border-gray-100 flex-shrink-0 bg-white">
         <button
-          onClick={requestClose}
-          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors flex-shrink-0"
+          onClick={handleClose}
+          className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors flex-shrink-0"
         >
-          <X size={16} className="text-gray-600" />
+          <X size={20} className="text-gray-600" />
         </button>
-        <p className="text-sm font-semibold text-gray-900 flex-1">New Outfit</p>
-        <button
-          onClick={() => { onSaveDraft(canvasItems); setIsDirty(false); }}
-          disabled={canvasItems.length === 0}
-          className="px-3.5 py-1.5 border border-gray-300 text-gray-700 text-xs font-semibold rounded-full hover:bg-gray-50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          Save Draft
-        </button>
-        <button
-          onClick={() => { onSave(canvasItems); onClose(); }}
-          disabled={canvasItems.length === 0}
-          className="px-3.5 py-1.5 bg-gray-900 text-white text-xs font-semibold rounded-full hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          Save
-        </button>
+        {/* Centered undo / redo / menu */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-0.5">
+          <button
+            onClick={undo}
+            disabled={!canUndo}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
+          >
+            <Undo2 size={22} className="text-gray-600" />
+          </button>
+          <button
+            onClick={redo}
+            disabled={!canRedo}
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors disabled:opacity-25 disabled:cursor-not-allowed"
+          >
+            <Redo2 size={22} className="text-gray-600" />
+          </button>
+          {/* Collage options menu */}
+          <div className="relative" ref={collageMenuRef}>
+            <button
+              onClick={() => setCollageMenuOpen(o => !o)}
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <MoreHorizontal size={22} className="text-gray-600" />
+            </button>
+            {collageMenuOpen && (
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-48 z-[1200]">
+                <button
+                  onClick={startNewCollage}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Start new collage
+                </button>
+                <button
+                  onClick={() => { setCollageMenuOpen(false); onClose(); }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-gray-50 transition-colors"
+                >
+                  Delete collage
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => { onPublish(buildSnapshot()); onClose(); }}
+            disabled={canvasItems.length === 0}
+            className="px-5 py-2 bg-gray-900 text-white text-sm font-semibold rounded-full hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            Publish
+          </button>
+        </div>
       </div>
 
-      {/* Body — canvas left, wardrobe panel right */}
-      <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
+      {/* Body — layers left, canvas center, wardrobe panel right */}
+      <div className="flex flex-1 overflow-hidden flex-col md:flex-row relative">
 
-        {/* ── Collage canvas ── */}
-        <div
-          ref={canvasRef}
-          className={`flex-1 relative overflow-hidden border-b md:border-b-0 border-gray-100 transition-colors duration-150 ${isDragOver ? 'bg-gray-100' : 'bg-gray-50'}`}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
-          {/* Empty / drag-over hint */}
-          {canvasItems.length === 0 && !isDragOver && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-8 select-none pointer-events-none">
-              <div className="w-12 h-12 border-2 border-dashed border-gray-300 rounded-2xl flex items-center justify-center mb-3">
-                <Plus size={20} className="text-gray-300" />
+        {/* ── Layers panel ── */}
+        <div className="hidden md:flex flex-col w-72 flex-shrink-0 border-r border-gray-100 bg-white overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
+            <p className="text-xs font-bold text-gray-700 uppercase tracking-widest">Layers</p>
+            <p className="text-xs text-gray-400 mt-1 leading-snug">Tap or drag to add an item to the canvas</p>
+          </div>
+
+          {/* All layers in one scrollable list — items first, background last */}
+          <div className="flex-1 overflow-y-auto scrollbar-hide py-1">
+            {[...canvasItems].reverse().map(item => (
+              <div
+                key={item._cid}
+                data-layer-cid={item._cid}
+                className={`flex items-center gap-2.5 w-full px-3 py-2.5 hover:bg-gray-50 transition-colors cursor-pointer ${selectedCid === item._cid ? 'bg-blue-50' : ''} ${layerDragging === item._cid ? 'opacity-40' : ''}`}
+                onClick={() => { setSelectedCid(item._cid); setBgLayerSelected(false); }}
+              >
+                <div
+                  className="flex-shrink-0 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 transition-colors"
+                  onMouseDown={e => startLayerDrag(e, item._cid)}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <GripVertical size={16} />
+                </div>
+                <div className="w-9 h-9 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                  <img src={item.image} alt={item.name} draggable={false} className="w-full h-full object-cover" style={item.flipX ? { transform: 'scaleX(-1)' } : undefined} />
+                </div>
+                <span className="text-sm text-gray-700 truncate leading-tight flex-1">{item.name}</span>
+                <button
+                  className="flex-shrink-0 p-1 rounded-md hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+                  onClick={e => {
+                    e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setLayerMenuState(prev => prev?.cid === item._cid ? null : { cid: item._cid, rect });
+                  }}
+                >
+                  <MoreHorizontal size={14} />
+                </button>
               </div>
-              <p className="text-sm font-medium text-gray-400">Drag pieces here or tap to add</p>
+            ))}
+
+            {/* Background layer — always at bottom of list */}
+            <div
+              ref={bgRowRef}
+              className={`flex items-center gap-2.5 w-full px-3 py-2.5 hover:bg-gray-50 transition-colors cursor-pointer ${bgLayerSelected ? 'bg-blue-50' : ''}`}
+              onClick={() => { setBgLayerSelected(s => !s); setSelectedCid(null); }}
+            >
+              <Lock size={14} className="flex-shrink-0 text-gray-400" />
+              <div className="w-9 h-9 rounded-lg border border-gray-200 flex-shrink-0" style={swatchStyle} />
+              <span className="text-sm text-gray-700 flex-1">Background</span>
             </div>
-          )}
+          </div>
+        </div>
+
+        {/* Color picker popup — fixed position aligned to background layer row */}
+        {bgLayerSelected && bgRowRef.current && (() => {
+          const r = bgRowRef.current.getBoundingClientRect();
+          return (
+            <div className="hidden md:block fixed z-[60]" style={{ top: r.top, left: r.right + 8 }}>
+              <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-3 w-64">
+                <div className="grid grid-cols-7 gap-1.5 mb-3">
+                  {BG_COLORS.map(color => (
+                    <button
+                      key={color}
+                      onClick={() => { setBgColor(color); setHexInput(color.replace('#', '')); }}
+                      className="aspect-square rounded-full border-2 transition-all hover:scale-110"
+                      style={{ backgroundColor: color, borderColor: bgColor === color ? '#60a5fa' : '#e5e7eb' }}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-gray-400 font-mono">#</span>
+                  <input
+                    type="text"
+                    value={hexInput}
+                    onChange={e => {
+                      const val = e.target.value.replace(/[^0-9A-Fa-f]/g, '').slice(0, 6);
+                      setHexInput(val);
+                      if (val.length === 6) setBgColor('#' + val);
+                    }}
+                    maxLength={6}
+                    placeholder="FFFFFF"
+                    className="flex-1 min-w-0 text-[11px] font-mono text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 outline-none focus:border-blue-400"
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Item action toolbar — fixed so it's never clipped by canvas overflow */}
+        {selectedCid && canvasRef.current && (() => {
+          const item = canvasItems.find(i => i._cid === selectedCid);
+          if (!item) return null;
+          const cr = canvasRef.current.getBoundingClientRect();
+          const w = item.w ?? ITEM_SIZE;
+          const h = item.h ?? ITEM_SIZE;
+          const toolbarW = 104;
+          const toolbarH = 52;
+          const pad = 8;
+          // horizontal: center on item, clamped inside canvas
+          const rawX = cr.left + item.x + w / 2;
+          const clampedX = Math.max(cr.left + toolbarW / 2 + pad, Math.min(rawX, cr.right - toolbarW / 2 - pad));
+          // vertical: below item if it fits, otherwise above
+          const rawBelow = cr.top + item.y + h + 12;
+          const rawAbove = cr.top + item.y - toolbarH - 12;
+          const fitsBelow = rawBelow + toolbarH <= cr.bottom - pad;
+          const top = fitsBelow ? rawBelow : Math.max(cr.top + pad, rawAbove);
+          return (
+            <div
+              className="fixed z-[1100] flex gap-1 bg-gray-900 rounded-full shadow-lg px-2 py-2"
+              style={{ top, left: clampedX, transform: 'translateX(-50%)' }}
+              onMouseDown={e => e.stopPropagation()}
+            >
+              <div className="relative group/dup">
+                <button
+                  onClick={e => { e.stopPropagation(); duplicateItem(selectedCid); }}
+                  className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors"
+                >
+                  <Plus size={17} className="text-white" />
+                </button>
+                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[11px] rounded-lg whitespace-nowrap opacity-0 group-hover/dup:opacity-100 transition-opacity z-20">
+                  Duplicate
+                </div>
+              </div>
+              <div className="relative group/del">
+                <button
+                  onClick={e => { e.stopPropagation(); removeFromCanvas(selectedCid); }}
+                  className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors"
+                >
+                  <Trash2 size={16} className="text-white" />
+                </button>
+                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[11px] rounded-lg whitespace-nowrap opacity-0 group-hover/del:opacity-100 transition-opacity z-20">
+                  Delete
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Layer reorder menu popup */}
+        {layerMenuState && (
+          <div
+            ref={layerMenuRef}
+            className="fixed z-[60]"
+            style={{ top: layerMenuState.rect.top, left: layerMenuState.rect.right + 8 }}
+          >
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-2 w-44">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 pt-1 pb-2">Reorder menu</p>
+              {[
+                { label: 'Move to top',    dir: 'top'    },
+                { label: 'Move up',        dir: 'up'     },
+                { label: 'Move down',      dir: 'down'   },
+                { label: 'Move to bottom', dir: 'bottom' },
+              ].map(({ label, dir }) => (
+                <button
+                  key={dir}
+                  onClick={() => moveLayerTo(layerMenuState.cid, dir)}
+                  className="w-full text-left px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Canvas viewport (neutral surround) ── */}
+        <div
+          className="flex-1 flex items-center justify-center overflow-hidden bg-white p-8"
+          onClick={() => { setSelectedCid(null); setBgLayerSelected(false); }}
+        >
+          {/* ── A4 paper canvas ── */}
+          <div
+            ref={canvasRef}
+            className={`relative overflow-hidden rounded-2xl transition-[filter] duration-150 ${isDragOver ? 'brightness-95' : ''}`}
+            style={{
+              aspectRatio: '210 / 297',
+              height: '100%',
+              maxWidth: '100%',
+              ...bgStyle,
+            }}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
 
           {/* Drop target indicator */}
           {isDragOver && (
@@ -1515,42 +1965,56 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, onClose, onSave, o
           )}
 
           {/* Canvas items — absolutely positioned, draggable to reposition */}
-          {canvasItems.map(item => (
-            <div
-              key={item._cid}
-              style={{ left: item.x, top: item.y, width: ITEM_SIZE, height: ITEM_SIZE, zIndex: draggingCid === item._cid ? 10 : 1 }}
-              className={`absolute group rounded-xl overflow-hidden bg-gray-200 select-none cursor-grab active:cursor-grabbing transition-shadow ${draggingCid === item._cid ? 'shadow-2xl' : 'shadow-sm'}`}
-              onMouseDown={e => startItemDrag(e, item._cid)}
-            >
-              <img src={item.image} alt={item.name} draggable={false} className="w-full h-full object-cover pointer-events-none" />
-              <button
-                onMouseDown={e => e.stopPropagation()}
-                onClick={e => { e.stopPropagation(); removeFromCanvas(item._cid); }}
-                className="absolute top-1.5 right-1.5 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+          {canvasItems.map((item, idx) => {
+            const w = item.w ?? ITEM_SIZE;
+            const h = item.h ?? ITEM_SIZE;
+            const rot = item.rotation ?? 0;
+            const isSelected = selectedCid === item._cid;
+            return (
+              <div
+                key={item._cid}
+                style={{
+                  left: item.x,
+                  top: item.y,
+                  width: w,
+                  height: h,
+                  transform: `rotate(${rot}deg)`,
+                  zIndex: draggingCid === item._cid ? 1000 : isSelected ? 500 : idx + 1,
+                }}
+                className="absolute group select-none cursor-grab active:cursor-grabbing"
+                onMouseDown={e => startItemDrag(e, item._cid)}
+                onClick={e => e.stopPropagation()}
               >
-                <X size={9} strokeWidth={2.5} className="text-white" />
-              </button>
-            </div>
-          ))}
-        </div>
-
-        {/* ── Resize handle (desktop only) ── */}
-        <div
-          onMouseDown={startDrag}
-          className="hidden md:flex w-3 flex-shrink-0 items-center justify-center cursor-col-resize group bg-white border-x border-gray-100 hover:border-gray-300 transition-colors"
-        >
-          <div className="flex flex-col gap-[3px]">
-            {[0, 1, 2, 3].map(i => (
-              <div key={i} className="w-0.5 h-0.5 rounded-full bg-gray-300 group-hover:bg-gray-500 transition-colors" />
-            ))}
+                <div
+                  className={`w-full h-full rounded-xl overflow-hidden bg-gray-200 transition-shadow ${draggingCid === item._cid ? 'shadow-2xl' : 'shadow-sm'} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}
+                  style={item.flipX ? { transform: 'scaleX(-1)' } : undefined}
+                >
+                  <img src={item.image} alt={item.name} draggable={false} className="w-full h-full object-cover pointer-events-none" />
+                </div>
+                {/* Selection handles */}
+                {isSelected && (
+                  <>
+                    {/* Rotate handle */}
+                    <div
+                      style={{ top: -28, left: '50%', transform: 'translateX(-50%)' }}
+                      className="absolute w-5 h-5 bg-white border-2 border-blue-400 rounded-full cursor-crosshair shadow z-10"
+                      onMouseDown={e => { e.stopPropagation(); startRotateDrag(e, item._cid); }}
+                    />
+                    {/* Corner resize handles */}
+                    <div style={{ top: -4, left: -4 }}    className="absolute w-3 h-3 bg-white border-2 border-blue-400 rounded-sm cursor-nw-resize z-10" onMouseDown={e => { e.stopPropagation(); startResizeDrag(e, item._cid, 'nw'); }} />
+                    <div style={{ top: -4, right: -4 }}   className="absolute w-3 h-3 bg-white border-2 border-blue-400 rounded-sm cursor-ne-resize z-10" onMouseDown={e => { e.stopPropagation(); startResizeDrag(e, item._cid, 'ne'); }} />
+                    <div style={{ bottom: -4, left: -4 }}  className="absolute w-3 h-3 bg-white border-2 border-blue-400 rounded-sm cursor-sw-resize z-10" onMouseDown={e => { e.stopPropagation(); startResizeDrag(e, item._cid, 'sw'); }} />
+                    <div style={{ bottom: -4, right: -4 }} className="absolute w-3 h-3 bg-white border-2 border-blue-400 rounded-sm cursor-se-resize z-10" onMouseDown={e => { e.stopPropagation(); startResizeDrag(e, item._cid, 'se'); }} />
+                  </>
+                )}
+              </div>
+            );
+          })}
           </div>
         </div>
 
         {/* ── Mini wardrobe panel ── */}
-        <div
-          className="w-full flex flex-col flex-shrink-0 h-56 md:h-auto bg-white"
-          style={window.innerWidth >= 768 ? { width: panelWidth } : undefined}
-        >
+        <div className="w-full flex flex-col flex-shrink-0 h-56 md:h-auto md:w-[480px] bg-white border-l border-gray-100">
 
           {/* Board filter — collapsible */}
           <div className="flex-shrink-0 border-b border-gray-100">
@@ -1591,7 +2055,7 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, onClose, onSave, o
 
           {/* Items */}
           <div className="flex-1 overflow-y-auto scrollbar-hide p-2">
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
               {filtered.map(item => (
                 <div
                   key={item.id}
@@ -1608,37 +2072,6 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, onClose, onSave, o
         </div>
       </div>
 
-      {/* ── Exit warning overlay ── */}
-      {showExitWarning && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/30 backdrop-blur-sm backdrop-fade">
-          <div className="bg-white rounded-3xl shadow-2xl p-6 mx-6 max-w-xs w-full modal-animate">
-            <h3 className="text-base font-semibold text-gray-900 mb-1">Discard outfit?</h3>
-            <p className="text-sm text-gray-500 mb-5 leading-relaxed">
-              You have unsaved changes. Save a draft to continue later, or discard and exit.
-            </p>
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => { onSaveDraft(canvasItems); onClose(); }}
-                className="w-full py-2.5 border border-gray-200 text-gray-800 text-sm font-semibold rounded-2xl hover:bg-gray-50 transition-colors"
-              >
-                Save Draft & Exit
-              </button>
-              <button
-                onClick={onClose}
-                className="w-full py-2.5 bg-red-500 text-white text-sm font-semibold rounded-2xl hover:bg-red-600 transition-colors"
-              >
-                Discard
-              </button>
-              <button
-                onClick={() => setShowExitWarning(false)}
-                className="w-full py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                Keep Editing
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1646,40 +2079,113 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, onClose, onSave, o
 /* ─────────────────────────────────────────────────────────────────────────────
    OutfitCard
    ───────────────────────────────────────────────────────────────────────────── */
-function OutfitCard({ outfit }) {
-  const imgs = outfit.items.slice(0, 4);
-  const extra = outfit.items.length - 4;
+function OutfitCard({ outfit, onDelete, onEdit, isDraft }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const dotsRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const { items = [], bgColor = '#FFFFFF', canvasWidth = 480, canvasHeight = 679 } = outfit;
+  const bgStyle = bgColor === '#FFFFFF' ? { backgroundColor: '#F3F5F4' } : { backgroundColor: bgColor };
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = e => {
+      if (!dotsRef.current?.contains(e.target) && !dropdownRef.current?.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpen]);
 
   return (
-    <div className="aspect-square rounded-2xl overflow-hidden bg-gray-100 relative cursor-pointer group">
-      {imgs.length === 0 ? (
-        <div className="w-full h-full flex items-center justify-center">
-          <Wand2 size={20} className="text-gray-300" />
-        </div>
-      ) : imgs.length === 1 ? (
-        <img src={imgs[0].image} alt="" className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300" />
-      ) : (
-        <div className={`grid h-full w-full ${imgs.length === 2 ? 'grid-cols-2' : 'grid-cols-2 grid-rows-2'}`}>
-          {imgs.map((item, i) => (
-            <div key={i} className="overflow-hidden">
-              <img src={item.image} alt="" className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300" />
+    <div
+      className="group relative cursor-pointer"
+      style={{ aspectRatio: '210 / 297' }}
+    >
+      {/* Background + items (clipped to rounded rect) */}
+      <div
+        className="absolute inset-0 rounded-2xl overflow-hidden"
+        style={bgStyle}
+      >
+        {items.length === 0 ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <Wand2 size={20} className="text-gray-300" />
+          </div>
+        ) : items.map((item, idx) => {
+          const w = item.w ?? 128;
+          const h = item.h ?? 128;
+          const rot = item.rotation ?? 0;
+          return (
+            <div
+              key={item._cid ?? idx}
+              style={{
+                position: 'absolute',
+                left: `${(item.x / canvasWidth) * 100}%`,
+                top: `${(item.y / canvasHeight) * 100}%`,
+                width: `${(w / canvasWidth) * 100}%`,
+                height: `${(h / canvasHeight) * 100}%`,
+                transform: `rotate(${rot}deg)`,
+                zIndex: idx + 1,
+              }}
+            >
+              <div
+                className="w-full h-full rounded-xl overflow-hidden"
+                style={item.flipX ? { transform: 'scaleX(-1)' } : undefined}
+              >
+                <img src={item.image} alt={item.name} draggable={false} className="w-full h-full object-cover" />
+              </div>
             </div>
-          ))}
+          );
+        })}
+
+        {/* Hover overlay */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 pointer-events-none z-10" />
+      </div>
+
+      {/* Action buttons — outside overflow-hidden so menu can escape card bounds */}
+      <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1">
+        <button
+          onClick={e => { e.stopPropagation(); onEdit?.(); }}
+          className="px-2.5 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-gray-50 shadow-sm transition-all opacity-0 group-hover:opacity-100"
+        >
+          <Pencil size={13} className="text-gray-700" />
+        </button>
+        <div ref={dotsRef}>
+          <button
+            onClick={e => { e.stopPropagation(); setMenuOpen(o => !o); }}
+            className="px-2.5 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-gray-50 shadow-sm transition-all opacity-0 group-hover:opacity-100"
+          >
+            <MoreHorizontal size={16} className="text-gray-700" />
+          </button>
         </div>
-      )}
-      {extra > 0 && (
-        <div className="absolute bottom-2 right-2 bg-black/60 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded-full">
-          +{extra}
+      </div>
+
+      {/* Dropdown — child of outer card so top-full aligns to card's bottom edge */}
+      {menuOpen && (
+        <div ref={dropdownRef} className="absolute top-full right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 p-1 w-40 z-20 overflow-hidden">
+          <button
+            onClick={e => e.stopPropagation()}
+            className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
+          >
+            Save to device
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); setMenuOpen(false); onDelete?.(); }}
+            className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
+          >
+            Delete
+          </button>
         </div>
       )}
     </div>
   );
 }
 
-function StudioTab({ savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit, onUpdateSavedOutfit, onUpdateDraftOutfit, pendingOutfitItem, pendingTargetCollage, onClearPendingOutfit }) {
+function StudioTab({ savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit, onUpdateSavedOutfit, onUpdateDraftOutfit, onRemoveDraftOutfit, onRemoveSavedOutfit, pendingOutfitItem, pendingTargetCollage, onClearPendingOutfit }) {
   const [showCreate, setShowCreate]         = useState(false);
   const [createSeed, setCreateSeed]         = useState(null);
   const [initialCanvasItems, setInitialCanvasItems] = useState(null);
+  const [initialBgColor, setInitialBgColor] = useState(null);
   const [editingCollage, setEditingCollage] = useState(null);
   const [view, setView]                     = useState('saved');
 
@@ -1690,9 +2196,11 @@ function StudioTab({ savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit
       const list = pendingTargetCollage.type === 'saved' ? savedOutfits : draftOutfits;
       const outfit = list.find(o => o.id === pendingTargetCollage.id);
       setInitialCanvasItems(outfit?.items || []);
+      setInitialBgColor(outfit?.bgColor ?? null);
       setEditingCollage(pendingTargetCollage);
     } else {
       setInitialCanvasItems(null);
+      setInitialBgColor(null);
       setEditingCollage(null);
     }
     setShowCreate(true);
@@ -1701,9 +2209,17 @@ function StudioTab({ savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit
 
   const list = view === 'saved' ? savedOutfits : draftOutfits;
 
+  const openCollageForEditing = (outfit, type) => {
+    setCreateSeed(null);
+    setInitialCanvasItems(outfit.items || []);
+    setInitialBgColor(outfit.bgColor ?? null);
+    setEditingCollage({ id: outfit.id, type });
+    setShowCreate(true);
+  };
+
   const emptyLabel = view === 'saved'
-    ? { title: 'No saved outfits', sub: 'Tap + to create your first look' }
-    : { title: 'No drafts', sub: 'Save a draft while building an outfit' };
+    ? { title: 'No published outfits', sub: 'Tap + and publish to save your look' }
+    : { title: 'No drafts', sub: 'Start a collage and it will autosave as a draft' };
 
   return (
     <>
@@ -1721,10 +2237,10 @@ function StudioTab({ savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit
             </button>
           </div>
 
-          {/* Saved / Drafts toggle */}
+          {/* Published / Drafts toggle */}
           <div className="flex bg-gray-100 rounded-xl p-1 w-fit gap-1">
             {[
-              { key: 'saved',  label: 'Saved',  count: savedOutfits.length  },
+              { key: 'saved',  label: 'Published',  count: savedOutfits.length  },
               { key: 'drafts', label: 'Drafts', count: draftOutfits.length },
             ].map(({ key, label, count }) => (
               <button
@@ -1758,9 +2274,18 @@ function StudioTab({ savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit
               <p className="text-sm text-gray-400 mt-1">{emptyLabel.sub}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-2">
               {list.map(outfit => (
-                <OutfitCard key={outfit.id} outfit={outfit} />
+                <OutfitCard
+                  key={outfit.id}
+                  outfit={outfit}
+                  isDraft={view === 'drafts'}
+                  onEdit={() => openCollageForEditing(outfit, view === 'drafts' ? 'drafts' : 'saved')}
+                  onDelete={() => {
+                    if (view === 'drafts') onRemoveDraftOutfit(outfit.id);
+                    else onRemoveSavedOutfit?.(outfit.id);
+                  }}
+                />
               ))}
             </div>
           )}
@@ -1771,15 +2296,30 @@ function StudioTab({ savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit
         <CreateOutfitModal
           initialItem={createSeed}
           initialCanvasItems={initialCanvasItems}
-          onClose={() => { setShowCreate(false); setCreateSeed(null); setInitialCanvasItems(null); setEditingCollage(null); }}
-          onSave={items => {
-            if (editingCollage?.type === 'saved') onUpdateSavedOutfit(editingCollage.id, items);
-            else onSaveOutfit(items);
+          initialBgColor={initialBgColor}
+          onClose={() => { setShowCreate(false); setCreateSeed(null); setInitialCanvasItems(null); setInitialBgColor(null); setEditingCollage(null); }}
+          onPublish={collage => {
+            if (editingCollage?.type === 'saved') {
+              onUpdateSavedOutfit(editingCollage.id, collage);
+            } else {
+              if (editingCollage?.type === 'drafts') onRemoveDraftOutfit(editingCollage.id);
+              onSaveOutfit(collage);
+            }
+            setView('saved');
           }}
-          onSaveDraft={items => {
-            if (editingCollage?.type === 'drafts') onUpdateDraftOutfit(editingCollage.id, items);
-            else onSaveDraftOutfit(items);
+          onAutoSave={collage => {
+            if (editingCollage?.type === 'saved') {
+              onUpdateSavedOutfit(editingCollage.id, collage);
+              setView('saved');
+            } else if (editingCollage?.type === 'drafts') {
+              onUpdateDraftOutfit(editingCollage.id, collage);
+              setView('drafts');
+            } else if (collage.items.length > 0) {
+              onSaveDraftOutfit(collage);
+              setView('drafts');
+            }
           }}
+          onDetachCollage={() => setEditingCollage(null)}
         />
       )}
     </>
@@ -1956,21 +2496,27 @@ export default function WardrobeApp() {
     setSelectedItem(null);
   };
 
-  const handleSaveOutfit = items => {
-    if (items.length === 0) return;
-    setSavedOutfits(prev => [{ id: Date.now(), items }, ...prev]);
+  const handleSaveOutfit = collage => {
+    if (!collage.items.length) return;
+    setSavedOutfits(prev => [{ id: Date.now(), ...collage }, ...prev]);
   };
 
-  const handleSaveDraftOutfit = items => {
-    if (items.length === 0) return;
-    setDraftOutfits(prev => [{ id: Date.now(), items }, ...prev]);
+  const handleSaveDraftOutfit = collage => {
+    if (!collage.items.length) return;
+    setDraftOutfits(prev => [{ id: Date.now(), ...collage }, ...prev]);
   };
 
-  const updateSavedOutfit = (id, items) =>
-    setSavedOutfits(prev => prev.map(o => o.id === id ? { ...o, items } : o));
+  const updateSavedOutfit = (id, collage) =>
+    setSavedOutfits(prev => prev.map(o => o.id === id ? { ...o, ...collage } : o));
 
-  const updateDraftOutfit = (id, items) =>
-    setDraftOutfits(prev => prev.map(o => o.id === id ? { ...o, items } : o));
+  const updateDraftOutfit = (id, collage) =>
+    setDraftOutfits(prev => prev.map(o => o.id === id ? { ...o, ...collage } : o));
+
+  const handleRemoveDraftOutfit = id =>
+    setDraftOutfits(prev => prev.filter(o => o.id !== id));
+
+  const handleRemoveSavedOutfit = id =>
+    setSavedOutfits(prev => prev.filter(o => o.id !== id));
 
   const renderContent = () => {
     switch (activeTab) {
@@ -1997,6 +2543,8 @@ export default function WardrobeApp() {
           onSaveDraftOutfit={handleSaveDraftOutfit}
           onUpdateSavedOutfit={updateSavedOutfit}
           onUpdateDraftOutfit={updateDraftOutfit}
+          onRemoveDraftOutfit={handleRemoveDraftOutfit}
+          onRemoveSavedOutfit={handleRemoveSavedOutfit}
           pendingOutfitItem={pendingOutfitItem}
           pendingTargetCollage={pendingTargetCollage}
           onClearPendingOutfit={() => { setPendingOutfitItem(null); setPendingTargetCollage(null); }}
