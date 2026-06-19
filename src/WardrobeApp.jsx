@@ -2206,7 +2206,13 @@ function buildWeatherPool(weather, allItems) {
   let pool = allItems.filter(i => OUTFIT_CATEGORIES.has(i.category));
 
   if (weather.tempF > 75) {
+    // Warm: no heavy items at all
     pool = pool.filter(i => i.attributes?.warmthRating !== 'heavy');
+  } else if (weather.tempF > 50) {
+    // Cool/comfortable: heavy outerwear (shearling, heavy parkas) is overkill
+    pool = pool.filter(i =>
+      i.category !== 'Outerwear' || i.attributes?.warmthRating !== 'heavy'
+    );
   } else if (weather.tempF < 40) {
     // Cold: surface warmer items first, but keep everything available
     const warm = pool.filter(i => ['heavy', 'warm', 'medium'].includes(i.attributes?.warmthRating));
@@ -2284,7 +2290,8 @@ async function callAnthropicForOutfits(weather, allItems) {
       `3. SHOES: Every outfit must include exactly one "Shoes" item.\n` +
       `4. ACCESSORIES: "Accessories & Bags" and "Jewelry" items are optional but encouraged when they complement the look visually. You may include one or two per outfit.\n` +
       `5. LAYERING: Below 50°F, pair short-sleeve or base-layer tops with an "Outerwear" item.\n` +
-      `6. DISTINCT: No two outfits may share the exact same item set.\n` +
+      `6. OUTERWEAR WEIGHT: Above 65°F include no outerwear or only a very light jacket. Between 50–65°F a medium jacket or blazer is appropriate — avoid heavy coats, shearling, or thick parkas. Below 50°F heavier coats are suitable. Below 32°F heavy outerwear is expected.\n` +
+      `7. DISTINCT: No two outfits may share the exact same item set.\n` +
       `Return ONLY a raw JSON array of exactly 3 objects: ` +
       `[{"outfitName":"...","description":"...","itemIds":["id1","id2",...]}]`,
   });
@@ -2583,14 +2590,37 @@ function saveCachedOutfits(outfits, city) {
   } catch {}
 }
 
+// Temperature bands (°F) that define meaningfully different clothing needs
+const TEMP_BAND_THRESHOLDS = [32, 50, 65, 75, 85];
+function tempBand(t) {
+  for (let i = 0; i < TEMP_BAND_THRESHOLDS.length; i++) if (t < TEMP_BAND_THRESHOLDS[i]) return i;
+  return TEMP_BAND_THRESHOLDS.length;
+}
+
+const PRECIP_LABELS = new Set(['Drizzle', 'Rain', 'Snow', 'Showers', 'Snow Showers', 'Thunderstorm']);
+function hasPrecip(label) { return PRECIP_LABELS.has(label); }
+
+function weatherNeedsRegen(prev, next) {
+  if (!prev) return true;
+  // Different clothing-band for the day's high
+  if (tempBand(prev.highF) !== tempBand(next.highF)) return true;
+  // Precipitation status changed (current or expected later)
+  if (hasPrecip(prev.conditionLabel) !== hasPrecip(next.conditionLabel)) return true;
+  if (hasPrecip(prev.laterCondition) !== hasPrecip(next.laterCondition)) return true;
+  // High or low shifted by more than 10°F within the same band
+  if (Math.abs(prev.highF - next.highF) > 10 || Math.abs(prev.lowF - next.lowF) > 10) return true;
+  return false;
+}
+
 function LocationBar({ city, onCommit, onSelectLocation }) {
   const [editing,  setEditing]  = useState(false);
   const [val,      setVal]      = useState('');
   const [suggs,    setSuggs]    = useState([]);
   const [hi,       setHi]       = useState(-1);
-  const inputRef = useRef(null);
-  const debRef   = useRef(null);
-  const ctrlRef  = useRef(null);
+  const inputRef    = useRef(null);
+  const containerRef = useRef(null);
+  const debRef      = useRef(null);
+  const ctrlRef     = useRef(null);
 
   const clearSearch = () => {
     clearTimeout(debRef.current);
@@ -2646,9 +2676,14 @@ function LocationBar({ city, onCommit, onSelectLocation }) {
     if (e.key === 'Enter')  { commit(); return; }
     if (e.key === 'Escape') { clearSearch(); setEditing(false); }
   };
+  // Only commit when focus leaves the entire component (not when moving to a suggestion)
+  const handleBlur = e => {
+    if (containerRef.current?.contains(e.relatedTarget)) return;
+    commit();
+  };
 
   return (
-    <div className="relative flex-shrink-0">
+    <div ref={containerRef} className="relative flex-shrink-0">
       {editing ? (
         <div className="flex items-center gap-2 bg-gray-100 rounded-full px-4 py-2.5">
           <MapPin size={15} className="text-gray-400 flex-shrink-0" />
@@ -2657,7 +2692,7 @@ function LocationBar({ city, onCommit, onSelectLocation }) {
             value={val}
             onChange={e => onChange(e.target.value)}
             onKeyDown={onKeyDown}
-            onBlur={commit}
+            onBlur={handleBlur}
             placeholder="Search city…"
             className="bg-transparent text-base text-gray-700 focus:outline-none w-56 placeholder:text-gray-400"
           />
@@ -2669,20 +2704,24 @@ function LocationBar({ city, onCommit, onSelectLocation }) {
         </button>
       )}
       {editing && suggs.length > 0 && (
-        <div className="absolute top-full right-0 mt-1 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-20 w-60">
+        <div className="absolute top-full right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50 w-72">
           {suggs.map((s, i) => {
             const addr = s.address || {};
             const name = addr.city || addr.town || addr.village || addr.county || s.display_name.split(',')[0].trim();
             const region = addr.state_code || addr.state || '';
+            const country = addr.country || '';
             const display = region ? `${name}, ${region}` : name;
             return (
               <button key={s.place_id ?? i}
                 onMouseDown={e => e.preventDefault()}
                 onClick={() => pick(s)}
-                className={`w-full text-left px-3 py-2 flex items-center gap-2 text-xs transition-colors ${hi === i ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
+                className={`w-full text-left px-4 py-2.5 flex items-start gap-2.5 transition-colors ${hi === i ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
               >
-                <MapPin size={11} className="text-gray-400 flex-shrink-0" />
-                <span className="truncate font-medium text-gray-800">{display}</span>
+                <MapPin size={13} className="text-gray-400 flex-shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-800 truncate">{display}</p>
+                  {country && <p className="text-xs text-gray-400 truncate">{country}</p>}
+                </div>
               </button>
             );
           })}
@@ -2700,9 +2739,16 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio }) {
   const [genError,       setGenError]       = useState(null);
   const [currentIdx,     setCurrentIdx]     = useState(0);
   const [saveState,      setSaveState]      = useState('idle'); // 'idle' | 'saving' | 'saved'
-  const collageScale = useCollageScale();
+  const collageScale     = useCollageScale();
+  const outfitWeatherRef = useRef(null); // weather that generated the current outfits
 
   useEffect(() => {
+    // Restore a manually-set location so tab switches don't reset it
+    try {
+      const saved = localStorage.getItem('wardrobe_location');
+      if (saved) { setLocation(JSON.parse(saved)); return; }
+    } catch {}
+
     if (!navigator.geolocation) {
       setLocation({ city: DEFAULT_CITY, lat: DEFAULT_LAT, lon: DEFAULT_LON });
       return;
@@ -2730,12 +2776,19 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio }) {
   // Load cache or generate outfits — keyed by date + city
   useEffect(() => {
     if (!weatherSummary || items.length === 0 || !location.city) return;
+    // Skip regen if weather hasn't changed meaningfully since last generation
+    if (!weatherNeedsRegen(outfitWeatherRef.current, weatherSummary)) return;
+
     const cached = loadCachedOutfits(location.city);
     if (cached) {
       const existingIds = new Set(items.map(i => String(i.id)));
       const goodOutfits = cached.filter(o => (o.itemIds ?? []).every(id => existingIds.has(String(id))));
       // All outfits still valid — use cache unchanged
-      if (goodOutfits.length === cached.length) { setOutfits(cached); return; }
+      if (goodOutfits.length === cached.length) {
+        setOutfits(cached);
+        outfitWeatherRef.current = weatherSummary;
+        return;
+      }
       // Some outfits reference deleted items — keep the good ones, generate only what's needed
       const needed = 3 - goodOutfits.length;
       if (goodOutfits.length > 0) setOutfits(goodOutfits);
@@ -2749,6 +2802,7 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio }) {
           const combined = [...goodOutfits, ...fresh.slice(0, needed)];
           setOutfits(combined);
           saveCachedOutfits(combined, location.city);
+          outfitWeatherRef.current = weatherSummary;
         })
         .catch(e => { if (!cancelled) setGenError(e.message); })
         .finally(() => { if (!cancelled) setGenerating(false); });
@@ -2761,7 +2815,13 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio }) {
     setGenError(null);
     setGenerating(true);
     callAnthropicForOutfits(weatherSummary, items)
-      .then(results  => { if (!cancelled) { setOutfits(results); saveCachedOutfits(results, location.city); } })
+      .then(results => {
+        if (!cancelled) {
+          setOutfits(results);
+          saveCachedOutfits(results, location.city);
+          outfitWeatherRef.current = weatherSummary;
+        }
+      })
       .catch(e       => { if (!cancelled) setGenError(e.message); })
       .finally(()    => { if (!cancelled) setGenerating(false); });
     return () => { cancelled = true; };
@@ -2778,10 +2838,14 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio }) {
     return () => window.removeEventListener('keydown', handler);
   }, [outfits.length]);
 
+  const saveLocation = (loc) => {
+    try { localStorage.setItem('wardrobe_location', JSON.stringify(loc)); } catch {}
+    setLocation(loc);
+  };
+
   const handleSelectLocation = ({ city, lat, lon }) => {
-    setLocation({ city, lat, lon });
-    setWeatherSummary(null);
-    setOutfits([]);
+    saveLocation({ city, lat, lon });
+    setWeatherSummary(null); // triggers fresh weather fetch; outfits stay until regen is confirmed needed
   };
 
   const handleCitySearch = async (query) => {
@@ -2795,16 +2859,14 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio }) {
         const addr = result.address || {};
         const name = addr.city || addr.town || addr.village || addr.county || result.display_name.split(',')[0].trim();
         const region = addr.state_code || addr.state || '';
-        setLocation({ city: region ? `${name}, ${region}` : name, lat: parseFloat(result.lat), lon: parseFloat(result.lon) });
+        saveLocation({ city: region ? `${name}, ${region}` : name, lat: parseFloat(result.lat), lon: parseFloat(result.lon) });
       } else {
-        setLocation(l => ({ ...l, city: query }));
+        saveLocation({ ...location, city: query });
       }
       setWeatherSummary(null);
-      setOutfits([]);
     } catch {
-      setLocation(l => ({ ...l, city: query }));
+      saveLocation({ ...location, city: query });
       setWeatherSummary(null);
-      setOutfits([]);
     }
   };
 
