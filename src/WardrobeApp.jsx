@@ -2007,14 +2007,14 @@ async function callAnthropicForOutfits(weather, allItems) {
     text:
       `Weather: ${weather.tempF}°F now (${weather.conditionLabel}), High ${weather.highF}°F / Low ${weather.lowF}°F` +
       (weather.laterCondition ? `, with ${weather.laterCondition} expected later today` : '') + `.\n\n` +
-      `Using the garment images above, generate exactly 5 distinct, cohesive outfits. Hard rules:\n` +
+      `Using the garment images above, generate exactly 3 distinct, cohesive outfits. Hard rules:\n` +
       `1. TOPS: Every outfit must include a "Tops" or "Knitwear & Sweaters" item UNLESS it contains a "Dresses & Jumpsuits" item. Never omit a top.\n` +
       `2. BOTTOMS: Every outfit must include one "Bottoms" item UNLESS it contains a "Dresses & Jumpsuits" item. NEVER combine two bottoms (e.g., jeans + skirt is invalid — pick one).\n` +
       `3. SHOES: Every outfit must include exactly one "Shoes" item.\n` +
       `4. ACCESSORIES: "Accessories & Bags" and "Jewelry" items are optional but encouraged when they complement the look visually. You may include one or two per outfit.\n` +
       `5. LAYERING: Below 50°F, pair short-sleeve or base-layer tops with an "Outerwear" item.\n` +
       `6. DISTINCT: No two outfits may share the exact same item set.\n` +
-      `Return ONLY a raw JSON array of exactly 5 objects: ` +
+      `Return ONLY a raw JSON array of exactly 3 objects: ` +
       `[{"outfitName":"...","description":"...","itemIds":["id1","id2",...]}]`,
   });
 
@@ -2028,7 +2028,7 @@ async function callAnthropicForOutfits(weather, allItems) {
     },
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
-      max_tokens: 1500,
+      max_tokens: 900,
       system: 'You are a professional fashion stylist with visual expertise. You are visually inspecting the attached garment images. Look closely at their actual colors, fabrics, textures, and silhouettes. Group them into 5 outfits based on true visual compatibility, ensuring patterns do not clash and colors harmonize perfectly. Respond with valid raw JSON only — no markdown fences, no commentary.',
       messages: [{ role: 'user', content }],
     }),
@@ -2061,7 +2061,7 @@ async function callAnthropicForOutfits(weather, allItems) {
   });
 
   if (valid.length === 0) throw new Error('No valid outfits could be generated with your current wardrobe items.');
-  return valid.slice(0, 5);
+  return valid.slice(0, 3);
 }
 
 const OUTFITS_CACHE_KEY = 'wardrobe_daily_outfits';
@@ -2071,25 +2071,25 @@ function todayDateKey() {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-function loadCachedOutfits() {
+function loadCachedOutfits(city) {
   try {
     const raw = localStorage.getItem(OUTFITS_CACHE_KEY);
     if (!raw) return null;
-    const { date, outfits } = JSON.parse(raw);
-    return date === todayDateKey() ? outfits : null;
+    const { date, city: cachedCity, outfits } = JSON.parse(raw);
+    return date === todayDateKey() && cachedCity === city ? outfits : null;
   } catch { return null; }
 }
 
-function saveCachedOutfits(outfits) {
+function saveCachedOutfits(outfits, city) {
   try {
-    localStorage.setItem(OUTFITS_CACHE_KEY, JSON.stringify({ date: todayDateKey(), outfits }));
+    localStorage.setItem(OUTFITS_CACHE_KEY, JSON.stringify({ date: todayDateKey(), city, outfits }));
   } catch {}
 }
 
 function TodayTab({ items = [] }) {
   const [location,       setLocation]       = useState({ city: null, lat: null, lon: null });
   const [weatherSummary, setWeatherSummary] = useState(null);
-  const [outfits,        setOutfits]        = useState(() => loadCachedOutfits() ?? []);
+  const [outfits,        setOutfits]        = useState([]);
   const [generating,     setGenerating]     = useState(false);
   const [genError,       setGenError]       = useState(null);
   const [currentIdx,     setCurrentIdx]     = useState(0);
@@ -2119,21 +2119,22 @@ function TodayTab({ items = [] }) {
     );
   }, []);
 
-  // Generate outfits once per day — skip if already cached
+  // Load cache or generate outfits — keyed by date + city
   useEffect(() => {
-    if (!weatherSummary || items.length === 0) return;
-    if (loadCachedOutfits()) return;
+    if (!weatherSummary || items.length === 0 || !location.city) return;
+    const cached = loadCachedOutfits(location.city);
+    if (cached) { setOutfits(cached); return; }
     let cancelled = false;
     setOutfits([]);
     setCurrentIdx(0);
     setGenError(null);
     setGenerating(true);
     callAnthropicForOutfits(weatherSummary, items)
-      .then(results  => { if (!cancelled) { setOutfits(results); saveCachedOutfits(results); } })
+      .then(results  => { if (!cancelled) { setOutfits(results); saveCachedOutfits(results, location.city); } })
       .catch(e       => { if (!cancelled) setGenError(e.message); })
       .finally(()    => { if (!cancelled) setGenerating(false); });
     return () => { cancelled = true; };
-  }, [weatherSummary, items.length]);
+  }, [weatherSummary, items.length, location.city]);
 
   // Arrow-key navigation
   useEffect(() => {
@@ -2146,7 +2147,11 @@ function TodayTab({ items = [] }) {
     return () => window.removeEventListener('keydown', handler);
   }, [outfits.length]);
 
-  const handleSelectLocation = ({ city, lat, lon }) => setLocation({ city, lat, lon });
+  const handleSelectLocation = ({ city, lat, lon }) => {
+    setLocation({ city, lat, lon });
+    setWeatherSummary(null);
+    setOutfits([]);
+  };
 
   const handleCitySearch = async (query) => {
     try {
@@ -2163,8 +2168,12 @@ function TodayTab({ items = [] }) {
       } else {
         setLocation(l => ({ ...l, city: query }));
       }
+      setWeatherSummary(null);
+      setOutfits([]);
     } catch {
       setLocation(l => ({ ...l, city: query }));
+      setWeatherSummary(null);
+      setOutfits([]);
     }
   };
 
@@ -4132,7 +4141,7 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
 export default function WardrobeApp() {
   const [user, setUser]                   = useState(null);
   const [authLoading, setAuthLoading]     = useState(true);
-  const [activeTab, setActiveTab]         = useState('wardrobe');
+  const [activeTab, setActiveTab]         = useState('today');
   const [selectedItem, setSelectedItem]   = useState(null);
   const [items, setItems]                 = useState([]);
   const [addStep, setAddStep]             = useState(null);
