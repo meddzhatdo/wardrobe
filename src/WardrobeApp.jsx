@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Sun, Shirt, Wand2, Sparkles,
-  X, Heart, Plus, Search, ChevronRight, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal,
+  X, Heart, Plus, Search, ChevronRight, ChevronLeft, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal,
   Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut, Download, Eraser, MapPin,
   Cloud, CloudSun, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, CloudFog,
 } from 'lucide-react';
@@ -713,13 +713,10 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
     size: item.size,
     material: item.material,
     notes: item.notes || '',
-    attributes: item.attributes || { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
-    colorProfile: item.colorProfile || { primaryHex: '', colorFamily: '', undertone: 'Neutral', vibrancy: 'Muted' },
+    attributes: item.attributes || { warmthRating: 'none' },
   });
 
   const set = (key, val) => setDraft(d => ({ ...d, [key]: val }));
-  const setAttr = (key, val) => setDraft(d => ({ ...d, attributes: { ...d.attributes, [key]: val } }));
-  const setColor = (key, val) => setDraft(d => ({ ...d, colorProfile: { ...d.colorProfile, [key]: val } }));
 
   const handleSave = () => {
     onUpdate(item.id, draft);
@@ -731,8 +728,7 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
       name: item.name, brand: item.brand, price: item.price,
       category: item.category, size: item.size, material: item.material,
       notes: item.notes || '',
-      attributes: item.attributes || { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
-      colorProfile: item.colorProfile || { primaryHex: '', colorFamily: '', undertone: 'Neutral', vibrancy: 'Muted' },
+      attributes: item.attributes || { warmthRating: 'none' },
     });
     setEditMode(false);
   };
@@ -1068,7 +1064,11 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
 /* ─────────────────────────────────────────────────────────────────────────────
    GridCard
    ───────────────────────────────────────────────────────────────────────────── */
+const WARMTH_LABEL = { light: 'Light', medium: 'Medium', heavy: 'Heavy', warm: 'Warm' };
+
 function GridCard({ item, onClick }) {
+  const warmth = WARMTH_LABEL[item.attributes?.warmthRating];
+
   return (
     <div className="cursor-pointer group" onClick={() => onClick(item)}>
       <div className="relative rounded-2xl overflow-hidden bg-gray-100">
@@ -1081,6 +1081,15 @@ function GridCard({ item, onClick }) {
           />
         </div>
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/6 transition-colors duration-300 pointer-events-none" />
+      </div>
+
+      <div className="mt-2 px-0.5">
+        <p className="text-sm font-medium text-gray-800 truncate leading-snug">{item.name}</p>
+        {warmth && (
+          <span className="inline-block mt-1 text-[10px] font-medium text-gray-500 bg-gray-100 rounded-full px-2 py-0.5 leading-none">
+            {warmth}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -1650,7 +1659,7 @@ function fmtHour(ms) {
 /* ─────────────────────────────────────────────────────────────────────────────
    WeatherWidget
    ───────────────────────────────────────────────────────────────────────────── */
-function WeatherWidget({ lat, lon, city, onCommit, onSelectLocation }) {
+function WeatherWidget({ lat, lon, city, onCommit, onSelectLocation, onWeatherReady }) {
   const [data,           setData]           = useState(null);
   const [loading,        setLoading]        = useState(true);
   const [isEditing,      setIsEditing]      = useState(false);
@@ -1675,7 +1684,7 @@ function WeatherWidget({ lat, lon, city, onCommit, onSelectLocation }) {
       { signal: ctrl.signal }
     )
       .then(r => r.json())
-      .then(d => { setData(d); setLoading(false); })
+      .then(d => { setData(d); setLoading(false); onWeatherReady?.(d); })
       .catch(e => { if (e.name !== 'AbortError') setLoading(false); });
     return () => ctrl.abort();
   }, [lat, lon]);
@@ -1911,11 +1920,179 @@ function WeatherWidget({ lat, lon, city, onCommit, onSelectLocation }) {
 
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Placeholder tabs (Today / Studio / AI Stylist)
+   Outfit generation — two-stage vision pipeline
    ───────────────────────────────────────────────────────────────────────────── */
-function TodayTab() {
-  const occasions = ['Morning Meeting', 'Lunch Catch-up', 'Evening Walk'];
-  const [location, setLocation] = useState({ city: null, lat: null, lon: null });
+
+const OUTFIT_CATEGORIES = new Set([
+  'Tops', 'Bottoms', 'Dresses & Jumpsuits',
+  'Outerwear', 'Knitwear & Sweaters',
+  'Shoes', 'Activewear / Athleisure',
+  'Accessories & Bags', 'Jewelry',
+]);
+
+// Stage 1: rule-based filter → pool of ≤30 weather-appropriate items
+function buildWeatherPool(weather, allItems) {
+  let pool = allItems.filter(i => OUTFIT_CATEGORIES.has(i.category));
+
+  if (weather.tempF > 75) {
+    pool = pool.filter(i => i.attributes?.warmthRating !== 'heavy');
+  } else if (weather.tempF < 40) {
+    // Cold: surface warmer items first, but keep everything available
+    const warm = pool.filter(i => ['heavy', 'warm', 'medium'].includes(i.attributes?.warmthRating));
+    const light = pool.filter(i => i.attributes?.warmthRating === 'light');
+    pool = [...warm, ...light];
+  }
+
+  // Stratified sample so all outfit roles are represented
+  const pick = (arr, n) => [...arr].sort(() => Math.random() - 0.5).slice(0, n);
+  const tops        = pool.filter(i => ['Tops', 'Dresses & Jumpsuits', 'Knitwear & Sweaters', 'Activewear / Athleisure'].includes(i.category));
+  const bottoms     = pool.filter(i => i.category === 'Bottoms');
+  const shoes       = pool.filter(i => i.category === 'Shoes');
+  const outer       = pool.filter(i => i.category === 'Outerwear');
+  const accessories = pool.filter(i => ['Accessories & Bags', 'Jewelry'].includes(i.category));
+
+  const candidates = [
+    ...pick(tops,        10),
+    ...pick(bottoms,      6),
+    ...pick(shoes,        5),
+    ...pick(outer,        4),
+    ...pick(accessories,  5),
+  ];
+
+  const seen = new Set();
+  const final = [];
+  for (const item of candidates) {
+    if (!seen.has(item.id) && final.length < 30) {
+      seen.add(item.id);
+      final.push(item);
+    }
+  }
+  return final;
+}
+
+async function imageUrlToBase64(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`fetch ${res.status}`);
+  const blob = await res.blob();
+  const mediaType = blob.type || 'image/jpeg';
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({ data: reader.result.split(',')[1], mediaType });
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function callAnthropicForOutfits(weather, allItems) {
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('VITE_ANTHROPIC_API_KEY not set');
+
+  // Stage 1 — narrow to weather-appropriate pool
+  const pool = buildWeatherPool(weather, allItems);
+
+  // Stage 2 — build vision content blocks (image + text label per item)
+  const content = [];
+  for (const item of pool) {
+    try {
+      const { data, mediaType } = await imageUrlToBase64(item.image);
+      content.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data } });
+    } catch {
+      // image unavailable — text label still provides context
+    }
+    content.push({ type: 'text', text: `[ID:${item.id}] ${item.name} | Category: ${item.category}` });
+  }
+
+  content.push({
+    type: 'text',
+    text:
+      `Weather: ${weather.tempF}°F now (${weather.conditionLabel}), High ${weather.highF}°F / Low ${weather.lowF}°F` +
+      (weather.laterCondition ? `, with ${weather.laterCondition} expected later today` : '') + `.\n\n` +
+      `Using the garment images above, generate exactly 5 distinct, cohesive outfits. Hard rules:\n` +
+      `1. TOPS: Every outfit must include a "Tops" or "Knitwear & Sweaters" item UNLESS it contains a "Dresses & Jumpsuits" item. Never omit a top.\n` +
+      `2. BOTTOMS: Every outfit must include one "Bottoms" item UNLESS it contains a "Dresses & Jumpsuits" item. NEVER combine two bottoms (e.g., jeans + skirt is invalid — pick one).\n` +
+      `3. SHOES: Every outfit must include exactly one "Shoes" item.\n` +
+      `4. ACCESSORIES: "Accessories & Bags" and "Jewelry" items are optional but encouraged when they complement the look visually. You may include one or two per outfit.\n` +
+      `5. LAYERING: Below 50°F, pair short-sleeve or base-layer tops with an "Outerwear" item.\n` +
+      `6. DISTINCT: No two outfits may share the exact same item set.\n` +
+      `Return ONLY a raw JSON array of exactly 5 objects: ` +
+      `[{"outfitName":"...","description":"...","itemIds":["id1","id2",...]}]`,
+  });
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1500,
+      system: 'You are a professional fashion stylist with visual expertise. You are visually inspecting the attached garment images. Look closely at their actual colors, fabrics, textures, and silhouettes. Group them into 5 outfits based on true visual compatibility, ensuring patterns do not clash and colors harmonize perfectly. Respond with valid raw JSON only — no markdown fences, no commentary.',
+      messages: [{ role: 'user', content }],
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text().catch(() => res.status);
+    throw new Error(`Anthropic API error: ${err}`);
+  }
+
+  const json = await res.json();
+  let raw = json.content?.[0]?.text ?? '';
+  raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+  const parsed = JSON.parse(raw);
+  if (!Array.isArray(parsed)) throw new Error('Response was not a JSON array');
+
+  // Client-side guard: drop outfits that still violate structural rules
+  const itemMap = Object.fromEntries(allItems.map(i => [i.id, i]));
+  const valid = parsed.filter(outfit => {
+    const cats = (outfit.itemIds ?? []).map(id => itemMap[id]?.category).filter(Boolean);
+    const hasOnePiece = cats.includes('Dresses & Jumpsuits');
+    const hasTop      = cats.some(c => c === 'Tops' || c === 'Knitwear & Sweaters');
+    const bottomCount = cats.filter(c => c === 'Bottoms').length;
+    const hasShoes    = cats.includes('Shoes');
+    if (!hasOnePiece && !hasTop)    return false;
+    if (bottomCount > 1)             return false;
+    if (!hasOnePiece && bottomCount === 0) return false;
+    if (!hasShoes)                   return false;
+    return true;
+  });
+
+  if (valid.length === 0) throw new Error('No valid outfits could be generated with your current wardrobe items.');
+  return valid.slice(0, 5);
+}
+
+const OUTFITS_CACHE_KEY = 'wardrobe_daily_outfits';
+
+function todayDateKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function loadCachedOutfits() {
+  try {
+    const raw = localStorage.getItem(OUTFITS_CACHE_KEY);
+    if (!raw) return null;
+    const { date, outfits } = JSON.parse(raw);
+    return date === todayDateKey() ? outfits : null;
+  } catch { return null; }
+}
+
+function saveCachedOutfits(outfits) {
+  try {
+    localStorage.setItem(OUTFITS_CACHE_KEY, JSON.stringify({ date: todayDateKey(), outfits }));
+  } catch {}
+}
+
+function TodayTab({ items = [] }) {
+  const [location,       setLocation]       = useState({ city: null, lat: null, lon: null });
+  const [weatherSummary, setWeatherSummary] = useState(null);
+  const [outfits,        setOutfits]        = useState(() => loadCachedOutfits() ?? []);
+  const [generating,     setGenerating]     = useState(false);
+  const [genError,       setGenError]       = useState(null);
+  const [currentIdx,     setCurrentIdx]     = useState(0);
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -1942,9 +2119,34 @@ function TodayTab() {
     );
   }, []);
 
-  const handleSelectLocation = ({ city, lat, lon }) => {
-    setLocation({ city, lat, lon });
-  };
+  // Generate outfits once per day — skip if already cached
+  useEffect(() => {
+    if (!weatherSummary || items.length === 0) return;
+    if (loadCachedOutfits()) return;
+    let cancelled = false;
+    setOutfits([]);
+    setCurrentIdx(0);
+    setGenError(null);
+    setGenerating(true);
+    callAnthropicForOutfits(weatherSummary, items)
+      .then(results  => { if (!cancelled) { setOutfits(results); saveCachedOutfits(results); } })
+      .catch(e       => { if (!cancelled) setGenError(e.message); })
+      .finally(()    => { if (!cancelled) setGenerating(false); });
+    return () => { cancelled = true; };
+  }, [weatherSummary, items.length]);
+
+  // Arrow-key navigation
+  useEffect(() => {
+    if (outfits.length === 0) return;
+    const handler = (e) => {
+      if (e.key === 'ArrowLeft')  setCurrentIdx(i => Math.max(0, i - 1));
+      if (e.key === 'ArrowRight') setCurrentIdx(i => Math.min(outfits.length - 1, i + 1));
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [outfits.length]);
+
+  const handleSelectLocation = ({ city, lat, lon }) => setLocation({ city, lat, lon });
 
   const handleCitySearch = async (query) => {
     try {
@@ -1957,11 +2159,7 @@ function TodayTab() {
         const addr = result.address || {};
         const name = addr.city || addr.town || addr.village || addr.county || result.display_name.split(',')[0].trim();
         const region = addr.state_code || addr.state || '';
-        setLocation({
-          city:   region ? `${name}, ${region}` : name,
-          lat:    parseFloat(result.lat),
-          lon:    parseFloat(result.lon),
-        });
+        setLocation({ city: region ? `${name}, ${region}` : name, lat: parseFloat(result.lat), lon: parseFloat(result.lon) });
       } else {
         setLocation(l => ({ ...l, city: query }));
       }
@@ -1969,6 +2167,36 @@ function TodayTab() {
       setLocation(l => ({ ...l, city: query }));
     }
   };
+
+  const handleWeatherReady = (d) => {
+    const tempF = Math.round(d.current.temperature_2m);
+    const highF = Math.round(d.daily.temperature_2m_max[0]);
+    const lowF  = Math.round(d.daily.temperature_2m_min[0]);
+    const { label: conditionLabel } = wmoCondition(d.current.weather_code);
+
+    // Scan remaining hours today for a worse condition (higher WMO code = more severe)
+    const now      = Date.now();
+    const midnight = new Date(); midnight.setHours(24, 0, 0, 0);
+    let worstCode  = d.current.weather_code;
+    for (let i = 0; i < d.hourly.time.length; i++) {
+      const t = new Date(d.hourly.time[i]).getTime();
+      if (t >= now && t < midnight.getTime() && d.hourly.weather_code[i] > worstCode) {
+        worstCode = d.hourly.weather_code[i];
+      }
+    }
+    const laterCondition = worstCode !== d.current.weather_code
+      ? wmoCondition(worstCode).label
+      : null;
+
+    setWeatherSummary({ tempF, conditionLabel, highF, lowF, laterCondition });
+  };
+
+  // Build a fast id→item lookup
+  const itemById = {};
+  for (const item of items) itemById[item.id] = item;
+
+  const outfit = outfits[currentIdx] ?? null;
+  const outfitItems = outfit ? (outfit.itemIds ?? []).map(id => itemById[id]).filter(Boolean) : [];
 
   return (
     <div className="flex flex-col h-full overflow-y-auto scrollbar-hide px-6 md:px-10 pb-28 md:pb-8">
@@ -1979,28 +2207,139 @@ function TodayTab() {
       </div>
 
       {/* Weather module */}
-      <WeatherWidget lat={location.lat} lon={location.lon} city={location.city} onCommit={handleCitySearch} onSelectLocation={handleSelectLocation} />
+      <WeatherWidget
+        lat={location.lat}
+        lon={location.lon}
+        city={location.city}
+        onCommit={handleCitySearch}
+        onSelectLocation={handleSelectLocation}
+        onWeatherReady={handleWeatherReady}
+      />
 
-      {/* Skeleton cards */}
-      <div className="space-y-3">
-        {occasions.map((label, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-4 px-4 py-4 bg-gray-50 rounded-2xl border border-gray-100"
-          >
-            <div className="w-12 h-12 bg-gray-200 rounded-xl flex-shrink-0 animate-pulse" />
-            <div className="flex-1 space-y-2">
-              <div className="h-3 bg-gray-200 rounded-full w-3/4 animate-pulse" style={{ animationDelay: `${i * 0.15}s` }} />
-              <div className="h-2.5 bg-gray-100 rounded-full w-1/2 animate-pulse" style={{ animationDelay: `${i * 0.15 + 0.05}s` }} />
-            </div>
-            <div className="w-6 h-6 bg-gray-200 rounded-full flex-shrink-0 animate-pulse" />
+      {/* Outfit section */}
+      {items.length < 3 && (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-gray-200 bg-gray-50 px-6 py-12 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center">
+            <Shirt size={22} className="text-gray-300" />
           </div>
-        ))}
-      </div>
+          <div>
+            <p className="text-sm font-semibold text-gray-700">Your wardrobe needs a few more pieces</p>
+            <p className="text-xs text-gray-400 mt-1 leading-relaxed max-w-[220px]">
+              Add more items to unlock daily style inspiration tailored to the weather.
+            </p>
+          </div>
+        </div>
+      )}
 
-      <p className="mt-10 text-center text-xs font-semibold text-gray-300 uppercase tracking-[0.18em]">
-        Coming Soon
-      </p>
+      {items.length >= 3 && generating && (
+        <div className="rounded-3xl border border-gray-100 bg-gray-50 p-5 animate-pulse">
+          <div className="flex items-center justify-between mb-4">
+            <div className="h-4 w-32 bg-gray-200 rounded-full" />
+            <div className="flex gap-2">
+              <div className="w-8 h-8 bg-gray-200 rounded-full" />
+              <div className="w-8 h-8 bg-gray-200 rounded-full" />
+            </div>
+          </div>
+          <div className="flex gap-3 mb-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex flex-col items-center gap-2 flex-shrink-0">
+                <div className="w-20 h-20 bg-gray-200 rounded-2xl" />
+                <div className="h-2.5 w-16 bg-gray-200 rounded-full" />
+              </div>
+            ))}
+          </div>
+          <div className="h-3 w-3/4 bg-gray-200 rounded-full mb-2" />
+          <div className="h-3 w-1/2 bg-gray-200 rounded-full" />
+        </div>
+      )}
+
+      {items.length >= 3 && !generating && genError && (
+        <div className="rounded-3xl border border-red-100 bg-red-50 px-5 py-4">
+          <p className="text-sm font-medium text-red-600">Couldn't generate outfits</p>
+          <p className="text-xs text-red-400 mt-0.5">{genError}</p>
+        </div>
+      )}
+
+      {items.length >= 3 && !generating && outfits.length > 0 && (
+        <div className="rounded-3xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+          {/* Card header: outfit name + nav */}
+          <div className="flex items-center justify-between px-5 pt-5 pb-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.14em] mb-0.5">
+                {currentIdx + 1} of {outfits.length}
+              </p>
+              <h3 className="text-base font-semibold text-gray-900 truncate">
+                {outfit.outfitName}
+              </h3>
+            </div>
+            <div className="flex gap-1.5 flex-shrink-0 ml-3">
+              <button
+                onClick={() => setCurrentIdx(i => Math.max(0, i - 1))}
+                disabled={currentIdx === 0}
+                className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft size={15} strokeWidth={2} />
+              </button>
+              <button
+                onClick={() => setCurrentIdx(i => Math.min(outfits.length - 1, i + 1))}
+                disabled={currentIdx === outfits.length - 1}
+                className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight size={15} strokeWidth={2} />
+              </button>
+            </div>
+          </div>
+
+          {/* Dot indicators */}
+          <div className="flex justify-center gap-1.5 pb-3">
+            {outfits.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setCurrentIdx(i)}
+                className={`rounded-full transition-all ${
+                  i === currentIdx
+                    ? 'w-4 h-1.5 bg-gray-800'
+                    : 'w-1.5 h-1.5 bg-gray-300 hover:bg-gray-400'
+                }`}
+              />
+            ))}
+          </div>
+
+          {/* Item cards row */}
+          <div className="flex gap-3 overflow-x-auto scrollbar-hide px-5 pb-4">
+            {outfitItems.length > 0 ? outfitItems.map(item => (
+              <div key={item.id} className="flex flex-col items-center gap-2 flex-shrink-0">
+                <div className="w-[88px] h-[88px] rounded-2xl overflow-hidden bg-gray-50 border border-gray-100">
+                  {item.image ? (
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="w-full h-full object-cover"
+                      draggable={false}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Shirt size={22} className="text-gray-300" />
+                    </div>
+                  )}
+                </div>
+                <p className="text-[11px] font-medium text-gray-600 text-center w-[88px] leading-tight line-clamp-2">
+                  {item.name}
+                </p>
+              </div>
+            )) : (
+              <p className="text-sm text-gray-400 py-2">No matching items found in wardrobe</p>
+            )}
+          </div>
+
+          {/* Description */}
+          {outfit.description && (
+            <div className="px-5 pb-5 border-t border-gray-50 pt-3">
+              <p className="text-sm text-gray-500 leading-relaxed">{outfit.description}</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -2031,7 +2370,7 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, on
   const [canRedo, setCanRedo] = useState(false);
   const [collageMenuOpen, setCollageMenuOpen] = useState(false);
 
-  const ITEM_SIZE = 128;
+  const ITEM_SIZE = 220;
   const DOT_GRID_STYLE = {
     backgroundColor: '#F3F5F4',
     backgroundImage: 'radial-gradient(circle, #C6C9CC 1.5px, transparent 1.5px)',
@@ -3140,6 +3479,30 @@ async function convertToPng(file) {
   });
 }
 
+const MAX_IMAGE_PX = 600;
+async function resizeImage(file) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const longest = Math.max(img.naturalWidth, img.naturalHeight);
+      if (longest <= MAX_IMAGE_PX) { resolve(file); return; }
+      const scale = MAX_IMAGE_PX / longest;
+      const w = Math.round(img.naturalWidth  * scale);
+      const h = Math.round(img.naturalHeight * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob(blob => {
+        resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' }));
+      }, 'image/png');
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
 async function enrichItem({ imageUrl, imageFile, name, brand, category, material, color }) {
   const body = imageFile
     ? { imageBase64: await fileToBase64(imageFile), mediaType: imageFile.type, name, brand, category, material, color }
@@ -3177,11 +3540,11 @@ function AddMethodModal({ onClose, onImageSelected }) {
         worker.postMessage({ buffer, name: file.name, type: file.type }, [buffer]);
       });
       const processedFile = new File([resultBlob], file.name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' });
-      onImageSelected(processedFile);
+      onImageSelected(await resizeImage(processedFile));
     } catch (err) {
       console.error('Background removal failed, converting to PNG:', err);
       const converted = await convertToPng(file);
-      onImageSelected(converted);
+      onImageSelected(await resizeImage(converted));
     }
   };
 
@@ -3399,8 +3762,7 @@ function dbItemToApp(row) {
     boards: row.board_names || [],
     liked: row.liked,
     ratio: 'portrait',
-    attributes: row.attributes || { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
-    colorProfile: row.color_profile || { primaryHex: '', colorFamily: '', undertone: 'Neutral', vibrancy: 'Muted' },
+    attributes: row.attributes || { warmthRating: 'none' },
   };
 }
 
@@ -3961,8 +4323,7 @@ export default function WardrobeApp() {
     const previewUrl = imageFile ? URL.createObjectURL(imageFile) : '';
     setItems(prev => [{
       id: tempId, ...form, image: previewUrl, boards: [], liked: false, ratio: 'portrait',
-      attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
-      colorProfile: { primaryHex: '', colorFamily: '', undertone: 'Neutral', vibrancy: 'Muted' },
+      attributes: { warmthRating: 'none' },
       _enriching: true,
     }, ...prev]);
 
@@ -3982,8 +4343,7 @@ export default function WardrobeApp() {
         name: form.name, brand: form.brand, price: form.price, size: form.size,
         material: form.material, color: form.color, category: form.category, notes: form.notes,
         image_url: imageUrl, liked: false, board_names: [],
-        attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
-        color_profile: { primaryHex: '', colorFamily: '', undertone: 'Neutral', vibrancy: 'Muted' },
+        attributes: { warmthRating: 'none' },
       }).select().single();
 
       if (dbErr) throw dbErr;
@@ -3997,7 +4357,7 @@ export default function WardrobeApp() {
       });
 
       setItems(prev => prev.map(i => i.id === dbItem.id ? { ...i, ...result, _enriching: false } : i));
-      await supabase.from('items').update({ attributes: result.attributes, color_profile: result.colorProfile }).eq('id', dbItem.id);
+      await supabase.from('items').update({ attributes: result.attributes }).eq('id', dbItem.id);
     } catch (err) {
       console.error('addItem error:', err);
       setItems(prev => prev.map(i => i.id === tempId ? { ...i, _enriching: false } : i));
@@ -4090,7 +4450,7 @@ export default function WardrobeApp() {
           onAddItem={() => setAddStep('picker')}
         />
       );
-      case 'today':   return <TodayTab />;
+      case 'today':   return <TodayTab items={items} />;
       case 'studio':  return (
         <StudioTab
           savedOutfits={savedOutfits}

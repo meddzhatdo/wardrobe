@@ -10,33 +10,22 @@ export default async function handler(req, res) {
 
   if (!imageUrl && !imageBase64) return res.status(400).json({ error: 'imageUrl or imageBase64 is required' });
 
-  const systemPrompt = `You are a fashion AI that returns structured JSON describing a garment's attributes and color profile. Return ONLY valid JSON — no markdown, no explanation.`;
+  const systemPrompt = `You are a fashion AI that returns structured JSON. Return ONLY valid JSON — no markdown, no explanation.`;
 
   const userPrompt = `Analyze this garment image and return a JSON object with exactly this shape:
 {
   "attributes": {
-    "layerType": "<base|mid|outer|none>",
-    "sleeveLength": "<none|short|long>",
     "warmthRating": "<none|light|warm|heavy>"
-  },
-  "colorProfile": {
-    "primaryHex": "<dominant color as hex e.g. #C8B89A>",
-    "colorFamily": "<single-word family e.g. Neutral, Blue, Brown, Pink, Green, Red, Black, White>",
-    "undertone": "<Warm|Cool|Neutral>",
-    "vibrancy": "<Vibrant|Pastel|Muted|Deep>"
   }
 }
 
-Item context: "${name ?? ''}" by ${brand ?? 'unknown'}, category: ${category ?? 'unknown'}, material: ${material ?? 'unknown'}, color name: ${color ?? 'unknown'}.
+Item context: "${name ?? ''}" by ${brand ?? 'unknown'}, category: ${category ?? 'unknown'}, material: ${material ?? 'unknown'}, color: ${color ?? 'unknown'}.
 
-Rules:
-- layerType: base=closest to skin (tees, tanks, shirts, blouses), mid=worn over base (sweaters, blazers, cardigans), outer=outermost (coats, jackets, trench), none=non-clothing (shoes, bags, accessories, jewelry)
-- sleeveLength: none=sleeveless or non-clothing, short=short/cap/3-quarter sleeves, long=full-length sleeves
-- warmthRating: none=non-clothing, light=thin/unlined fabric, warm=moderate warmth (knitwear, lined blazers), heavy=insulated/padded/wool coats
-- primaryHex: the most dominant visible color in the image as a hex code
-- colorFamily: broadest color name (e.g. Neutral for beige/tan/grey/white/black, Blue, Brown, Pink, Green, Red, Yellow, Purple, Orange)
-- undertone: Warm=yellow/orange/red base, Cool=blue/green/purple base, Neutral=balanced
-- vibrancy: Vibrant=bright/saturated, Pastel=light/soft/diluted, Muted=grey-washed/desaturated, Deep=dark/rich`;
+Rules for warmthRating:
+- none: non-clothing items (shoes, bags, accessories, jewelry)
+- light: thin or unlined fabrics (cotton tees, linen, light denim, summer dresses)
+- warm: moderate warmth (knitwear, cardigans, lined blazers, wool trousers)
+- heavy: insulated or padded outerwear (coats, puffer jackets, heavy wool coats)`;
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -47,8 +36,8 @@ Rules:
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 300,
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 100,
         system: systemPrompt,
         messages: [
           {
@@ -60,10 +49,7 @@ Rules:
                   ? { type: 'base64', media_type: mediaType || 'image/jpeg', data: imageBase64 }
                   : { type: 'url', url: imageUrl },
               },
-              {
-                type: 'text',
-                text: userPrompt,
-              },
+              { type: 'text', text: userPrompt },
             ],
           },
         ],
