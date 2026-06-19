@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Sun, Shirt, Wand2, Sparkles,
-  X, Heart, Plus, Search, ChevronRight, ChevronLeft, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal,
+  X, Heart, Plus, Search, ChevronRight, ChevronLeft, ChevronDown, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal, SlidersHorizontal,
   Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut, Download, Eraser, MapPin, Bookmark,
   Cloud, CloudSun, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, CloudFog,
 } from 'lucide-react';
@@ -52,6 +52,14 @@ const GLOBAL_CSS = `
    Mock Data
    ───────────────────────────────────────────────────────────────────────────── */
 const BOARDS = ['All', 'Workwear', 'Weekend', 'Evening', 'Basics', 'Outerwear'];
+
+const PRESET_LOCATIONS = [
+  { city: 'New York, NY',    lat: 40.7128,  lon: -74.0060  },
+  { city: 'Los Angeles, CA', lat: 34.0522,  lon: -118.2437 },
+  { city: 'Miami, FL',       lat: 25.7617,  lon: -80.1918  },
+  { city: 'Chicago, IL',     lat: 41.8781,  lon: -87.6298  },
+  { city: 'Seattle, WA',     lat: 47.6062,  lon: -122.3321 },
+];
 
 const CATEGORIES = [
   'Tops',
@@ -689,7 +697,7 @@ function BackgroundEraserModal({ image, onSave, onClose }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    ItemModal
    ───────────────────────────────────────────────────────────────────────────── */
-function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onAddToOutfit, onOpenCollage, savedOutfits, draftOutfits, boards, onToggleBoard, onUpdateImage }) {
+function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onAddToOutfit, onOpenCollage, savedOutfits, draftOutfits, boards, onToggleBoard, onUpdateImage, isPreview = false }) {
   const [editMode, setEditMode] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCollagePicker, setShowCollagePicker] = useState(false);
@@ -753,7 +761,7 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
 
         {/* Top-right button cluster */}
         <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5">
-          {editMode ? (
+          {!isPreview && (editMode ? (
             <>
               <button
                 onClick={handleCancelEdit}
@@ -775,7 +783,7 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
             >
               <Pencil size={13} strokeWidth={2} className="text-gray-500" />
             </button>
-          )}
+          ))}
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-md hover:shadow-lg transition-shadow"
@@ -860,38 +868,40 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
                 </div>
               </div>
               {/* Board membership toggle */}
-              <div className="relative group/boards" ref={boardMenuRef}>
-                <button
-                  onClick={() => setBoardMenuOpen(o => !o)}
-                  className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all ${
-                    boardMenuOpen ? 'bg-gray-900 border-gray-900' : 'border-gray-200 bg-white hover:bg-gray-50'
-                  }`}
-                >
-                  <Layers size={15} className={boardMenuOpen ? 'text-white' : 'text-gray-400'} />
-                </button>
-                <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[11px] rounded-lg whitespace-nowrap opacity-0 group-hover/boards:opacity-100 transition-opacity z-[20]">
-                  Move to board
-                </div>
-                {boardMenuOpen && (
-                  <div className="absolute top-11 right-0 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 min-w-[160px] z-10">
-                    {boards.filter(b => b !== 'All').length === 0 ? (
-                      <p className="px-4 py-2.5 text-xs text-gray-400">No boards yet</p>
-                    ) : boards.filter(b => b !== 'All').map(board => {
-                      const inBoard = item.boards.includes(board);
-                      return (
-                        <button
-                          key={board}
-                          onClick={() => onToggleBoard(item.id, board)}
-                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between gap-3"
-                        >
-                          <span className="truncate">{board}</span>
-                          {inBoard && <Check size={13} className="text-gray-900 flex-shrink-0" />}
-                        </button>
-                      );
-                    })}
+              {!isPreview && (
+                <div className="relative group/boards" ref={boardMenuRef}>
+                  <button
+                    onClick={() => setBoardMenuOpen(o => !o)}
+                    className={`w-9 h-9 flex items-center justify-center rounded-full border transition-all ${
+                      boardMenuOpen ? 'bg-gray-900 border-gray-900' : 'border-gray-200 bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    <Layers size={15} className={boardMenuOpen ? 'text-white' : 'text-gray-400'} />
+                  </button>
+                  <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-[11px] rounded-lg whitespace-nowrap opacity-0 group-hover/boards:opacity-100 transition-opacity z-[20]">
+                    Move to board
                   </div>
-                )}
-              </div>
+                  {boardMenuOpen && (
+                    <div className="absolute top-11 right-0 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 min-w-[160px] z-10">
+                      {boards.filter(b => b !== 'All').length === 0 ? (
+                        <p className="px-4 py-2.5 text-xs text-gray-400">No boards yet</p>
+                      ) : boards.filter(b => b !== 'All').map(board => {
+                        const inBoard = item.boards.includes(board);
+                        return (
+                          <button
+                            key={board}
+                            onClick={() => onToggleBoard(item.id, board)}
+                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between gap-3"
+                          >
+                            <span className="truncate">{board}</span>
+                            {inBoard && <Check size={13} className="text-gray-900 flex-shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="relative group/like">
                 <button
                   onClick={() => onToggleLike(item.id)}
@@ -1001,7 +1011,7 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
                   Add to Outfit
                 </button>
 
-                {showDeleteConfirm ? (
+                {!isPreview && (showDeleteConfirm ? (
                   <div className="border border-red-100 bg-red-50 rounded-2xl p-4">
                     <p className="text-sm font-semibold text-gray-800 mb-1">Delete this item?</p>
                     <p className="text-xs text-gray-500 mb-3">This action can't be undone.</p>
@@ -1028,7 +1038,7 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
                     <Trash2 size={13} />
                     Delete item
                   </button>
-                )}
+                ))}
               </>
             )}
 
@@ -1118,7 +1128,7 @@ function OrganizeCard({ item, draggedId, selected, onSelect, onDragStart, onDrag
 /* ─────────────────────────────────────────────────────────────────────────────
    WardrobeTab
    ───────────────────────────────────────────────────────────────────────────── */
-function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDeleteBoard, onEditBoard, onDeleteItems, onCreateBoard, onToggleItemBoard, onAddItem, userId }) {
+function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDeleteBoard, onEditBoard, onDeleteItems, onCreateBoard, onToggleItemBoard, onAddItem, userId, isPreview = false }) {
   const [activeFilter, setActiveFilter] = useState('All');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -1143,6 +1153,12 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
   const organizeBoardPickerRef = useRef(null);
   const [addToBoardMode, setAddToBoardMode] = useState(false);
   const [addToBoardSelectedIds, setAddToBoardSelectedIds] = useState(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchInputRef = useRef(null);
+  const [categoryFilter, setCategoryFilter] = useState(new Set());
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterDropdownRef = useRef(null);
 
   useEffect(() => {
     if (!addMenuOpen) return;
@@ -1170,6 +1186,13 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
   }, [organizeBoardPickerOpen]);
 
   useEffect(() => {
+    if (!filterOpen) return;
+    const handler = e => { if (!filterDropdownRef.current?.contains(e.target)) setFilterOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [filterOpen]);
+
+  useEffect(() => {
     setOrganizeMode(false);
     setSelectedItemIds(new Set());
     setOrganizedItems([]);
@@ -1190,6 +1213,27 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
         list = [...newItems, ...ordered];
       }
     } catch {}
+    return list;
+  })();
+
+  const availableCategories = CATEGORIES;
+
+  const displayItems = (() => {
+    let list = filtered;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(i =>
+        (i.name || '').toLowerCase().includes(q) ||
+        (i.brand || '').toLowerCase().includes(q) ||
+        (i.category || '').toLowerCase().includes(q) ||
+        (i.color || '').toLowerCase().includes(q) ||
+        (i.material || '').toLowerCase().includes(q) ||
+        (i.notes || '').toLowerCase().includes(q)
+      );
+    }
+    if (categoryFilter.size > 0) {
+      list = list.filter(i => categoryFilter.has(i.category));
+    }
     return list;
   })();
 
@@ -1272,35 +1316,73 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-3xl font-semibold tracking-tight text-gray-900">My Wardrobe</h1>
           <div className="flex items-center gap-2">
-            <button className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
-              <Search size={16} strokeWidth={2} className="text-gray-600" />
+            <button
+              onClick={() => {
+                if (searchOpen) {
+                  setSearchOpen(false);
+                  setSearchQuery('');
+                } else {
+                  setSearchOpen(true);
+                }
+              }}
+              className={`w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
+                searchOpen ? 'bg-gray-900 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'
+              }`}
+            >
+              {searchOpen
+                ? <X size={16} strokeWidth={2.5} className="text-white" />
+                : <Search size={16} strokeWidth={2} className="text-gray-600" />}
             </button>
-            <div className="relative" ref={addMenuRef}>
-              <button
-                onClick={() => setAddMenuOpen(o => !o)}
-                className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-900 hover:bg-gray-700 transition-colors shadow-sm"
-              >
-                <Plus size={17} strokeWidth={2.5} className="text-white" />
-              </button>
-              {addMenuOpen && (
-                <div className="absolute right-0 top-11 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-36 z-20">
-                  <button
-                    onClick={() => { setAddMenuOpen(false); onAddItem(); }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    Item
-                  </button>
-                  <button
-                    onClick={() => { setAddMenuOpen(false); setNewBoardName(''); setNewBoardDesc(''); setNewBoardOpen(true); }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    Board
-                  </button>
-                </div>
-              )}
-            </div>
+            {!isPreview && (
+              <div className="relative" ref={addMenuRef}>
+                <button
+                  onClick={() => setAddMenuOpen(o => !o)}
+                  className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-900 hover:bg-gray-700 transition-colors shadow-sm"
+                >
+                  <Plus size={17} strokeWidth={2.5} className="text-white" />
+                </button>
+                {addMenuOpen && (
+                  <div className="absolute right-0 top-11 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-36 z-20">
+                    <button
+                      onClick={() => { setAddMenuOpen(false); onAddItem(); }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Item
+                    </button>
+                    <button
+                      onClick={() => { setAddMenuOpen(false); setNewBoardName(''); setNewBoardDesc(''); setNewBoardOpen(true); }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Board
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Search bar */}
+        {searchOpen && (
+          <div className="mb-4 flex items-center gap-2 bg-gray-100 rounded-full px-4 py-2.5">
+            <Search size={14} strokeWidth={2} className="text-gray-400 flex-shrink-0" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search by name, brand, category, color…"
+              className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none"
+              autoFocus
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
+                <X size={14} strokeWidth={2} />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Row 2: board title + organize/settings */}
         <div className="flex items-center justify-between mb-1">
           <p className="text-3xl font-semibold text-gray-900 truncate max-w-[20ch]">{activeFilter}</p>
@@ -1354,7 +1436,7 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
           </div>
         </div>
         <div className="mb-5">
-          <p className="text-sm text-gray-400 mt-0.5">{filtered.length} item{filtered.length !== 1 ? 's' : ''}</p>
+          <p className="text-sm text-gray-400 mt-0.5">{displayItems.length} item{displayItems.length !== 1 ? 's' : ''}{searchQuery.trim() ? ` matching "${searchQuery.trim()}"` : ''}</p>
           <div className="min-h-[1.25rem] mt-0.5">
             {activeFilter !== 'All' && boardMeta[activeFilter]?.description && (
               <p className="text-sm text-gray-400 italic pl-3">{boardMeta[activeFilter].description}</p>
@@ -1382,8 +1464,8 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
           })}
         </div>
 
-        {/* ── Favorites toggle ── */}
-        <div className="pb-3">
+        {/* ── Favorites + Filter ── */}
+        <div className="pb-3 flex items-center gap-2">
           <button
             onClick={() => setFavoritesOnly(o => !o)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
@@ -1395,21 +1477,71 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
             <Heart size={13} className={favoritesOnly ? 'fill-rose-500' : ''} />
             Favorites
           </button>
+
+          <div className="relative" ref={filterDropdownRef}>
+            <button
+              onClick={() => setFilterOpen(o => !o)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                categoryFilter.size > 0
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              <SlidersHorizontal size={13} />
+              Filter{categoryFilter.size > 0 ? ` · ${categoryFilter.size}` : ''}
+            </button>
+            {filterOpen && (
+              <div className="absolute left-0 top-10 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 w-56 z-20 max-h-40 overflow-y-auto scrollbar-hide">
+                {availableCategories.length === 0 ? (
+                  <p className="px-4 py-3 text-sm text-gray-400">No categories found</p>
+                ) : (
+                  availableCategories.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setCategoryFilter(prev => {
+                        const next = new Set(prev);
+                        next.has(cat) ? next.delete(cat) : next.add(cat);
+                        return next;
+                      })}
+                      className="w-full text-left px-4 py-2.5 text-sm flex items-center justify-between hover:bg-gray-50 transition-colors"
+                    >
+                      <span className={categoryFilter.has(cat) ? 'text-gray-900 font-medium' : 'text-gray-600'}>{cat}</span>
+                      {categoryFilter.has(cat) && <Check size={14} strokeWidth={2.5} className="text-gray-900 flex-shrink-0" />}
+                    </button>
+                  ))
+                )}
+                {categoryFilter.size > 0 && (
+                  <div className="border-t border-gray-100 mt-1 pt-1">
+                    <button
+                      onClick={() => { setCategoryFilter(new Set()); setFilterOpen(false); }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-gray-50 transition-colors"
+                    >
+                      Clear filter
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* ── Grid ── */}
       <div className="flex-1 overflow-y-auto scrollbar-hide px-5 md:px-7 pb-28 md:pb-8">
-        {filtered.length === 0 ? (
+        {displayItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
-              <Shirt size={22} className="text-gray-300" />
+              {searchQuery.trim()
+                ? <Search size={22} className="text-gray-300" />
+                : <Shirt size={22} className="text-gray-300" />}
             </div>
-            <p className="text-sm font-semibold text-gray-800">No items in this board</p>
+            <p className="text-sm font-semibold text-gray-800">
+              {searchQuery.trim() ? 'No items match your search' : 'No items in this board'}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-            {filtered.map(item => (
+            {displayItems.map(item => (
               <GridCard key={item.id} item={item} onClick={onSelectItem} />
             ))}
           </div>
@@ -2731,18 +2863,27 @@ function LocationBar({ city, onCommit, onSelectLocation }) {
   );
 }
 
-function TodayTab({ items = [], onSaveToPublished, onEditInStudio }) {
+function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = false }) {
   const [location,       setLocation]       = useState({ city: null, lat: null, lon: null });
   const [weatherSummary, setWeatherSummary] = useState(null);
   const [outfits,        setOutfits]        = useState([]);
   const [generating,     setGenerating]     = useState(false);
   const [genError,       setGenError]       = useState(null);
   const [currentIdx,     setCurrentIdx]     = useState(0);
+  const [retryKey,       setRetryKey]       = useState(0);
   const [saveState,      setSaveState]      = useState('idle'); // 'idle' | 'saving' | 'saved'
+  const [locationMenuOpen, setLocationMenuOpen] = useState(false);
+  const locationMenuRef = useRef(null);
   const collageScale     = useCollageScale();
   const outfitWeatherRef = useRef(null); // weather that generated the current outfits
 
   useEffect(() => {
+    // Preview mode always starts at first preset location (no geolocation, no persistence)
+    if (isPreview) {
+      setLocation(PRESET_LOCATIONS[0]);
+      return;
+    }
+
     // Restore a manually-set location so tab switches don't reset it
     try {
       const saved = localStorage.getItem('wardrobe_location');
@@ -2825,7 +2966,14 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio }) {
       .catch(e       => { if (!cancelled) setGenError(e.message); })
       .finally(()    => { if (!cancelled) setGenerating(false); });
     return () => { cancelled = true; };
-  }, [weatherSummary, items.length, location.city]);
+  }, [weatherSummary, items.length, location.city, retryKey]);
+
+  useEffect(() => {
+    if (!locationMenuOpen) return;
+    const handler = e => { if (!locationMenuRef.current?.contains(e.target)) setLocationMenuOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [locationMenuOpen]);
 
   // Arrow-key navigation
   useEffect(() => {
@@ -2939,11 +3087,37 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio }) {
           <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Today's Looks</h1>
           <p className="text-sm text-gray-400 mt-0.5">Curated from your wardrobe</p>
         </div>
-        <LocationBar
-          city={location.city}
-          onCommit={handleCitySearch}
-          onSelectLocation={handleSelectLocation}
-        />
+        {isPreview ? (
+          <div className="relative flex-shrink-0" ref={locationMenuRef}>
+            <button
+              onClick={() => setLocationMenuOpen(o => !o)}
+              className="flex items-center gap-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full px-4 py-2 transition-colors"
+            >
+              {location.city ?? 'Select city'}
+              <ChevronDown size={13} strokeWidth={2.5} className={`text-gray-500 transition-transform ${locationMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {locationMenuOpen && (
+              <div className="absolute right-0 top-10 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 min-w-[160px] z-20">
+                {PRESET_LOCATIONS.map(l => (
+                  <button
+                    key={l.city}
+                    onClick={() => { setLocation(l); setWeatherSummary(null); setLocationMenuOpen(false); }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between gap-3"
+                  >
+                    {l.city}
+                    {location.city === l.city && <Check size={13} strokeWidth={2.5} className="text-gray-900 flex-shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <LocationBar
+            city={location.city}
+            onCommit={handleCitySearch}
+            onSelectLocation={handleSelectLocation}
+          />
+        )}
         {/* hidden — keep mounted so weather fetch + onWeatherReady fire before outfits load */}
         <div className="hidden">
           <WeatherWidget
@@ -2980,9 +3154,35 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio }) {
         )}
 
         {items.length >= 3 && !generating && genError && (
-          <div className="ml-6 md:ml-8 rounded-3xl border border-red-100 bg-red-50 px-5 py-4 max-w-sm">
-            <p className="text-sm font-medium text-red-600">Couldn't generate outfits</p>
-            <p className="text-xs text-red-400 mt-0.5">{genError}</p>
+          <div className="flex flex-col items-center justify-center text-center px-8 py-20 flex-1">
+            <p className="text-5xl mb-6">✦</p>
+            {genError.includes('No valid outfits') ? (
+              <>
+                <h2 className="text-2xl font-semibold text-gray-800 mb-3 leading-snug">
+                  Nothing quite fits today's weather
+                </h2>
+                <p className="text-base text-gray-400 leading-relaxed max-w-xs">
+                  {isPreview
+                    ? 'Try switching to a different city to see outfits suited to that climate.'
+                    : 'Add a few more pieces to your wardrobe — a mix of tops, bottoms, and a pair of shoes is all it takes.'}
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-2xl font-semibold text-gray-800 mb-3 leading-snug">
+                  Couldn't reach the stylist
+                </h2>
+                <p className="text-base text-gray-400 leading-relaxed max-w-xs">
+                  Something went wrong on our end. Your wardrobe is fine — give it a moment and try again.
+                </p>
+              </>
+            )}
+            <button
+              onClick={() => { setGenError(null); setRetryKey(k => k + 1); }}
+              className="mt-8 px-6 py-2.5 rounded-full bg-gray-900 text-white text-sm font-semibold hover:bg-gray-700 transition-colors"
+            >
+              Try again
+            </button>
           </div>
         )}
 
@@ -4200,6 +4400,7 @@ function StudioTab({
   pendingAiCollage, onClearPendingAiCollage, items, boards,
   outfitBoards, outfitBoardMeta, likedOutfits,
   onCreateOutfitBoard, onDeleteOutfitBoard, onEditOutfitBoard, onToggleOutfitBoard, onToggleOutfitLike,
+  isPreview = false, previewCollages = [],
 }) {
   const [showCreate, setShowCreate]               = useState(false);
   const [createSeed, setCreateSeed]               = useState(null);
@@ -4291,8 +4492,8 @@ function StudioTab({
     return l;
   };
 
-  const filteredDrafts = applyFilters(draftOutfits);
-  const filteredSaved  = applyFilters(savedOutfits);
+  const filteredDrafts = isPreview ? [] : applyFilters(draftOutfits);
+  const filteredSaved  = isPreview ? previewCollages : applyFilters(savedOutfits);
 
   const openCollageForEditing = (outfit, type) => {
     setCreateSeed(null);
@@ -4370,30 +4571,32 @@ function StudioTab({
           {/* Row 1: page title + add */}
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-3xl font-semibold tracking-tight text-gray-900">Style Studio</h1>
-            <div className="relative" ref={addMenuRef}>
-              <button
-                onClick={() => setAddMenuOpen(o => !o)}
-                className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-900 hover:bg-gray-700 transition-colors shadow-sm"
-              >
-                <Plus size={17} strokeWidth={2.5} className="text-white" />
-              </button>
-              {addMenuOpen && (
-                <div className="absolute right-0 top-11 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-36 z-20">
-                  <button
-                    onClick={() => { setAddMenuOpen(false); setShowCreate(true); }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    Outfit
-                  </button>
-                  <button
-                    onClick={() => { setAddMenuOpen(false); setNewBoardName(''); setNewBoardDesc(''); setNewBoardOpen(true); }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    Board
-                  </button>
-                </div>
-              )}
-            </div>
+            {!isPreview && (
+              <div className="relative" ref={addMenuRef}>
+                <button
+                  onClick={() => setAddMenuOpen(o => !o)}
+                  className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-900 hover:bg-gray-700 transition-colors shadow-sm"
+                >
+                  <Plus size={17} strokeWidth={2.5} className="text-white" />
+                </button>
+                {addMenuOpen && (
+                  <div className="absolute right-0 top-11 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-36 z-20">
+                    <button
+                      onClick={() => { setAddMenuOpen(false); setShowCreate(true); }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Outfit
+                    </button>
+                    <button
+                      onClick={() => { setAddMenuOpen(false); setNewBoardName(''); setNewBoardDesc(''); setNewBoardOpen(true); }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Board
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           {/* Row 2: board title + organize/settings */}
           <div className="flex items-center justify-between mb-1">
@@ -5418,9 +5621,9 @@ function collageToDbPayload(collage) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   AuthScreen
+   AuthModal  (replaces full-page AuthScreen — floats above the preview app)
    ───────────────────────────────────────────────────────────────────────────── */
-function AuthScreen() {
+function AuthModal({ onClose }) {
   const [mode, setMode]       = useState('signin');
   const [name, setName]       = useState('');
   const [email, setEmail]     = useState('');
@@ -5459,17 +5662,22 @@ function AuthScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-      <div className="w-full max-w-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 backdrop-fade" style={{ backgroundColor: 'rgba(0,0,0,0.45)' }} onClick={e => { if (e.target === e.currentTarget) onClose?.(); }}>
+      <div className="w-full max-w-sm modal-animate">
         {/* Logo */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <p className="text-[10px] font-bold text-gray-300 uppercase tracking-[0.22em] mb-1">est. 2024</p>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">Vêtu</h1>
-          <p className="text-sm text-gray-400 mt-1">Your digital wardrobe</p>
+          <h1 className="text-3xl font-bold tracking-tight text-white">Vêtu</h1>
+          <p className="text-sm text-gray-300 mt-1">Your digital wardrobe</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8">
+        <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 p-8 relative">
+          {onClose && (
+            <button onClick={onClose} className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600">
+              <X size={14} />
+            </button>
+          )}
           {/* Mode toggle */}
           <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
             {[{ key: 'signin', label: 'Sign In' }, { key: 'signup', label: 'Sign Up' }].map(({ key, label }) => (
@@ -5760,6 +5968,7 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
 export default function WardrobeApp() {
   const [user, setUser]                   = useState(null);
   const [authLoading, setAuthLoading]     = useState(true);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [activeTab, setActiveTab]         = useState('today');
   const [selectedItem, setSelectedItem]   = useState(null);
   const [items, setItems]                 = useState([]);
@@ -6144,9 +6353,9 @@ export default function WardrobeApp() {
     switch (activeTab) {
       case 'wardrobe': return (
         <WardrobeTab
-          items={items}
-          boards={boards}
-          boardMeta={boardMeta}
+          items={previewItems}
+          boards={isPreview ? BOARDS : boards}
+          boardMeta={isPreview ? {} : boardMeta}
           likedItems={likedItems}
           onSelectItem={setSelectedItem}
           onDeleteBoard={handleDeleteBoard}
@@ -6156,13 +6365,15 @@ export default function WardrobeApp() {
           onToggleItemBoard={handleToggleItemBoard}
           onAddItem={() => setAddStep('picker')}
           userId={user?.id}
+          isPreview={isPreview}
         />
       );
       case 'today':   return (
         <TodayTab
-          items={items}
+          items={previewItems}
           onSaveToPublished={handleSaveOutfit}
           onEditInStudio={collage => { setPendingAiCollage(collage); setActiveTab('studio'); }}
+          isPreview={isPreview}
         />
       );
       case 'studio':  return (
@@ -6180,20 +6391,22 @@ export default function WardrobeApp() {
           onClearPendingOutfit={() => { setPendingOutfitItem(null); setPendingTargetCollage(null); }}
           pendingAiCollage={pendingAiCollage}
           onClearPendingAiCollage={() => setPendingAiCollage(null)}
-          items={items}
-          boards={boards}
-          outfitBoards={outfitBoards}
-          outfitBoardMeta={outfitBoardMeta}
+          items={previewItems}
+          boards={isPreview ? BOARDS : boards}
+          outfitBoards={isPreview ? ['All'] : outfitBoards}
+          outfitBoardMeta={isPreview ? {} : outfitBoardMeta}
           likedOutfits={likedOutfits}
           onCreateOutfitBoard={handleCreateOutfitBoard}
           onDeleteOutfitBoard={handleDeleteOutfitBoard}
           onEditOutfitBoard={handleEditOutfitBoard}
           onToggleOutfitBoard={handleToggleOutfitBoard}
           onToggleOutfitLike={toggleOutfitLike}
+          isPreview={isPreview}
+          previewCollages={previewCollages}
         />
       );
       case 'stylist': return <StylistTab />;
-      case 'profile': return (
+      case 'profile': return !isPreview ? (
         <ProfileTab
           items={items}
           boards={boards}
@@ -6202,7 +6415,7 @@ export default function WardrobeApp() {
           onUpdateProfile={handleUpdateProfile}
           onSignOut={handleSignOut}
         />
-      );
+      ) : null;
       default: return null;
     }
   };
@@ -6215,7 +6428,24 @@ export default function WardrobeApp() {
     );
   }
 
-  if (!user) return <AuthScreen />;
+  const isPreview = !user;
+
+  // In preview mode: use mock wardrobe items and 2 pre-built collages
+  const previewItems = isPreview ? ITEMS : items;
+  const previewCollages = isPreview
+    ? (() => {
+        const byId = {};
+        for (const item of ITEMS) byId[item.id] = item;
+        const buildCollage = (id, name, ids) => {
+          const outfitItems = ids.map(i => byId[i]).filter(Boolean);
+          return { id, name, items: aiOutfitToCanvasItems(outfitItems), bgColor: '#FFFFFF', canvasWidth: DESIGN_W, canvasHeight: DESIGN_H, liked: false, boards: [], thumbnail: '' };
+        };
+        return [
+          buildCollage('preview-1', 'Weekend Casual', [8, 5, 3, 7]),
+          buildCollage('preview-2', 'Work Ready',     [11, 9, 10, 7]),
+        ];
+      })()
+    : [];
 
   return (
     <div className="flex h-screen bg-white overflow-hidden antialiased font-sans">
@@ -6237,6 +6467,7 @@ export default function WardrobeApp() {
         {/* Navigation */}
         <nav className="flex flex-col gap-1">
           {TABS.map(({ id, label, Icon }) => {
+            if (isPreview && (id === 'profile' || id === 'stylist')) return null;
             const active = activeTab === id;
             return (
               <button
@@ -6255,24 +6486,37 @@ export default function WardrobeApp() {
           })}
         </nav>
 
-        {/* Profile */}
+        {/* Profile / Sign In */}
         <div className="mt-auto">
-          <button
-            onClick={() => setActiveTab('profile')}
-            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-colors group ${
-              activeTab === 'profile' ? 'bg-gray-100' : 'hover:bg-gray-100'
-            }`}
-          >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 flex-shrink-0 shadow-sm" />
-            <div className="text-left min-w-0">
-              <p className="text-sm font-semibold text-gray-900">{profile.name}</p>
-              <p className="text-xs text-gray-400">View profile</p>
+          {isPreview ? (
+            <div className="px-3 pb-2">
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="flex items-center gap-2.5 w-full px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-700 transition-colors"
+              >
+                <User size={15} strokeWidth={2} />
+                Sign in / Sign up
+              </button>
+              <p className="text-[11px] text-gray-400 text-center mt-2 leading-snug">Sign in to save your wardrobe and outfits</p>
             </div>
-            <ChevronRight
-              size={13}
-              className="text-gray-300 ml-auto group-hover:text-gray-500 transition-colors"
-            />
-          </button>
+          ) : (
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-colors group ${
+                activeTab === 'profile' ? 'bg-gray-100' : 'hover:bg-gray-100'
+              }`}
+            >
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 flex-shrink-0 shadow-sm" />
+              <div className="text-left min-w-0">
+                <p className="text-sm font-semibold text-gray-900">{profile.name}</p>
+                <p className="text-xs text-gray-400">View profile</p>
+              </div>
+              <ChevronRight
+                size={13}
+                className="text-gray-300 ml-auto group-hover:text-gray-500 transition-colors"
+              />
+            </button>
+          )}
         </div>
       </aside>
 
@@ -6286,11 +6530,23 @@ export default function WardrobeApp() {
           <div>
             <h1 className="text-xl font-bold tracking-tight text-gray-900">Vêtu</h1>
           </div>
-          <div className="flex items-center gap-3">
-            <button className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">
-              <Search size={15} className="text-gray-600" />
-            </button>
-            <button onClick={() => setActiveTab('profile')} className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 shadow-sm" />
+          <div className="flex items-center gap-2">
+            {isPreview ? (
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gray-900 text-white text-xs font-semibold hover:bg-gray-700 transition-colors"
+              >
+                <User size={12} strokeWidth={2} />
+                Sign in
+              </button>
+            ) : (
+              <>
+                <button className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">
+                  <Search size={15} className="text-gray-600" />
+                </button>
+                <button onClick={() => setActiveTab('profile')} className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 shadow-sm" />
+              </>
+            )}
           </div>
         </div>
 
@@ -6304,6 +6560,7 @@ export default function WardrobeApp() {
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-xl border-t border-gray-100">
         <div className="flex items-center justify-around px-2 pt-2 pb-6">
           {TABS.map(({ id, label, Icon }) => {
+            if (isPreview && (id === 'profile' || id === 'stylist')) return null;
             const active = activeTab === id;
             return (
               <button
@@ -6353,6 +6610,7 @@ export default function WardrobeApp() {
           draftOutfits={draftOutfits}
           boards={boards}
           onToggleBoard={handleToggleItemBoard}
+          isPreview={isPreview}
         />
       )}
 
@@ -6369,6 +6627,10 @@ export default function WardrobeApp() {
           onAdd={addItem}
           initialImage={addItemFile}
         />
+      )}
+
+      {showAuthModal && (
+        <AuthModal onClose={() => setShowAuthModal(false)} />
       )}
     </div>
   );
