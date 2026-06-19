@@ -59,7 +59,21 @@ create table outfits (
   canvas_items jsonb not null default '[]',
   thumbnail    text not null default '',
   is_draft     boolean not null default false,
+  liked        boolean not null default false,
+  board_names  text[] not null default '{}',
   created_at   timestamptz not null default now()
 );
 alter table outfits enable row level security;
 create policy "Users manage own outfits" on outfits for all using (auth.uid() = user_id);
+
+-- ── Outfit boards ─────────────────────────────────────────────────────────────
+create table outfit_boards (
+  id          uuid primary key default uuid_generate_v4(),
+  user_id     uuid not null references auth.users on delete cascade,
+  name        text not null,
+  description text not null default '',
+  created_at  timestamptz not null default now(),
+  unique (user_id, name)
+);
+alter table outfit_boards enable row level security;
+create policy "Users manage own outfit boards" on outfit_boards for all using (auth.uid() = user_id);
