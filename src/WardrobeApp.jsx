@@ -7,7 +7,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Sun, Shirt, Wand2, Sparkles,
   X, Heart, Plus, Search, ChevronRight, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal,
-  Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut, Download, Eraser,
+  Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut, Download, Eraser, MapPin,
+  Cloud, CloudSun, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, CloudFog,
 } from 'lucide-react';
 import { supabase } from './supabase.js';
 
@@ -41,6 +42,10 @@ const GLOBAL_CSS = `
   @media (min-width: 768px) {
     .modal-animate { animation: fadeScaleIn 0.2s ease-out forwards; }
   }
+
+  /* Location badge transitions */
+  .loc-pill  { transition: max-width 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.22s ease; }
+  .loc-input { transition: max-width 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.22s ease; }
 `;
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -1615,28 +1620,366 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   Weather helpers
+   ───────────────────────────────────────────────────────────────────────────── */
+const DEFAULT_CITY = 'New York';
+const DEFAULT_LAT  = 40.7128;
+const DEFAULT_LON  = -74.006;
+
+function wmoCondition(code) {
+  if (code <= 1)  return { label: 'Clear',         Icon: Sun,            bg: 'linear-gradient(160deg,#1565C0,#1E88E5 55%,#42A5F5)' };
+  if (code === 2) return { label: 'Partly Cloudy', Icon: CloudSun,       bg: 'linear-gradient(160deg,#1976D2,#546E7A)' };
+  if (code === 3) return { label: 'Overcast',      Icon: Cloud,          bg: 'linear-gradient(160deg,#37474F,#546E7A)' };
+  if (code <= 48) return { label: 'Foggy',         Icon: CloudFog,       bg: 'linear-gradient(160deg,#455A64,#78909C)' };
+  if (code <= 57) return { label: 'Drizzle',       Icon: CloudDrizzle,   bg: 'linear-gradient(160deg,#1A237E,#1565C0)' };
+  if (code <= 67) return { label: 'Rain',          Icon: CloudRain,      bg: 'linear-gradient(160deg,#0D47A1,#1976D2)' };
+  if (code <= 77) return { label: 'Snow',          Icon: CloudSnow,      bg: 'linear-gradient(160deg,#263238,#37474F 55%,#546E7A)' };
+  if (code <= 82) return { label: 'Showers',       Icon: CloudRain,      bg: 'linear-gradient(160deg,#0D47A1,#1976D2)' };
+  if (code <= 86) return { label: 'Snow Showers',  Icon: CloudSnow,      bg: 'linear-gradient(160deg,#263238,#37474F 55%,#546E7A)' };
+  return           { label: 'Thunderstorm',        Icon: CloudLightning, bg: 'linear-gradient(160deg,#1A1A2E,#0F3460)' };
+}
+
+function fmtHour(ms) {
+  const h = new Date(ms).getHours();
+  if (h === 0)  return '12am';
+  if (h < 12)  return `${h}am`;
+  if (h === 12) return '12pm';
+  return `${h - 12}pm`;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   WeatherWidget
+   ───────────────────────────────────────────────────────────────────────────── */
+function WeatherWidget({ lat, lon, city, onCommit, onSelectLocation }) {
+  const [data,           setData]           = useState(null);
+  const [loading,        setLoading]        = useState(true);
+  const [isEditing,      setIsEditing]      = useState(false);
+  const [inputValue,     setInputValue]     = useState('');
+  const [suggestions,    setSuggestions]    = useState([]);
+  const [highlightedIdx, setHighlightedIdx] = useState(-1);
+  const inputRef    = useRef(null);
+  const debounceRef = useRef(null);
+  const abortRef    = useRef(null);
+
+  useEffect(() => {
+    if (lat == null || lon == null) { setLoading(true); return; }
+    setLoading(true);
+    setData(null);
+    const ctrl = new AbortController();
+    fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+      `&current=temperature_2m,weather_code` +
+      `&hourly=temperature_2m,weather_code` +
+      `&daily=temperature_2m_max,temperature_2m_min` +
+      `&temperature_unit=fahrenheit&timezone=auto&forecast_days=2`,
+      { signal: ctrl.signal }
+    )
+      .then(r => r.json())
+      .then(d => { setData(d); setLoading(false); })
+      .catch(e => { if (e.name !== 'AbortError') setLoading(false); });
+    return () => ctrl.abort();
+  }, [lat, lon]);
+
+  const startEditing = () => {
+    setInputValue(city ?? '');
+    setSuggestions([]);
+    setHighlightedIdx(-1);
+    setIsEditing(true);
+    setTimeout(() => inputRef.current?.focus(), 30);
+  };
+
+  const clearSearch = () => {
+    clearTimeout(debounceRef.current);
+    abortRef.current?.abort();
+    setSuggestions([]);
+    setHighlightedIdx(-1);
+  };
+
+  const commit = () => {
+    clearSearch();
+    const trimmed = inputValue.trim();
+    if (trimmed && trimmed !== city) onCommit(trimmed);
+    setIsEditing(false);
+  };
+
+  const selectSuggestion = (result) => {
+    clearSearch();
+    const addr = result.address || {};
+    const name = addr.city || addr.town || addr.village || addr.county || result.display_name.split(',')[0].trim();
+    const region = addr.state_code || addr.state || '';
+    const displayCity = region ? `${name}, ${region}` : name;
+    onSelectLocation({ city: displayCity, lat: parseFloat(result.lat), lon: parseFloat(result.lon) });
+    setIsEditing(false);
+  };
+
+  const onInputChange = (val) => {
+    setInputValue(val);
+    setHighlightedIdx(-1);
+    clearTimeout(debounceRef.current);
+    abortRef.current?.abort();
+    if (val.trim().length < 2) { setSuggestions([]); return; }
+    debounceRef.current = setTimeout(async () => {
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val.trim())}&format=json&addressdetails=1&limit=5`,
+          { signal: ctrl.signal, headers: { 'Accept-Language': 'en' } }
+        );
+        setSuggestions(await res.json());
+      } catch (e) {
+        if (e.name !== 'AbortError') setSuggestions([]);
+      }
+    }, 320);
+  };
+
+  const onKeyDown = e => {
+    if (suggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlightedIdx(i => Math.min(i + 1, suggestions.length - 1));
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlightedIdx(i => Math.max(i - 1, -1));
+        return;
+      }
+      if (e.key === 'Enter' && highlightedIdx >= 0) {
+        selectSuggestion(suggestions[highlightedIdx]);
+        return;
+      }
+    }
+    if (e.key === 'Enter')  { commit(); return; }
+    if (e.key === 'Escape') { clearSearch(); setIsEditing(false); }
+  };
+
+  const skeletonBg = 'linear-gradient(160deg,#1565C0,#1E88E5 55%,#42A5F5)';
+
+  if (loading || !data) {
+    return (
+      <div className="mb-6 rounded-3xl overflow-hidden" style={{ background: skeletonBg }}>
+        <div className="px-6 pt-5 pb-4 animate-pulse">
+          <div className="h-3 w-24 bg-white/20 rounded-full mb-4" />
+          <div className="flex items-center justify-between">
+            <div className="h-[72px] w-28 bg-white/20 rounded-2xl" />
+            <div className="space-y-3 text-right">
+              <div className="h-5 w-32 bg-white/20 rounded-full ml-auto" />
+              <div className="h-4 w-24 bg-white/20 rounded-full ml-auto" />
+            </div>
+          </div>
+        </div>
+        <div className="mx-5 h-px bg-white/20" />
+        <div className="flex px-4 py-3 gap-0.5 animate-pulse">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex flex-col items-center gap-1.5 px-3 py-2 flex-shrink-0">
+              <div className="h-3 w-7 bg-white/20 rounded-full" />
+              <div className="h-[15px] w-[15px] bg-white/20 rounded-full" />
+              <div className="h-3.5 w-7 bg-white/20 rounded-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const currTemp = Math.round(data.current.temperature_2m);
+  const currCode = data.current.weather_code;
+  const high     = Math.round(data.daily.temperature_2m_max[0]);
+  const low      = Math.round(data.daily.temperature_2m_min[0]);
+  const { label, Icon: CondIcon, bg } = wmoCondition(currCode);
+
+  const nowMs = Date.now();
+  const hours = [];
+  for (let i = 0; i < data.hourly.time.length; i++) {
+    const ms = new Date(data.hourly.time[i]).getTime();
+    if (ms >= nowMs - 30 * 60 * 1000) {
+      hours.push({
+        key:  data.hourly.time[i],
+        ms,
+        temp: Math.round(data.hourly.temperature_2m[i]),
+        code: data.hourly.weather_code[i],
+      });
+      if (hours.length >= 24) break;
+    }
+  }
+
+  return (
+    <div className="relative mb-6">
+      <div className="rounded-3xl overflow-hidden shadow-md" style={{ background: bg }}>
+        {/* Location row */}
+        <div className="px-6 pt-5">
+          <div className="relative flex items-center h-5">
+            <div
+              className="loc-pill absolute left-0 overflow-hidden"
+              style={{ maxWidth: isEditing ? 0 : 280, opacity: isEditing ? 0 : 1, pointerEvents: isEditing ? 'none' : 'auto' }}
+            >
+              <button onClick={startEditing} className="flex items-center gap-1.5 whitespace-nowrap">
+                <MapPin size={12} className="text-white/60 flex-shrink-0" />
+                <span className="text-sm font-medium text-white/80 tracking-wide">{city ?? DEFAULT_CITY}</span>
+              </button>
+            </div>
+            <div
+              className="loc-input absolute left-0 overflow-hidden"
+              style={{ maxWidth: isEditing ? 280 : 0, opacity: isEditing ? 1 : 0, pointerEvents: isEditing ? 'auto' : 'none' }}
+            >
+              <div className="flex items-center gap-1.5 whitespace-nowrap">
+                <MapPin size={12} className="text-white/60 flex-shrink-0" />
+                <input
+                  ref={inputRef}
+                  value={inputValue}
+                  onChange={e => onInputChange(e.target.value)}
+                  onKeyDown={onKeyDown}
+                  onBlur={commit}
+                  placeholder="Search city…"
+                  className="bg-transparent text-sm font-medium text-white border-b border-white/40 focus:border-white/80 focus:outline-none w-48 placeholder:text-white/40 transition-colors"
+                />
+              </div>
+            </div>
+            <div className="invisible flex items-center gap-1.5 text-sm font-medium whitespace-nowrap">
+              <MapPin size={12} className="mr-1" />{city ?? DEFAULT_CITY}
+            </div>
+          </div>
+        </div>
+
+        {/* Current conditions */}
+        <div className="px-6 pt-3 pb-5 flex items-center justify-between">
+          <div className="flex items-start">
+            <span className="text-[68px] font-thin text-white leading-none tracking-tight">{currTemp}</span>
+            <span className="text-xl font-light text-white/60 mt-3 ml-0.5">°F</span>
+          </div>
+          <div className="text-right">
+            <div className="flex items-center gap-2 justify-end mb-2">
+              <CondIcon size={20} className="text-white/90" strokeWidth={1.8} />
+              <span className="text-[17px] font-medium text-white">{label}</span>
+            </div>
+            <p className="text-sm text-white/60 font-medium tracking-wide">H: {high}°  ·  L: {low}°</p>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="mx-5 h-px bg-white/20" />
+
+        {/* Hourly scroll */}
+        <div className="flex overflow-x-auto scrollbar-hide px-4 py-3 gap-0.5">
+          {hours.map((h, idx) => {
+            const { Icon: HIcon } = wmoCondition(h.code);
+            return (
+              <div key={h.key} className="flex flex-col items-center gap-1.5 px-3 py-2 flex-shrink-0">
+                <span className="text-[11px] font-semibold text-white/60 uppercase tracking-wide">
+                  {idx === 0 ? 'Now' : fmtHour(h.ms)}
+                </span>
+                <HIcon size={15} className="text-white" strokeWidth={1.8} />
+                <span className="text-sm font-medium text-white">{h.temp}°</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Autocomplete suggestions */}
+      {isEditing && suggestions.length > 0 && (
+        <div className="absolute top-[44px] left-4 right-4 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-20">
+          {suggestions.map((s, i) => {
+            const addr = s.address || {};
+            const name = addr.city || addr.town || addr.village || addr.county || s.display_name.split(',')[0].trim();
+            const region = addr.state_code || addr.state || '';
+            const country = addr.country || '';
+            const display = region ? `${name}, ${region}` : name;
+            return (
+              <button
+                key={s.place_id ?? i}
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => selectSuggestion(s)}
+                className={`w-full text-left px-4 py-2.5 flex items-start gap-2.5 transition-colors ${
+                  highlightedIdx === i ? 'bg-gray-50' : 'hover:bg-gray-50'
+                }`}
+              >
+                <MapPin size={13} className="text-gray-400 flex-shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-800 truncate">{display}</p>
+                  {country && <p className="text-xs text-gray-400 truncate">{country}</p>}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────────
    Placeholder tabs (Today / Studio / AI Stylist)
    ───────────────────────────────────────────────────────────────────────────── */
 function TodayTab() {
   const occasions = ['Morning Meeting', 'Lunch Catch-up', 'Evening Walk'];
+  const [location, setLocation] = useState({ city: null, lat: null, lon: null });
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocation({ city: DEFAULT_CITY, lat: DEFAULT_LAT, lon: DEFAULT_LON });
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords: { latitude, longitude } }) => {
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+            { headers: { 'Accept-Language': 'en' } }
+          );
+          const { address } = await res.json();
+          const name = address.city || address.town || address.village || address.county || DEFAULT_CITY;
+          const region = address.state_code || address.state || '';
+          setLocation({ city: region ? `${name}, ${region}` : name, lat: latitude, lon: longitude });
+        } catch {
+          setLocation({ city: DEFAULT_CITY, lat: DEFAULT_LAT, lon: DEFAULT_LON });
+        }
+      },
+      () => setLocation({ city: DEFAULT_CITY, lat: DEFAULT_LAT, lon: DEFAULT_LON }),
+      { timeout: 8000 }
+    );
+  }, []);
+
+  const handleSelectLocation = ({ city, lat, lon }) => {
+    setLocation({ city, lat, lon });
+  };
+
+  const handleCitySearch = async (query) => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=1`,
+        { headers: { 'Accept-Language': 'en' } }
+      );
+      const [result] = await res.json();
+      if (result) {
+        const addr = result.address || {};
+        const name = addr.city || addr.town || addr.village || addr.county || result.display_name.split(',')[0].trim();
+        const region = addr.state_code || addr.state || '';
+        setLocation({
+          city:   region ? `${name}, ${region}` : name,
+          lat:    parseFloat(result.lat),
+          lon:    parseFloat(result.lon),
+        });
+      } else {
+        setLocation(l => ({ ...l, city: query }));
+      }
+    } catch {
+      setLocation(l => ({ ...l, city: query }));
+    }
+  };
 
   return (
     <div className="flex flex-col h-full overflow-y-auto scrollbar-hide px-6 md:px-10 pb-28 md:pb-8">
+      {/* Header */}
       <div className="pt-8 mb-7">
         <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Today's Looks</h1>
         <p className="text-sm text-gray-400 mt-0.5">Curated from your wardrobe</p>
       </div>
 
-      {/* Weather strip */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 rounded-2xl mb-6 border border-amber-100">
-        <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
-          <Sun size={20} className="text-amber-500" />
-        </div>
-        <div>
-          <p className="text-sm font-semibold text-gray-800">Sunny · 24°C</p>
-          <p className="text-xs text-gray-500">Light layers recommended</p>
-        </div>
-      </div>
+      {/* Weather module */}
+      <WeatherWidget lat={location.lat} lon={location.lon} city={location.city} onCommit={handleCitySearch} onSelectLocation={handleSelectLocation} />
 
       {/* Skeleton cards */}
       <div className="space-y-3">
