@@ -1989,7 +1989,7 @@ function WeatherWidget({ lat, lon, city, onCommit, onSelectLocation, onWeatherRe
       );
     }
     return (
-      <div className="mb-6 rounded-3xl overflow-hidden" style={{ background: skeletonBg }}>
+      <div className="rounded-3xl overflow-hidden" style={{ background: skeletonBg }}>
         <div className="px-6 pt-5 pb-4 animate-pulse">
           <div className="h-3 w-24 bg-white/20 rounded-full mb-4" />
           <div className="flex items-center justify-between">
@@ -2103,8 +2103,8 @@ function WeatherWidget({ lat, lon, city, onCommit, onSelectLocation, onWeatherRe
   }
 
   return (
-    <div className="relative mb-6">
-      <div className="rounded-3xl overflow-hidden shadow-md" style={{ background: bg }}>
+    <div className="relative w-full">
+      <div className="rounded-3xl overflow-hidden" style={{ background: bg }}>
         {/* Location row */}
         <div className="px-6 pt-5">
           <div className="relative flex items-center h-5">
@@ -2155,24 +2155,6 @@ function WeatherWidget({ lat, lon, city, onCommit, onSelectLocation, onWeatherRe
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="mx-5 h-px bg-white/20" />
-
-        {/* Hourly scroll */}
-        <div className="flex overflow-x-auto scrollbar-hide px-4 py-3 gap-0.5">
-          {hours.map((h, idx) => {
-            const { Icon: HIcon } = wmoCondition(h.code);
-            return (
-              <div key={h.key} className="flex flex-col items-center gap-1.5 px-3 py-2 flex-shrink-0">
-                <span className="text-[11px] font-semibold text-white/60 uppercase tracking-wide">
-                  {idx === 0 ? 'Now' : fmtHour(h.ms)}
-                </span>
-                <HIcon size={15} className="text-white" strokeWidth={1.8} />
-                <span className="text-sm font-medium text-white">{h.temp}°</span>
-              </div>
-            );
-          })}
-        </div>
       </div>
 
       {/* Autocomplete suggestions */}
@@ -2495,12 +2477,16 @@ function GeneratingSkeleton() {
 }
 
 function useCollageScale() {
-  const [scale, setScale] = useState(() =>
-    Math.min(1, (window.innerHeight - COLLAGE_HEADER_OFFSET) / DESIGN_H)
-  );
+  const calc = () => {
+    const byHeight = Math.min(1, (window.innerHeight - COLLAGE_HEADER_OFFSET) / DESIGN_H);
+    // Cap by available width so collage never overflows the screen in column layout.
+    // displayW = DESIGN_H * scale * (210/297), so byWidth = (screenW - hPad) / (DESIGN_H * 210/297)
+    const byWidth = (window.innerWidth - 48) / (DESIGN_H * (210 / 297));
+    return Math.min(byHeight, byWidth, 1);
+  };
+  const [scale, setScale] = useState(calc);
   useEffect(() => {
-    const update = () =>
-      setScale(Math.min(1, (window.innerHeight - COLLAGE_HEADER_OFFSET) / DESIGN_H));
+    const update = () => setScale(calc());
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
   }, []);
@@ -2597,6 +2583,115 @@ function saveCachedOutfits(outfits, city) {
   } catch {}
 }
 
+function LocationBar({ city, onCommit, onSelectLocation }) {
+  const [editing,  setEditing]  = useState(false);
+  const [val,      setVal]      = useState('');
+  const [suggs,    setSuggs]    = useState([]);
+  const [hi,       setHi]       = useState(-1);
+  const inputRef = useRef(null);
+  const debRef   = useRef(null);
+  const ctrlRef  = useRef(null);
+
+  const clearSearch = () => {
+    clearTimeout(debRef.current);
+    ctrlRef.current?.abort();
+    setSuggs([]);
+    setHi(-1);
+  };
+  const commit = () => {
+    clearSearch();
+    const t = val.trim();
+    if (t && t !== city) onCommit(t);
+    setEditing(false);
+  };
+  const startEdit = () => {
+    setVal(city ?? '');
+    setSuggs([]);
+    setHi(-1);
+    setEditing(true);
+    setTimeout(() => inputRef.current?.focus(), 30);
+  };
+  const pick = s => {
+    clearSearch();
+    const addr = s.address || {};
+    const name = addr.city || addr.town || addr.village || addr.county || s.display_name.split(',')[0].trim();
+    const region = addr.state_code || addr.state || '';
+    onSelectLocation({ city: region ? `${name}, ${region}` : name, lat: parseFloat(s.lat), lon: parseFloat(s.lon) });
+    setEditing(false);
+  };
+  const onChange = v => {
+    setVal(v);
+    setHi(-1);
+    clearTimeout(debRef.current);
+    ctrlRef.current?.abort();
+    if (v.trim().length < 2) { setSuggs([]); return; }
+    debRef.current = setTimeout(async () => {
+      const ctrl = new AbortController();
+      ctrlRef.current = ctrl;
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(v.trim())}&format=json&addressdetails=1&limit=5`,
+          { signal: ctrl.signal, headers: { 'Accept-Language': 'en' } }
+        );
+        setSuggs(await res.json());
+      } catch (e) { if (e.name !== 'AbortError') setSuggs([]); }
+    }, 320);
+  };
+  const onKeyDown = e => {
+    if (suggs.length > 0) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setHi(i => Math.min(i + 1, suggs.length - 1)); return; }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); setHi(i => Math.max(i - 1, -1)); return; }
+      if (e.key === 'Enter' && hi >= 0) { pick(suggs[hi]); return; }
+    }
+    if (e.key === 'Enter')  { commit(); return; }
+    if (e.key === 'Escape') { clearSearch(); setEditing(false); }
+  };
+
+  return (
+    <div className="relative flex-shrink-0">
+      {editing ? (
+        <div className="flex items-center gap-2 bg-gray-100 rounded-full px-4 py-2.5">
+          <MapPin size={15} className="text-gray-400 flex-shrink-0" />
+          <input
+            ref={inputRef}
+            value={val}
+            onChange={e => onChange(e.target.value)}
+            onKeyDown={onKeyDown}
+            onBlur={commit}
+            placeholder="Search city…"
+            className="bg-transparent text-base text-gray-700 focus:outline-none w-56 placeholder:text-gray-400"
+          />
+        </div>
+      ) : (
+        <button onClick={startEdit} className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 transition-colors rounded-full px-4 py-2.5">
+          <MapPin size={15} className="text-gray-500 flex-shrink-0" />
+          <span className="text-base text-gray-600 max-w-[220px] truncate">{city ?? 'Set location'}</span>
+        </button>
+      )}
+      {editing && suggs.length > 0 && (
+        <div className="absolute top-full right-0 mt-1 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-20 w-60">
+          {suggs.map((s, i) => {
+            const addr = s.address || {};
+            const name = addr.city || addr.town || addr.village || addr.county || s.display_name.split(',')[0].trim();
+            const region = addr.state_code || addr.state || '';
+            const display = region ? `${name}, ${region}` : name;
+            return (
+              <button key={s.place_id ?? i}
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => pick(s)}
+                className={`w-full text-left px-3 py-2 flex items-center gap-2 text-xs transition-colors ${hi === i ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
+              >
+                <MapPin size={11} className="text-gray-400 flex-shrink-0" />
+                <span className="truncate font-medium text-gray-800">{display}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TodayTab({ items = [], onSaveToPublished, onEditInStudio }) {
   const [location,       setLocation]       = useState({ city: null, lat: null, lon: null });
   const [weatherSummary, setWeatherSummary] = useState(null);
@@ -2605,6 +2700,7 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio }) {
   const [genError,       setGenError]       = useState(null);
   const [currentIdx,     setCurrentIdx]     = useState(0);
   const [saveState,      setSaveState]      = useState('idle'); // 'idle' | 'saving' | 'saved'
+  const collageScale = useCollageScale();
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -2776,10 +2872,17 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio }) {
     <div className="flex flex-col flex-1 min-h-0 overflow-y-auto scrollbar-hide pb-28 md:pb-8">
 
       {/* Title */}
-      <div className="px-6 md:px-8 pt-8 mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Today's Looks</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Curated from your wardrobe</p>
-        {/* hidden — keep mounted so weather fetch + onWeatherReady still fire */}
+      <div className="px-6 md:px-8 pt-8 mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Today's Looks</h1>
+          <p className="text-sm text-gray-400 mt-0.5">Curated from your wardrobe</p>
+        </div>
+        <LocationBar
+          city={location.city}
+          onCommit={handleCitySearch}
+          onSelectLocation={handleSelectLocation}
+        />
+        {/* hidden — keep mounted so weather fetch + onWeatherReady fire before outfits load */}
         <div className="hidden">
           <WeatherWidget
             compact
@@ -2822,19 +2925,19 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio }) {
         )}
 
         {items.length >= 3 && !generating && outfits.length > 0 && (
-          <div className="flex flex-col md:flex-row">
+          <div className="flex flex-col items-center [@media(min-width:1000px)_and_(min-height:680px)]:flex-row [@media(min-width:1000px)_and_(min-height:680px)]:items-stretch">
             {/* Collage — flush left, no padding */}
             {outfitItems.length > 0 ? (
               <OutfitCollage items={outfitItems} />
             ) : (
               <div className="rounded-3xl bg-white flex-shrink-0 flex items-center justify-center"
-                style={{ height: Math.round(DESIGN_H * Math.min(1, (window.innerHeight - COLLAGE_HEADER_OFFSET) / DESIGN_H)), width: Math.round(DESIGN_H * Math.min(1, (window.innerHeight - COLLAGE_HEADER_OFFSET) / DESIGN_H) * 210 / 297) }}>
+                style={{ height: Math.round(DESIGN_H * collageScale), width: Math.round(DESIGN_H * collageScale * 210 / 297) }}>
                 <p className="text-sm text-gray-400">No items found</p>
               </div>
             )}
 
             {/* Info panel — right of collage on wide screens, below on narrow */}
-            <div className="flex-1 min-w-0 flex flex-col px-5 py-5 md:py-5 pt-4 md:pt-5">
+            <div className="flex-1 min-w-0 flex flex-col items-start px-5 pt-4 pb-0 [@media(min-width:1000px)_and_(min-height:680px)]:pl-8 [@media(min-width:1000px)_and_(min-height:680px)]:pt-0">
               {/* Counter */}
               <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.14em] mb-1">
                 {currentIdx + 1} of {outfits.length}
@@ -2912,6 +3015,18 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio }) {
                     Edit Outfit
                   </span>
                 </div>
+              </div>
+
+              {/* Weather Report */}
+              <div className="mt-5 w-full">
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.14em] mb-2">Weather Report</p>
+                <WeatherWidget
+                  lat={location.lat}
+                  lon={location.lon}
+                  city={location.city}
+                  onCommit={handleCitySearch}
+                  onSelectLocation={handleSelectLocation}
+                />
               </div>
             </div>
           </div>
