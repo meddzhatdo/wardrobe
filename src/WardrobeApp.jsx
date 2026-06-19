@@ -1064,11 +1064,7 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
 /* ─────────────────────────────────────────────────────────────────────────────
    GridCard
    ───────────────────────────────────────────────────────────────────────────── */
-const WARMTH_LABEL = { light: 'Light', medium: 'Medium', heavy: 'Heavy', warm: 'Warm' };
-
 function GridCard({ item, onClick }) {
-  const warmth = WARMTH_LABEL[item.attributes?.warmthRating];
-
   return (
     <div className="cursor-pointer group" onClick={() => onClick(item)}>
       <div className="relative rounded-2xl overflow-hidden bg-gray-100">
@@ -1085,11 +1081,6 @@ function GridCard({ item, onClick }) {
 
       <div className="mt-2 px-0.5">
         <p className="text-sm font-medium text-gray-800 truncate leading-snug">{item.name}</p>
-        {warmth && (
-          <span className="inline-block mt-1 text-[10px] font-medium text-gray-500 bg-gray-100 rounded-full px-2 py-0.5 leading-none">
-            {warmth}
-          </span>
-        )}
       </div>
     </div>
   );
@@ -1147,10 +1138,8 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
   const [organizedItems, setOrganizedItems] = useState([]);
   const [draggedId, setDraggedId] = useState(null);
   const [showDeleteSelectedConfirm, setShowDeleteSelectedConfirm] = useState(false);
-  const [organizeSettingsOpen, setOrganizeSettingsOpen] = useState(false);
   const [organizeBoardPickerOpen, setOrganizeBoardPickerOpen] = useState(false);
   const [pendingOrganizeAddItems, setPendingOrganizeAddItems] = useState(null);
-  const organizeSettingsRef    = useRef(null);
   const organizeBoardPickerRef = useRef(null);
   const [addToBoardMode, setAddToBoardMode] = useState(false);
   const [addToBoardSelectedIds, setAddToBoardSelectedIds] = useState(new Set());
@@ -1172,13 +1161,6 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [boardMenuOpen]);
-
-  useEffect(() => {
-    if (!organizeSettingsOpen) return;
-    const handler = e => { if (!organizeSettingsRef.current?.contains(e.target)) setOrganizeSettingsOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [organizeSettingsOpen]);
 
   useEffect(() => {
     if (!organizeBoardPickerOpen) return;
@@ -1286,67 +1268,9 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
 
       {/* ── Tab header ── */}
       <div className="px-5 md:px-7 pt-5 pb-0 flex-shrink-0">
-        <div className="flex items-start justify-between mb-5">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-gray-900">My Wardrobe</h1>
-            <div className="mt-4">
-              <p className="text-3xl font-semibold text-gray-900 truncate">{activeFilter}</p>
-            </div>
-            <p className="text-sm text-gray-400 mt-0.5">{filtered.length} item{filtered.length !== 1 ? 's' : ''}</p>
-            <div className="min-h-[1.25rem] mt-0.5">
-              {activeFilter !== 'All' && boardMeta[activeFilter]?.description && (
-                <p className="text-sm text-gray-400 italic pl-3">{boardMeta[activeFilter].description}</p>
-              )}
-            </div>
-            <div className="flex items-center gap-2 mt-4">
-              <button
-                onClick={organizeMode ? exitOrganize : enterOrganize}
-                className={`flex items-center gap-1.5 px-3.5 h-9 rounded-full transition-colors text-sm font-medium ${
-                  organizeMode ? 'bg-gray-900 text-white hover:bg-gray-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {organizeMode ? <X size={13} strokeWidth={2.5} /> : <Brush size={13} strokeWidth={2} />}
-                {organizeMode ? 'Done' : 'Organize'}
-              </button>
-              {activeFilter !== 'All' && (
-                <div className="relative" ref={boardMenuRef}>
-                  <button
-                    onClick={() => setBoardMenuOpen(o => o ? null : activeFilter)}
-                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors text-gray-700 text-xl leading-none"
-                  >
-                    ···
-                  </button>
-                  {boardMenuOpen && (
-                    <div className="absolute left-0 top-11 bg-white rounded-xl shadow-lg border border-gray-100 py-1 w-40 z-20">
-                      <button
-                        onClick={() => {
-                          setBoardMenuOpen(null);
-                          setEditBoard(activeFilter);
-                          setEditName(activeFilter);
-                          setEditDesc(boardMeta[activeFilter]?.description ?? '');
-                        }}
-                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        Edit board
-                      </button>
-                      <button
-                        onClick={() => { setBoardMenuOpen(null); enterAddToBoard(); }}
-                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        Add to board
-                      </button>
-                      <button
-                        onClick={() => { setBoardMenuOpen(null); setDeleteConfirmBoard(activeFilter); }}
-                        className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-gray-50 transition-colors"
-                      >
-                        Delete board
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+        {/* Row 1: page title + add/search */}
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-3xl font-semibold tracking-tight text-gray-900">My Wardrobe</h1>
           <div className="flex items-center gap-2">
             <button className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
               <Search size={16} strokeWidth={2} className="text-gray-600" />
@@ -1375,6 +1299,66 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
                 </div>
               )}
             </div>
+          </div>
+        </div>
+        {/* Row 2: board title + organize/settings */}
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-3xl font-semibold text-gray-900 truncate max-w-[20ch]">{activeFilter}</p>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {activeFilter !== 'All' && (
+              <div className="relative" ref={boardMenuRef}>
+                <button
+                  onClick={() => setBoardMenuOpen(o => o ? null : activeFilter)}
+                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors text-gray-700 text-xl leading-none"
+                >
+                  ···
+                </button>
+                {boardMenuOpen && (
+                  <div className="absolute right-0 top-12 bg-white rounded-xl shadow-lg border border-gray-100 py-1 w-40 z-20">
+                    <button
+                      onClick={() => {
+                        setBoardMenuOpen(null);
+                        setEditBoard(activeFilter);
+                        setEditName(activeFilter);
+                        setEditDesc(boardMeta[activeFilter]?.description ?? '');
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Edit board
+                    </button>
+                    <button
+                      onClick={() => { setBoardMenuOpen(null); enterAddToBoard(); }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Add to board
+                    </button>
+                    <button
+                      onClick={() => { setBoardMenuOpen(null); setDeleteConfirmBoard(activeFilter); }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-gray-50 transition-colors"
+                    >
+                      Delete board
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            <button
+              onClick={organizeMode ? exitOrganize : enterOrganize}
+              className={`flex items-center gap-1.5 px-4 h-10 rounded-full transition-colors text-sm font-medium ${
+                organizeMode ? 'bg-gray-900 text-white hover:bg-gray-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {organizeMode ? <X size={14} strokeWidth={2.5} /> : <Brush size={14} strokeWidth={2} />}
+              {organizeMode ? 'Done' : 'Organize'}
+            </button>
+          </div>
+        </div>
+        <div className="mb-5">
+          <p className="text-sm text-gray-400 mt-0.5">{filtered.length} item{filtered.length !== 1 ? 's' : ''}</p>
+          <div className="min-h-[1.25rem] mt-0.5">
+            {activeFilter !== 'All' && boardMeta[activeFilter]?.description && (
+              <p className="text-sm text-gray-400 italic pl-3">{boardMeta[activeFilter].description}</p>
+            )}
           </div>
         </div>
 
@@ -1439,29 +1423,15 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
           {/* Header */}
           <div className="relative flex items-center justify-center px-5 md:px-7 pt-14 md:pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
             <h2 className="text-xl font-semibold text-gray-900">Organize Board</h2>
-            {/* Settings ··· */}
-            <div className="absolute left-5 md:left-7" ref={organizeSettingsRef}>
-              <button
-                onClick={() => setOrganizeSettingsOpen(o => !o)}
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-              >
-                <MoreHorizontal size={16} className="text-gray-600" />
-              </button>
-              {organizeSettingsOpen && (
-                <div className="absolute left-0 top-10 bg-white rounded-xl shadow-lg border border-gray-100 py-1 w-40 z-10">
-                  <button
-                    onClick={() => {
-                      const allSelected = organizedItems.length > 0 && organizedItems.every(i => selectedItemIds.has(i.id));
-                      setSelectedItemIds(allSelected ? new Set() : new Set(organizedItems.map(i => i.id)));
-                      setOrganizeSettingsOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    {organizedItems.length > 0 && organizedItems.every(i => selectedItemIds.has(i.id)) ? 'Deselect all' : 'Select all'}
-                  </button>
-                </div>
-              )}
-            </div>
+            <button
+              onClick={() => {
+                const allSelected = selectedItemIds.size > 0;
+                setSelectedItemIds(allSelected ? new Set() : new Set(organizedItems.map(i => i.id)));
+              }}
+              className="absolute left-5 md:left-7 text-sm font-medium text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-xl transition-colors"
+            >
+              {selectedItemIds.size > 0 ? 'Deselect All' : 'Select All'}
+            </button>
             <button
               onClick={exitOrganize}
               className="absolute right-5 md:right-7 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
@@ -1498,7 +1468,7 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
           </div>
 
           {/* Floating action bar */}
-          <div className="absolute bottom-8 inset-x-0 flex justify-center pointer-events-none">
+          <div className="absolute bottom-8 inset-x-0 flex justify-center pointer-events-none z-10">
             <div className="pointer-events-auto bg-white rounded-2xl shadow-2xl border border-gray-100 px-5 py-3 flex items-center gap-3">
               {selectedItemIds.size > 0 && (
                 <span className="text-sm text-gray-500 tabular-nums">{selectedItemIds.size} selected</span>
@@ -4061,7 +4031,6 @@ function StudioTab({
   const [initialDesignWidth,  setInitialDesignWidth]  = useState(null);
   const [initialDesignHeight, setInitialDesignHeight] = useState(null);
   const [editingCollage, setEditingCollage]       = useState(null);
-  const [view, setView]                           = useState('saved');
 
   // Board / favorites / organize state
   const [activeOutfitFilter,  setActiveOutfitFilter]  = useState('All');
@@ -4080,12 +4049,10 @@ function StudioTab({
   const [draggedId,      setDraggedId]      = useState(null);
   const [selectedOutfitIds, setSelectedOutfitIds] = useState(new Set());
   const [showDeleteOrganizeConfirm, setShowDeleteOrganizeConfirm] = useState(false);
-  const [organizeSettingsOpen, setOrganizeSettingsOpen] = useState(false);
   const [organizeBoardPickerOpen, setOrganizeBoardPickerOpen] = useState(false);
   const [pendingOrganizeAdd, setPendingOrganizeAdd] = useState(null);
   const boardMenuRef           = useRef(null);
   const addMenuRef             = useRef(null);
-  const organizeSettingsRef    = useRef(null);
   const organizeBoardPickerRef = useRef(null);
   const [addToBoardMode, setAddToBoardMode] = useState(false);
   const [addToBoardSelectedIds, setAddToBoardSelectedIds] = useState(new Set());
@@ -4132,27 +4099,23 @@ function StudioTab({
   }, [addMenuOpen]);
 
   useEffect(() => {
-    if (!organizeSettingsOpen) return;
-    const handler = e => { if (!organizeSettingsRef.current?.contains(e.target)) setOrganizeSettingsOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [organizeSettingsOpen]);
-
-  useEffect(() => {
     if (!organizeBoardPickerOpen) return;
     const handler = e => { if (!organizeBoardPickerRef.current?.contains(e.target)) setOrganizeBoardPickerOpen(false); };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [organizeBoardPickerOpen]);
 
-  const baseList = view === 'saved' ? savedOutfits : draftOutfits;
+  const draftIds = new Set(draftOutfits.map(o => o.id));
 
-  const filteredList = (() => {
-    let l = baseList;
+  const applyFilters = list => {
+    let l = list;
     if (activeOutfitFilter !== 'All') l = l.filter(o => (o.boards ?? []).includes(activeOutfitFilter));
     if (outfitFavoritesOnly) l = l.filter(o => likedOutfits.has(o.id));
     return l;
-  })();
+  };
+
+  const filteredDrafts = applyFilters(draftOutfits);
+  const filteredSaved  = applyFilters(savedOutfits);
 
   const openCollageForEditing = (outfit, type) => {
     setCreateSeed(null);
@@ -4165,7 +4128,7 @@ function StudioTab({
   };
 
   const enterOrganize = () => {
-    setOrganizedList([...filteredList]);
+    setOrganizedList([...filteredDrafts, ...filteredSaved]);
     setSelectedOutfitIds(new Set());
     setOrganizeMode(true);
   };
@@ -4221,122 +4184,96 @@ function StudioTab({
     });
   };
 
-  const emptyLabel = view === 'saved'
-    ? { title: 'No published outfits', sub: 'Tap + and publish to save your look' }
-    : { title: 'No drafts', sub: 'Start a collage and it will autosave as a draft' };
-
   return (
     <>
       <div className="flex flex-col h-full overflow-hidden">
 
         {/* ── Tab header ── */}
         <div className="px-5 md:px-7 pt-5 pb-0 flex-shrink-0">
-          <div className="flex items-start justify-between mb-5">
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-gray-900">Style Studio</h1>
-
-              {/* Published / Drafts toggle */}
-              <div className="flex bg-gray-100 rounded-xl p-1 w-fit gap-1 mt-4">
-                {[
-                  { key: 'saved',  label: 'Published', count: savedOutfits.length },
-                  { key: 'drafts', label: 'Drafts',    count: draftOutfits.length },
-                ].map(({ key, label, count }) => (
+          {/* Row 1: page title + add */}
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-3xl font-semibold tracking-tight text-gray-900">Style Studio</h1>
+            <div className="relative" ref={addMenuRef}>
+              <button
+                onClick={() => setAddMenuOpen(o => !o)}
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-900 hover:bg-gray-700 transition-colors shadow-sm"
+              >
+                <Plus size={17} strokeWidth={2.5} className="text-white" />
+              </button>
+              {addMenuOpen && (
+                <div className="absolute right-0 top-11 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-36 z-20">
                   <button
-                    key={key}
-                    onClick={() => { setView(key); setActiveOutfitFilter('All'); setOutfitFavoritesOnly(false); setOrganizeMode(false); }}
-                    className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                      view === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                    }`}
+                    onClick={() => { setAddMenuOpen(false); setShowCreate(true); }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                   >
-                    {label}
-                    {count > 0 && <span className="text-[11px] tabular-nums text-gray-400">{count}</span>}
+                    Outfit
                   </button>
-                ))}
-              </div>
-
-              <div className="mt-4">
-                <p className="text-3xl font-semibold text-gray-900 truncate">{activeOutfitFilter}</p>
-              </div>
-              <p className="text-sm text-gray-400 mt-0.5">{filteredList.length} outfit{filteredList.length !== 1 ? 's' : ''}</p>
-              <div className="min-h-[1.25rem] mt-0.5">
-                {activeOutfitFilter !== 'All' && outfitBoardMeta?.[activeOutfitFilter]?.description && (
-                  <p className="text-sm text-gray-400 italic pl-3">{outfitBoardMeta[activeOutfitFilter].description}</p>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 mt-4">
-                <button
-                  onClick={enterOrganize}
-                  className="flex items-center gap-1.5 px-3.5 h-9 rounded-full transition-colors text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
-                >
-                  <Brush size={13} strokeWidth={2} />
-                  Organize
-                </button>
-                {activeOutfitFilter !== 'All' && (
-                  <div className="relative" ref={boardMenuRef}>
-                    <button
-                      onClick={() => setBoardMenuOpen(o => !o)}
-                      className="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors text-gray-700 text-xl leading-none"
-                    >
-                      ···
-                    </button>
-                    {boardMenuOpen && (
-                      <div className="absolute left-0 top-11 bg-white rounded-xl shadow-lg border border-gray-100 py-1 w-40 z-20">
-                        <button
-                          onClick={() => {
-                            setBoardMenuOpen(false);
-                            setEditBoard(activeOutfitFilter);
-                            setEditName(activeOutfitFilter);
-                            setEditDesc(outfitBoardMeta?.[activeOutfitFilter]?.description ?? '');
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                          Edit board
-                        </button>
-                        <button
-                          onClick={() => { setBoardMenuOpen(false); enterAddToBoard(); }}
-                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                          Add to board
-                        </button>
-                        <button
-                          onClick={() => { setBoardMenuOpen(false); setDeleteConfirmBoard(activeOutfitFilter); }}
-                          className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-gray-50 transition-colors"
-                        >
-                          Delete board
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                  <button
+                    onClick={() => { setAddMenuOpen(false); setNewBoardName(''); setNewBoardDesc(''); setNewBoardOpen(true); }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Board
+                  </button>
+                </div>
+              )}
             </div>
-
-            <div className="flex items-center gap-2">
-              <div className="relative" ref={addMenuRef}>
-                <button
-                  onClick={() => setAddMenuOpen(o => !o)}
-                  className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-900 hover:bg-gray-700 transition-colors shadow-sm"
-                >
-                  <Plus size={17} strokeWidth={2.5} className="text-white" />
-                </button>
-                {addMenuOpen && (
-                  <div className="absolute right-0 top-11 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-36 z-20">
-                    <button
-                      onClick={() => { setAddMenuOpen(false); setShowCreate(true); }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Outfit
-                    </button>
-                    <button
-                      onClick={() => { setAddMenuOpen(false); setNewBoardName(''); setNewBoardDesc(''); setNewBoardOpen(true); }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Board
-                    </button>
-                  </div>
-                )}
-              </div>
+          </div>
+          {/* Row 2: board title + organize/settings */}
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-3xl font-semibold text-gray-900 truncate max-w-[20ch]">{activeOutfitFilter}</p>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {activeOutfitFilter !== 'All' && (
+                <div className="relative" ref={boardMenuRef}>
+                  <button
+                    onClick={() => setBoardMenuOpen(o => !o)}
+                    className="w-10 h-10 flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors text-gray-700 text-xl leading-none"
+                  >
+                    ···
+                  </button>
+                  {boardMenuOpen && (
+                    <div className="absolute right-0 top-12 bg-white rounded-xl shadow-lg border border-gray-100 py-1 w-40 z-20">
+                      <button
+                        onClick={() => {
+                          setBoardMenuOpen(false);
+                          setEditBoard(activeOutfitFilter);
+                          setEditName(activeOutfitFilter);
+                          setEditDesc(outfitBoardMeta?.[activeOutfitFilter]?.description ?? '');
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Edit board
+                      </button>
+                      <button
+                        onClick={() => { setBoardMenuOpen(false); enterAddToBoard(); }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Add to board
+                      </button>
+                      <button
+                        onClick={() => { setBoardMenuOpen(false); setDeleteConfirmBoard(activeOutfitFilter); }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-gray-50 transition-colors"
+                      >
+                        Delete board
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              <button
+                onClick={enterOrganize}
+                className="flex items-center gap-1.5 px-4 h-10 rounded-full transition-colors text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
+              >
+                <Brush size={14} strokeWidth={2} />
+                Organize
+              </button>
+            </div>
+          </div>
+          <div className="mb-5">
+            <p className="text-sm text-gray-400 mt-0.5">{filteredDrafts.length + filteredSaved.length} outfit{filteredDrafts.length + filteredSaved.length !== 1 ? 's' : ''}</p>
+            <div className="min-h-[1.25rem] mt-0.5">
+              {activeOutfitFilter !== 'All' && outfitBoardMeta?.[activeOutfitFilter]?.description && (
+                <p className="text-sm text-gray-400 italic pl-3">{outfitBoardMeta[activeOutfitFilter].description}</p>
+              )}
             </div>
           </div>
 
@@ -4374,38 +4311,65 @@ function StudioTab({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto scrollbar-hide px-5 md:px-7 pb-28 md:pb-8">
-          {filteredList.length === 0 ? (
+          {filteredDrafts.length === 0 && filteredSaved.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
                 <Wand2 size={22} className="text-gray-300" />
               </div>
-              <p className="text-sm font-semibold text-gray-800">{emptyLabel.title}</p>
-              <p className="text-sm text-gray-400 mt-1">{emptyLabel.sub}</p>
+              <p className="text-sm font-semibold text-gray-800">No outfits yet</p>
+              <p className="text-sm text-gray-400 mt-1">Tap + to create your first collage</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-              {filteredList.map(outfit => (
-                <OutfitCard
-                  key={outfit.id}
-                  outfit={outfit}
-                  isDraft={view === 'drafts'}
-                  liked={likedOutfits.has(outfit.id)}
-                  outfitBoards={outfitBoards ?? ['All']}
-                  onEdit={() => openCollageForEditing(outfit, view === 'drafts' ? 'drafts' : 'saved')}
-                  onDelete={() => {
-                    if (view === 'drafts') onRemoveDraftOutfit(outfit.id);
-                    else onRemoveSavedOutfit?.(outfit.id);
-                  }}
-                  onDuplicate={() => {
-                    const copy = { items: outfit.items, bgColor: outfit.bgColor, canvasWidth: outfit.canvasWidth, canvasHeight: outfit.canvasHeight, name: outfit.name ? `${outfit.name} (copy)` : '', thumbnail: outfit.thumbnail || '' };
-                    if (view === 'drafts') onSaveDraftOutfit(copy);
-                    else onSaveOutfit(copy);
-                  }}
-                  onToggleLike={() => onToggleOutfitLike(outfit.id)}
-                  onToggleBoard={board => onToggleOutfitBoard(outfit.id, board)}
-                />
-              ))}
-            </div>
+            <>
+              {filteredDrafts.length > 0 && (
+                <div className="mb-6">
+                  <p className="text-xl font-semibold text-gray-800 mb-3">Drafts ({filteredDrafts.length})</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {filteredDrafts.map(outfit => (
+                      <OutfitCard
+                        key={outfit.id}
+                        outfit={outfit}
+                        isDraft={true}
+                        liked={likedOutfits.has(outfit.id)}
+                        outfitBoards={outfitBoards ?? ['All']}
+                        onEdit={() => openCollageForEditing(outfit, 'drafts')}
+                        onDelete={() => onRemoveDraftOutfit(outfit.id)}
+                        onDuplicate={() => {
+                          const copy = { items: outfit.items, bgColor: outfit.bgColor, canvasWidth: outfit.canvasWidth, canvasHeight: outfit.canvasHeight, name: outfit.name ? `${outfit.name} (copy)` : '', thumbnail: outfit.thumbnail || '' };
+                          onSaveDraftOutfit(copy);
+                        }}
+                        onToggleLike={() => onToggleOutfitLike(outfit.id)}
+                        onToggleBoard={board => onToggleOutfitBoard(outfit.id, board)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {filteredSaved.length > 0 && (
+                <div>
+                  <p className="text-xl font-semibold text-gray-800 mb-3">Published ({filteredSaved.length})</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {filteredSaved.map(outfit => (
+                      <OutfitCard
+                        key={outfit.id}
+                        outfit={outfit}
+                        isDraft={false}
+                        liked={likedOutfits.has(outfit.id)}
+                        outfitBoards={outfitBoards ?? ['All']}
+                        onEdit={() => openCollageForEditing(outfit, 'saved')}
+                        onDelete={() => onRemoveSavedOutfit?.(outfit.id)}
+                        onDuplicate={() => {
+                          const copy = { items: outfit.items, bgColor: outfit.bgColor, canvasWidth: outfit.canvasWidth, canvasHeight: outfit.canvasHeight, name: outfit.name ? `${outfit.name} (copy)` : '', thumbnail: outfit.thumbnail || '' };
+                          onSaveOutfit(copy);
+                        }}
+                        onToggleLike={() => onToggleOutfitLike(outfit.id)}
+                        onToggleBoard={board => onToggleOutfitBoard(outfit.id, board)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -4417,29 +4381,15 @@ function StudioTab({
           {/* Header */}
           <div className="relative flex items-center justify-center px-5 md:px-7 pt-14 md:pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
             <h2 className="text-xl font-semibold text-gray-900">Organize Outfits</h2>
-            {/* Settings ··· */}
-            <div className="absolute left-5 md:left-7" ref={organizeSettingsRef}>
-              <button
-                onClick={() => setOrganizeSettingsOpen(o => !o)}
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-              >
-                <MoreHorizontal size={16} className="text-gray-600" />
-              </button>
-              {organizeSettingsOpen && (
-                <div className="absolute left-0 top-10 bg-white rounded-xl shadow-lg border border-gray-100 py-1 w-40 z-10">
-                  <button
-                    onClick={() => {
-                      const allSelected = organizedList.length > 0 && organizedList.every(o => selectedOutfitIds.has(o.id));
-                      setSelectedOutfitIds(allSelected ? new Set() : new Set(organizedList.map(o => o.id)));
-                      setOrganizeSettingsOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    {organizedList.length > 0 && organizedList.every(o => selectedOutfitIds.has(o.id)) ? 'Deselect all' : 'Select all'}
-                  </button>
-                </div>
-              )}
-            </div>
+            <button
+              onClick={() => {
+                const allSelected = selectedOutfitIds.size > 0;
+                setSelectedOutfitIds(allSelected ? new Set() : new Set(organizedList.map(o => o.id)));
+              }}
+              className="absolute left-5 md:left-7 text-sm font-medium text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-xl transition-colors"
+            >
+              {selectedOutfitIds.size > 0 ? 'Deselect All' : 'Select All'}
+            </button>
             <button
               onClick={exitOrganize}
               className="absolute right-5 md:right-7 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
@@ -4476,7 +4426,7 @@ function StudioTab({
           </div>
 
           {/* Floating action bar */}
-          <div className="absolute bottom-8 inset-x-0 flex justify-center pointer-events-none">
+          <div className="absolute bottom-8 inset-x-0 flex justify-center pointer-events-none z-10">
             <div className="pointer-events-auto bg-white rounded-2xl shadow-2xl border border-gray-100 px-5 py-3 flex items-center gap-3">
               {selectedOutfitIds.size > 0 && (
                 <span className="text-sm text-gray-500 tabular-nums">{selectedOutfitIds.size} selected</span>
@@ -4590,7 +4540,7 @@ function StudioTab({
                       const toDelete = new Set(selectedOutfitIds);
                       if (activeOutfitFilter === 'All') {
                         toDelete.forEach(id => {
-                          if (view === 'drafts') onRemoveDraftOutfit(id);
+                          if (draftIds.has(id)) onRemoveDraftOutfit(id);
                           else onRemoveSavedOutfit?.(id);
                         });
                       } else {
@@ -4728,18 +4678,14 @@ function StudioTab({
               if (editingCollage?.type === 'drafts') onRemoveDraftOutfit(editingCollage.id);
               onSaveOutfit(collage);
             }
-            setView('saved');
           }}
           onAutoSave={collage => {
             if (editingCollage?.type === 'saved') {
               onUpdateSavedOutfit(editingCollage.id, collage);
-              setView('saved');
             } else if (editingCollage?.type === 'drafts') {
               onUpdateDraftOutfit(editingCollage.id, collage);
-              setView('drafts');
             } else if (collage.items.length > 0) {
               onSaveDraftOutfit(collage);
-              setView('drafts');
             }
           }}
           onDetachCollage={() => setEditingCollage(null)}
