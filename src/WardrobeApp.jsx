@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Sun, Shirt, Wand2, Sparkles,
   X, Heart, Plus, Search, ChevronRight, ChevronLeft, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal,
-  Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut, Download, Eraser, MapPin,
+  Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut, Download, Eraser, MapPin, Bookmark,
   Cloud, CloudSun, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, CloudFog,
 } from 'lucide-react';
 import { supabase } from './supabase.js';
@@ -1064,15 +1064,11 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
 /* ─────────────────────────────────────────────────────────────────────────────
    GridCard
    ───────────────────────────────────────────────────────────────────────────── */
-const WARMTH_LABEL = { light: 'Light', medium: 'Medium', heavy: 'Heavy', warm: 'Warm' };
-
 function GridCard({ item, onClick }) {
-  const warmth = WARMTH_LABEL[item.attributes?.warmthRating];
-
   return (
     <div className="cursor-pointer group" onClick={() => onClick(item)}>
       <div className="relative rounded-2xl overflow-hidden bg-gray-100">
-        <div className="w-full aspect-[3/4] p-3">
+        <div className="w-full aspect-[3/4] p-5">
           <img
             src={item.image}
             alt={item.name}
@@ -1085,11 +1081,6 @@ function GridCard({ item, onClick }) {
 
       <div className="mt-2 px-0.5">
         <p className="text-sm font-medium text-gray-800 truncate leading-snug">{item.name}</p>
-        {warmth && (
-          <span className="inline-block mt-1 text-[10px] font-medium text-gray-500 bg-gray-100 rounded-full px-2 py-0.5 leading-none">
-            {warmth}
-          </span>
-        )}
       </div>
     </div>
   );
@@ -1116,8 +1107,8 @@ function OrganizeCard({ item, draggedId, selected, onSelect, onDragStart, onDrag
         draggedId === item.id ? 'opacity-40' : ''
       } ${selected ? 'ring-[3px] ring-gray-900' : ''}`}
     >
-      <div className="w-full aspect-square">
-        <img src={item.image} alt={item.name} loading="lazy" className="w-full h-full object-cover pointer-events-none" />
+      <div className="w-full aspect-square p-3">
+        <img src={item.image} alt={item.name} loading="lazy" className="w-full h-full object-contain pointer-events-none" />
       </div>
       {selected && <div className="absolute inset-0 bg-black/25 pointer-events-none" />}
     </div>
@@ -1127,7 +1118,7 @@ function OrganizeCard({ item, draggedId, selected, onSelect, onDragStart, onDrag
 /* ─────────────────────────────────────────────────────────────────────────────
    WardrobeTab
    ───────────────────────────────────────────────────────────────────────────── */
-function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDeleteBoard, onEditBoard, onDeleteItems, onCreateBoard, onToggleItemBoard, onAddItem }) {
+function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDeleteBoard, onEditBoard, onDeleteItems, onCreateBoard, onToggleItemBoard, onAddItem, userId }) {
   const [activeFilter, setActiveFilter] = useState('All');
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -1147,6 +1138,11 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
   const [organizedItems, setOrganizedItems] = useState([]);
   const [draggedId, setDraggedId] = useState(null);
   const [showDeleteSelectedConfirm, setShowDeleteSelectedConfirm] = useState(false);
+  const [organizeBoardPickerOpen, setOrganizeBoardPickerOpen] = useState(false);
+  const [pendingOrganizeAddItems, setPendingOrganizeAddItems] = useState(null);
+  const organizeBoardPickerRef = useRef(null);
+  const [addToBoardMode, setAddToBoardMode] = useState(false);
+  const [addToBoardSelectedIds, setAddToBoardSelectedIds] = useState(new Set());
 
   useEffect(() => {
     if (!addMenuOpen) return;
@@ -1167,6 +1163,13 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
   }, [boardMenuOpen]);
 
   useEffect(() => {
+    if (!organizeBoardPickerOpen) return;
+    const handler = e => { if (!organizeBoardPickerRef.current?.contains(e.target)) setOrganizeBoardPickerOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [organizeBoardPickerOpen]);
+
+  useEffect(() => {
     setOrganizeMode(false);
     setSelectedItemIds(new Set());
     setOrganizedItems([]);
@@ -1175,6 +1178,18 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
   const filtered = (() => {
     let list = activeFilter === 'All' ? items : items.filter(i => i.boards.includes(activeFilter));
     if (favoritesOnly) list = list.filter(i => likedItems.has(i.id));
+    try {
+      const key = `wardrobe-order-${userId || 'guest'}-${activeFilter}-${favoritesOnly ? 'fav' : 'all'}`;
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const ids = JSON.parse(saved);
+        const idSet = new Set(ids);
+        const idMap = new Map(list.map(i => [i.id, i]));
+        const ordered = ids.flatMap(id => idMap.has(id) ? [idMap.get(id)] : []);
+        const newItems = list.filter(i => !idSet.has(i.id));
+        list = [...newItems, ...ordered];
+      }
+    } catch {}
     return list;
   })();
 
@@ -1185,6 +1200,10 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
   };
 
   const exitOrganize = () => {
+    try {
+      const key = `wardrobe-order-${userId || 'guest'}-${activeFilter}-${favoritesOnly ? 'fav' : 'all'}`;
+      localStorage.setItem(key, JSON.stringify(organizedItems.map(i => i.id)));
+    } catch {}
     setOrganizeMode(false);
     setSelectedItemIds(new Set());
     setOrganizedItems([]);
@@ -1193,6 +1212,30 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
 
   const toggleSelectItem = id => {
     setSelectedItemIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const enterAddToBoard = () => {
+    setAddToBoardSelectedIds(new Set());
+    setAddToBoardMode(true);
+  };
+
+  const exitAddToBoard = () => {
+    setAddToBoardMode(false);
+    setAddToBoardSelectedIds(new Set());
+  };
+
+  const confirmAddToBoard = () => {
+    addToBoardSelectedIds.forEach(id => onToggleItemBoard(id, activeFilter));
+    setAddToBoardMode(false);
+    setAddToBoardSelectedIds(new Set());
+  };
+
+  const toggleAddBoardItem = id => {
+    setAddToBoardSelectedIds(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
@@ -1225,61 +1268,9 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
 
       {/* ── Tab header ── */}
       <div className="px-5 md:px-7 pt-5 pb-0 flex-shrink-0">
-        <div className="flex items-start justify-between mb-5">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-gray-900">My Wardrobe</h1>
-            <div className="mt-4">
-              <p className="text-3xl font-semibold text-gray-900 truncate">{activeFilter}</p>
-            </div>
-            <p className="text-sm text-gray-400 mt-0.5">{filtered.length} item{filtered.length !== 1 ? 's' : ''}</p>
-            <div className="min-h-[1.25rem] mt-0.5">
-              {activeFilter !== 'All' && boardMeta[activeFilter]?.description && (
-                <p className="text-sm text-gray-400 italic pl-3">{boardMeta[activeFilter].description}</p>
-              )}
-            </div>
-            <div className="flex items-center gap-2 mt-4">
-              <button
-                onClick={organizeMode ? exitOrganize : enterOrganize}
-                className={`flex items-center gap-1.5 px-3.5 h-9 rounded-full transition-colors text-sm font-medium ${
-                  organizeMode ? 'bg-gray-900 text-white hover:bg-gray-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {organizeMode ? <X size={13} strokeWidth={2.5} /> : <Brush size={13} strokeWidth={2} />}
-                {organizeMode ? 'Done' : 'Organize'}
-              </button>
-              {activeFilter !== 'All' && (
-                <div className="relative" ref={boardMenuRef}>
-                  <button
-                    onClick={() => setBoardMenuOpen(o => o ? null : activeFilter)}
-                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors text-gray-700 text-xl leading-none"
-                  >
-                    ···
-                  </button>
-                  {boardMenuOpen && (
-                    <div className="absolute left-0 top-11 bg-white rounded-xl shadow-lg border border-gray-100 py-1 w-36 z-20">
-                      <button
-                        onClick={() => {
-                          setBoardMenuOpen(null);
-                          setEditBoard(activeFilter);
-                          setEditName(activeFilter);
-                          setEditDesc(boardMeta[activeFilter]?.description ?? '');
-                        }}
-                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        Edit board
-                      </button>
-                      <button
-                        onClick={() => { setBoardMenuOpen(null); setDeleteConfirmBoard(activeFilter); }}
-                        className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-gray-50 transition-colors"
-                      >
-                        Delete board
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+        {/* Row 1: page title + add/search */}
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-3xl font-semibold tracking-tight text-gray-900">My Wardrobe</h1>
           <div className="flex items-center gap-2">
             <button className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
               <Search size={16} strokeWidth={2} className="text-gray-600" />
@@ -1308,6 +1299,66 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
                 </div>
               )}
             </div>
+          </div>
+        </div>
+        {/* Row 2: board title + organize/settings */}
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-3xl font-semibold text-gray-900 truncate max-w-[20ch]">{activeFilter}</p>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {activeFilter !== 'All' && (
+              <div className="relative" ref={boardMenuRef}>
+                <button
+                  onClick={() => setBoardMenuOpen(o => o ? null : activeFilter)}
+                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors text-gray-700 text-xl leading-none"
+                >
+                  ···
+                </button>
+                {boardMenuOpen && (
+                  <div className="absolute right-0 top-12 bg-white rounded-xl shadow-lg border border-gray-100 py-1 w-40 z-20">
+                    <button
+                      onClick={() => {
+                        setBoardMenuOpen(null);
+                        setEditBoard(activeFilter);
+                        setEditName(activeFilter);
+                        setEditDesc(boardMeta[activeFilter]?.description ?? '');
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Edit board
+                    </button>
+                    <button
+                      onClick={() => { setBoardMenuOpen(null); enterAddToBoard(); }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      Add to board
+                    </button>
+                    <button
+                      onClick={() => { setBoardMenuOpen(null); setDeleteConfirmBoard(activeFilter); }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-gray-50 transition-colors"
+                    >
+                      Delete board
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            <button
+              onClick={organizeMode ? exitOrganize : enterOrganize}
+              className={`flex items-center gap-1.5 px-4 h-10 rounded-full transition-colors text-sm font-medium ${
+                organizeMode ? 'bg-gray-900 text-white hover:bg-gray-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {organizeMode ? <X size={14} strokeWidth={2.5} /> : <Brush size={14} strokeWidth={2} />}
+              {organizeMode ? 'Done' : 'Organize'}
+            </button>
+          </div>
+        </div>
+        <div className="mb-5">
+          <p className="text-sm text-gray-400 mt-0.5">{filtered.length} item{filtered.length !== 1 ? 's' : ''}</p>
+          <div className="min-h-[1.25rem] mt-0.5">
+            {activeFilter !== 'All' && boardMeta[activeFilter]?.description && (
+              <p className="text-sm text-gray-400 italic pl-3">{boardMeta[activeFilter].description}</p>
+            )}
           </div>
         </div>
 
@@ -1373,6 +1424,15 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
           <div className="relative flex items-center justify-center px-5 md:px-7 pt-14 md:pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
             <h2 className="text-xl font-semibold text-gray-900">Organize Board</h2>
             <button
+              onClick={() => {
+                const allSelected = selectedItemIds.size > 0;
+                setSelectedItemIds(allSelected ? new Set() : new Set(organizedItems.map(i => i.id)));
+              }}
+              className="absolute left-5 md:left-7 text-sm font-medium text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-xl transition-colors"
+            >
+              {selectedItemIds.size > 0 ? 'Deselect All' : 'Select All'}
+            </button>
+            <button
               onClick={exitOrganize}
               className="absolute right-5 md:right-7 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
             >
@@ -1407,12 +1467,79 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
             )}
           </div>
 
-          {/* Floating trash bar */}
-          <div className="absolute bottom-8 inset-x-0 flex justify-center pointer-events-none">
+          {/* Floating action bar */}
+          <div className="absolute bottom-8 inset-x-0 flex justify-center pointer-events-none z-10">
             <div className="pointer-events-auto bg-white rounded-2xl shadow-2xl border border-gray-100 px-5 py-3 flex items-center gap-3">
               {selectedItemIds.size > 0 && (
                 <span className="text-sm text-gray-500 tabular-nums">{selectedItemIds.size} selected</span>
               )}
+              {/* Move to board */}
+              <div className="relative" ref={organizeBoardPickerRef}>
+                <div className="relative group">
+                  <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 transition-opacity pointer-events-none ${
+                    selectedItemIds.size > 0 && !organizeBoardPickerOpen ? 'opacity-0 group-hover:opacity-100' : 'opacity-0'
+                  }`}>
+                    <span className="text-xs font-semibold text-white bg-gray-800 rounded-lg px-2.5 py-1 whitespace-nowrap">Move to board</span>
+                  </div>
+                  <button
+                    disabled={selectedItemIds.size === 0}
+                    onClick={() => setOrganizeBoardPickerOpen(o => !o)}
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
+                      selectedItemIds.size > 0 ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                    }`}
+                  >
+                    <Layers size={18} />
+                  </button>
+                </div>
+                {organizeBoardPickerOpen && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white rounded-xl shadow-lg border border-gray-100 py-1 w-48 z-10">
+                    {boards.filter(b => b !== 'All').length === 0 && (
+                      <p className="px-4 py-2.5 text-xs text-gray-400">No boards yet</p>
+                    )}
+                    {boards.filter(b => b !== 'All').map(board => {
+                      const selectedArr = organizedItems.filter(i => selectedItemIds.has(i.id));
+                      const allInBoard = selectedArr.length > 0 && selectedArr.every(i => (i.boards ?? []).includes(board));
+                      return (
+                        <button
+                          key={board}
+                          onClick={() => {
+                            const toAdd = organizedItems.filter(item =>
+                              selectedItemIds.has(item.id) && !(item.boards ?? []).includes(board)
+                            );
+                            toAdd.forEach(item => onToggleItemBoard(item.id, board));
+                            if (toAdd.length > 0) {
+                              setOrganizedItems(prev => prev.map(item =>
+                                toAdd.some(t => t.id === item.id)
+                                  ? { ...item, boards: [...(item.boards ?? []), board] }
+                                  : item
+                              ));
+                            }
+                          }}
+                          className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          {board}
+                          {allInBoard && <Check size={13} strokeWidth={2.5} className="text-gray-500" />}
+                        </button>
+                      );
+                    })}
+                    <div className="border-t border-gray-100 mt-1 pt-1">
+                      <button
+                        onClick={() => {
+                          setPendingOrganizeAddItems(new Set(selectedItemIds));
+                          setOrganizeBoardPickerOpen(false);
+                          setNewBoardName('');
+                          setNewBoardDesc('');
+                          setNewBoardOpen(true);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        New board…
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              {/* Delete */}
               <div className="relative group">
                 <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 transition-opacity pointer-events-none ${
                   selectedItemIds.size > 0 ? 'opacity-0 group-hover:opacity-100' : 'opacity-0'
@@ -1470,6 +1597,83 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Add to board full-screen overlay ── */}
+      {addToBoardMode && (
+        <div className="fixed inset-0 z-50 bg-white flex flex-col">
+          {/* Header */}
+          <div className="relative flex items-center justify-center px-5 md:px-7 pt-14 md:pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
+            <h2 className="text-xl font-semibold text-gray-900">Add to {activeFilter}</h2>
+            <button
+              onClick={exitAddToBoard}
+              className="absolute right-5 md:right-7 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <X size={16} className="text-gray-600" />
+            </button>
+          </div>
+
+          {/* All items grid */}
+          <div className="flex-1 overflow-y-auto scrollbar-hide px-5 md:px-7 pt-4 pb-36">
+            {items.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
+                  <Shirt size={22} className="text-gray-300" />
+                </div>
+                <p className="text-sm font-semibold text-gray-800">No items in your wardrobe</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                {items.map(item => {
+                  const alreadyInBoard = (item.boards ?? []).includes(activeFilter);
+                  const isSelected = addToBoardSelectedIds.has(item.id);
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={alreadyInBoard ? undefined : () => toggleAddBoardItem(item.id)}
+                      className={`relative rounded-2xl overflow-hidden bg-gray-100 transition-all duration-150 select-none ${
+                        alreadyInBoard ? 'cursor-default' : 'cursor-pointer'
+                      } ${isSelected && !alreadyInBoard ? 'ring-[3px] ring-gray-900' : ''} ${
+                        alreadyInBoard ? 'ring-[3px] ring-emerald-400' : ''
+                      }`}
+                    >
+                      <div className="w-full aspect-square p-3">
+                        <img src={item.image} alt={item.name} loading="lazy" className="w-full h-full object-contain pointer-events-none" />
+                      </div>
+                      {isSelected && !alreadyInBoard && <div className="absolute inset-0 bg-black/25 pointer-events-none" />}
+                      {alreadyInBoard && (
+                        <div className="absolute inset-0 bg-white/60 flex items-center justify-center pointer-events-none">
+                          <Check size={20} strokeWidth={2.5} className="text-emerald-500" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Floating action bar */}
+          <div className="absolute bottom-8 inset-x-0 flex justify-center pointer-events-none">
+            <div className="pointer-events-auto bg-white rounded-2xl shadow-2xl border border-gray-100 px-5 py-3 flex items-center gap-3">
+              {addToBoardSelectedIds.size > 0 && (
+                <span className="text-sm text-gray-500 tabular-nums">{addToBoardSelectedIds.size} selected</span>
+              )}
+              <button
+                onClick={confirmAddToBoard}
+                disabled={addToBoardSelectedIds.size === 0}
+                className={`h-12 px-5 rounded-2xl flex items-center gap-2 font-medium text-sm transition-colors ${
+                  addToBoardSelectedIds.size > 0
+                    ? 'bg-gray-900 text-white hover:bg-gray-700'
+                    : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                }`}
+              >
+                <Plus size={16} />
+                Add to board
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1576,6 +1780,12 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
                   const name = newBoardName.trim();
                   const desc = newBoardDesc.trim();
                   onCreateBoard(name, desc);
+                  if (pendingOrganizeAddItems) {
+                    organizedItems.forEach(item => {
+                      if (pendingOrganizeAddItems.has(item.id)) onToggleItemBoard(item.id, name);
+                    });
+                    setPendingOrganizeAddItems(null);
+                  }
                   setActiveFilter(name);
                   setNewBoardOpen(false);
                 }}
@@ -1584,7 +1794,7 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
                 Create
               </button>
               <button
-                onClick={() => setNewBoardOpen(false)}
+                onClick={() => { setPendingOrganizeAddItems(null); setNewBoardOpen(false); }}
                 className="w-full py-2.5 border border-gray-200 text-gray-700 text-sm font-semibold rounded-2xl hover:bg-gray-50 transition-colors"
               >
                 Cancel
@@ -1659,7 +1869,7 @@ function fmtHour(ms) {
 /* ─────────────────────────────────────────────────────────────────────────────
    WeatherWidget
    ───────────────────────────────────────────────────────────────────────────── */
-function WeatherWidget({ lat, lon, city, onCommit, onSelectLocation, onWeatherReady }) {
+function WeatherWidget({ lat, lon, city, onCommit, onSelectLocation, onWeatherReady, compact = false }) {
   const [data,           setData]           = useState(null);
   const [loading,        setLoading]        = useState(true);
   const [isEditing,      setIsEditing]      = useState(false);
@@ -1766,8 +1976,20 @@ function WeatherWidget({ lat, lon, city, onCommit, onSelectLocation, onWeatherRe
   const skeletonBg = 'linear-gradient(160deg,#1565C0,#1E88E5 55%,#42A5F5)';
 
   if (loading || !data) {
+    if (compact) {
+      return (
+        <div className="flex-shrink-0 rounded-2xl overflow-hidden animate-pulse" style={{ width: 148, background: skeletonBg }}>
+          <div className="p-3 space-y-2">
+            <div className="h-2.5 w-16 bg-white/20 rounded-full" />
+            <div className="h-10 w-20 bg-white/20 rounded-xl" />
+            <div className="h-2.5 w-14 bg-white/20 rounded-full" />
+            <div className="h-2.5 w-12 bg-white/20 rounded-full" />
+          </div>
+        </div>
+      );
+    }
     return (
-      <div className="mb-6 rounded-3xl overflow-hidden" style={{ background: skeletonBg }}>
+      <div className="rounded-3xl overflow-hidden" style={{ background: skeletonBg }}>
         <div className="px-6 pt-5 pb-4 animate-pulse">
           <div className="h-3 w-24 bg-white/20 rounded-full mb-4" />
           <div className="flex items-center justify-between">
@@ -1813,9 +2035,76 @@ function WeatherWidget({ lat, lon, city, onCommit, onSelectLocation, onWeatherRe
     }
   }
 
+  if (compact) {
+    return (
+      <div className="relative flex-shrink-0" style={{ width: 148 }}>
+        <div className="rounded-2xl overflow-hidden shadow-md" style={{ background: bg }}>
+          <div className="p-3">
+            {/* Location */}
+            {isEditing ? (
+              <div className="flex items-center gap-1 mb-2">
+                <MapPin size={10} className="text-white/60 flex-shrink-0" />
+                <input
+                  ref={inputRef}
+                  value={inputValue}
+                  onChange={e => onInputChange(e.target.value)}
+                  onKeyDown={onKeyDown}
+                  onBlur={commit}
+                  placeholder="City…"
+                  className="bg-transparent text-[11px] font-medium text-white border-b border-white/40 focus:border-white/80 focus:outline-none w-full placeholder:text-white/40"
+                />
+              </div>
+            ) : (
+              <button onClick={startEditing} className="flex items-center gap-1 mb-2 w-full min-w-0">
+                <MapPin size={10} className="text-white/60 flex-shrink-0" />
+                <span className="text-[11px] font-medium text-white/80 truncate">{city ?? DEFAULT_CITY}</span>
+              </button>
+            )}
+            {/* Temp */}
+            <div className="flex items-start gap-1">
+              <span className="text-[42px] font-thin text-white leading-none tracking-tight">{currTemp}</span>
+              <span className="text-sm font-light text-white/60 mt-1.5">°F</span>
+            </div>
+            {/* Condition */}
+            <div className="flex items-center gap-1.5 mt-2">
+              <CondIcon size={13} className="text-white/90" strokeWidth={1.8} />
+              <span className="text-[11px] font-medium text-white/80">{label}</span>
+            </div>
+            {/* H/L */}
+            <p className="text-[10px] text-white/50 mt-1 tracking-wide">H: {high}°  ·  L: {low}°</p>
+          </div>
+        </div>
+        {/* Autocomplete suggestions */}
+        {isEditing && suggestions.length > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-20">
+            {suggestions.map((s, i) => {
+              const addr = s.address || {};
+              const name = addr.city || addr.town || addr.village || addr.county || s.display_name.split(',')[0].trim();
+              const region = addr.state_code || addr.state || '';
+              const display = region ? `${name}, ${region}` : name;
+              return (
+                <button
+                  key={s.place_id ?? i}
+                  onMouseDown={e => e.preventDefault()}
+                  onClick={() => selectSuggestion(s)}
+                  className={`w-full text-left px-3 py-2 flex items-center gap-2 text-xs transition-colors ${
+                    highlightedIdx === i ? 'bg-gray-50' : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <MapPin size={11} className="text-gray-400 flex-shrink-0" />
+                  <span className="truncate font-medium text-gray-800">{display}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className="relative mb-6">
-      <div className="rounded-3xl overflow-hidden shadow-md" style={{ background: bg }}>
+    <div className="relative w-full">
+      <div className="rounded-3xl overflow-hidden" style={{ background: bg }}>
         {/* Location row */}
         <div className="px-6 pt-5">
           <div className="relative flex items-center h-5">
@@ -1866,24 +2155,6 @@ function WeatherWidget({ lat, lon, city, onCommit, onSelectLocation, onWeatherRe
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="mx-5 h-px bg-white/20" />
-
-        {/* Hourly scroll */}
-        <div className="flex overflow-x-auto scrollbar-hide px-4 py-3 gap-0.5">
-          {hours.map((h, idx) => {
-            const { Icon: HIcon } = wmoCondition(h.code);
-            return (
-              <div key={h.key} className="flex flex-col items-center gap-1.5 px-3 py-2 flex-shrink-0">
-                <span className="text-[11px] font-semibold text-white/60 uppercase tracking-wide">
-                  {idx === 0 ? 'Now' : fmtHour(h.ms)}
-                </span>
-                <HIcon size={15} className="text-white" strokeWidth={1.8} />
-                <span className="text-sm font-medium text-white">{h.temp}°</span>
-              </div>
-            );
-          })}
-        </div>
       </div>
 
       {/* Autocomplete suggestions */}
@@ -1935,7 +2206,13 @@ function buildWeatherPool(weather, allItems) {
   let pool = allItems.filter(i => OUTFIT_CATEGORIES.has(i.category));
 
   if (weather.tempF > 75) {
+    // Warm: no heavy items at all
     pool = pool.filter(i => i.attributes?.warmthRating !== 'heavy');
+  } else if (weather.tempF > 50) {
+    // Cool/comfortable: heavy outerwear (shearling, heavy parkas) is overkill
+    pool = pool.filter(i =>
+      i.category !== 'Outerwear' || i.attributes?.warmthRating !== 'heavy'
+    );
   } else if (weather.tempF < 40) {
     // Cold: surface warmer items first, but keep everything available
     const warm = pool.filter(i => ['heavy', 'warm', 'medium'].includes(i.attributes?.warmthRating));
@@ -2013,7 +2290,8 @@ async function callAnthropicForOutfits(weather, allItems) {
       `3. SHOES: Every outfit must include exactly one "Shoes" item.\n` +
       `4. ACCESSORIES: "Accessories & Bags" and "Jewelry" items are optional but encouraged when they complement the look visually. You may include one or two per outfit.\n` +
       `5. LAYERING: Below 50°F, pair short-sleeve or base-layer tops with an "Outerwear" item.\n` +
-      `6. DISTINCT: No two outfits may share the exact same item set.\n` +
+      `6. OUTERWEAR WEIGHT: Above 65°F include no outerwear or only a very light jacket. Between 50–65°F a medium jacket or blazer is appropriate — avoid heavy coats, shearling, or thick parkas. Below 50°F heavier coats are suitable. Below 32°F heavy outerwear is expected.\n` +
+      `7. DISTINCT: No two outfits may share the exact same item set.\n` +
       `Return ONLY a raw JSON array of exactly 3 objects: ` +
       `[{"outfitName":"...","description":"...","itemIds":["id1","id2",...]}]`,
   });
@@ -2064,6 +2342,232 @@ async function callAnthropicForOutfits(weather, allItems) {
   return valid.slice(0, 3);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Content-aware image trimming — used in Studio canvas to give each item a
+   bounding box that matches the actual garment shape, not the full image square.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+const _trimCache = new Map();
+
+function computeImageTrim(src) {
+  if (_trimCache.has(src)) return Promise.resolve(_trimCache.get(src));
+  return new Promise(resolve => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const nw = img.naturalWidth, nh = img.naturalHeight;
+      try {
+        const S = 128;
+        const c = document.createElement('canvas');
+        c.width = c.height = S;
+        const ctx = c.getContext('2d');
+        ctx.drawImage(img, 0, 0, S, S);
+        const { data } = ctx.getImageData(0, 0, S, S);
+        let x0 = S, y0 = S, x1 = -1, y1 = -1;
+        for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+          if (data[(y * S + x) * 4 + 3] > 10) {
+            if (x < x0) x0 = x; if (y < y0) y0 = y;
+            if (x > x1) x1 = x; if (y > y1) y1 = y;
+          }
+        }
+        const t = x1 >= 0
+          ? { fx: x0/S, fy: y0/S, fw: (x1-x0+1)/S, fh: (y1-y0+1)/S, nw, nh }
+          : null;
+        _trimCache.set(src, t); resolve(t);
+      } catch { _trimCache.set(src, null); resolve(null); }
+    };
+    img.onerror = () => { _trimCache.set(src, null); resolve(null); };
+    img.src = src;
+  });
+}
+
+// Returns the canvas bounding-box size for an item given its trim data.
+// Uses actual pixel dimensions (nw/nh) so portrait/landscape images get the right AR.
+function contentBounds(trim, maxSize) {
+  if (!trim) return { w: maxSize, h: maxSize };
+  const { fw, fh, nw, nh } = trim;
+  if (nw && nh) {
+    const cw = fw * nw, ch = fh * nh;
+    const scale = maxSize / Math.max(cw, ch);
+    return { w: Math.max(1, Math.round(cw * scale)), h: Math.max(1, Math.round(ch * scale)) };
+  }
+  return { w: Math.max(1, Math.round(fw * maxSize)), h: Math.max(1, Math.round(fh * maxSize)) };
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   OutfitCollage — flat-lay collage with head-to-toe body ordering
+   z-layers: outerwear(1) → bottoms(2) → tops/shoes(3) → accessories(4)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+// cx/cy = center of slot in a 510×720 canvas (A4 ratio, page-filling)
+// w/h   = item image size
+// z     = stacking layer (1=outerwear, 2=bottoms, 3=tops/shoes, 4=accessories)
+// sx/sy = per-item stagger when >1 item shares a slot
+// All bounding boxes kept ≥14px from canvas edges (510×720).
+// Product images carry ~20% transparent padding — tops/bottoms bounding boxes are spaced
+// so their visible garments have a small gap rather than overlapping.
+// 1000×1000 unit design grid — safe zone 50–950 on both axes.
+// Z hierarchy: 1=Bottoms, 2=Tops/Dresses, 3=Outerwear, 4=Shoes/Accessories/Jewelry.
+// sx/sy = per-additional-item offset (spread) when multiple items share a category.
+const LAYOUT_CONFIG = {
+  // Level 1 — Outerwear (left side; visible alongside tops/bottoms)
+  'Outerwear':               { cx: 215, cy: 450, w: 460, h: 550, z: 1, sx: 28, sy: 10 },
+  // Level 2 — Bottoms (lower center; sits above outerwear)
+  'Bottoms':                 { cx: 500, cy: 625, w: 480, h: 550, z: 2, sx: 28, sy: 10 },
+  // Level 3 — Tops / full-length garments (upper center; proportional to Bottoms)
+  'Tops':                    { cx: 500, cy: 265, w: 320, h: 345, z: 3, sx: 22, sy:  8 },
+  'Knitwear & Sweaters':     { cx: 500, cy: 265, w: 320, h: 345, z: 3, sx: 22, sy:  8 },
+  'Dresses & Jumpsuits':     { cx: 500, cy: 450, w: 415, h: 875, z: 3, sx: 26, sy: 10 },
+  'Activewear / Athleisure': { cx: 500, cy: 450, w: 415, h: 735, z: 3, sx: 26, sy: 10 },
+  // Level 4 — Accents (shoes left-bottom, bags right-mid, jewelry top-right)
+  'Shoes':                   { cx: 345, cy: 862, w: 275, h: 190, z: 4, sx: 72, sy: 10 },
+  'Accessories & Bags':      { cx: 762, cy: 545, w: 295, h: 295, z: 4, sx: 18, sy: 58 },
+  'Jewelry':                 { cx: 762, cy: 195, w: 202, h: 202, z: 4, sx: 28, sy: 28 },
+};
+
+// Design-space dimensions (coordinate grid)
+const DESIGN_W = 1000;
+const DESIGN_H = 1000;
+// vertical space consumed by the TodayTab header (title + padding + gap)
+const COLLAGE_HEADER_OFFSET = 172;
+
+// Converts AI outfit items into design-space (1000×1000) canvas items.
+// CreateOutfitModal scales them to the actual canvas size on mount via initialDesignWidth/Height.
+function aiOutfitToCanvasItems(outfitItems) {
+  const groups = {};
+  for (const item of outfitItems) {
+    const slot = LAYOUT_CONFIG[item.category];
+    if (!slot) continue;
+    (groups[item.category] ??= []).push(item);
+  }
+  const canvasItems = [];
+  for (const [cat, catItems] of Object.entries(groups)) {
+    const { cx, cy, w, h, z, sx, sy } = LAYOUT_CONFIG[cat];
+    const n = catItems.length;
+    catItems.forEach((item, i) => {
+      const offset = i - (n - 1) / 2;
+      canvasItems.push({
+        ...item,
+        _cid:     `${item.id}-${Date.now()}-${i}`,
+        x:        Math.round(cx + offset * sx - w / 2),
+        y:        Math.round(cy + offset * sy - h / 2),
+        w,
+        h,
+        rotation: 0,
+        zIndex:   z,
+      });
+    });
+  }
+  return canvasItems;
+}
+
+
+
+function GeneratingSkeleton() {
+  const scale = useCollageScale();
+  const displayH = Math.round(DESIGN_H * scale);
+  const displayW = Math.round(displayH * 210 / 297);
+  return (
+    <div className="flex animate-pulse">
+      <div className="bg-gray-100 rounded-3xl flex-shrink-0"
+        style={{ width: displayW, height: displayH }} />
+      <div className="flex-1 min-w-0 p-6 flex flex-col gap-3">
+        <div className="h-3 w-20 bg-gray-200 rounded-full" />
+        <div className="h-5 w-36 bg-gray-200 rounded-full" />
+        <div className="h-3 w-8 bg-gray-200 rounded-full mt-2" />
+        <div className="h-3 w-full bg-gray-200 rounded-full mt-4" />
+        <div className="h-3 w-4/5 bg-gray-200 rounded-full" />
+        <div className="h-3 w-3/5 bg-gray-200 rounded-full" />
+      </div>
+    </div>
+  );
+}
+
+function useCollageScale() {
+  const calc = () => {
+    const byHeight = Math.min(1, (window.innerHeight - COLLAGE_HEADER_OFFSET) / DESIGN_H);
+    // Cap by available width so collage never overflows the screen in column layout.
+    // displayW = DESIGN_H * scale * (210/297), so byWidth = (screenW - hPad) / (DESIGN_H * 210/297)
+    const byWidth = (window.innerWidth - 48) / (DESIGN_H * (210 / 297));
+    return Math.min(byHeight, byWidth, 1);
+  };
+  const [scale, setScale] = useState(calc);
+  useEffect(() => {
+    const update = () => setScale(calc());
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+  return scale;
+}
+
+function OutfitCollage({ items }) {
+  const scale = useCollageScale();
+
+  const groups = {};
+  for (const item of items) {
+    const slot = LAYOUT_CONFIG[item.category];
+    if (!slot) continue;
+    (groups[item.category] ??= []).push(item);
+  }
+
+  const placed = [];
+  for (const [cat, catItems] of Object.entries(groups)) {
+    const { cx, cy, w, h, z, sx: dsx, sy: dsy } = LAYOUT_CONFIG[cat];
+    const n = catItems.length;
+    catItems.forEach((item, i) => {
+      const offset = i - (n - 1) / 2;
+      placed.push({
+        item,
+        left: Math.round(cx + offset * dsx - w / 2),
+        top:  Math.round(cy + offset * dsy - h / 2),
+        w, h, z,
+      });
+    });
+  }
+
+  placed.sort((a, b) => a.z - b.z);
+
+  // A4 portrait display — non-uniform scale so Today and Studio look identical
+  const displayH = Math.round(DESIGN_H * scale);
+  const displayW = Math.round(displayH * 210 / 297);
+  const scaleX   = displayW / DESIGN_W;
+  const scaleY   = displayH / DESIGN_H;
+
+  return (
+    <div
+      className="flex-shrink-0 rounded-3xl bg-gray-50 overflow-hidden relative"
+      style={{ width: displayW, height: displayH }}
+    >
+      {placed.map(({ item, left, top, w, h, z }) => (
+        <div
+          key={item.id}
+          className="absolute"
+          style={{
+            left:   Math.round(left * scaleX),
+            top:    Math.round(top  * scaleY),
+            width:  Math.round(w    * scaleX),
+            height: Math.round(h    * scaleY),
+            zIndex: z,
+          }}
+        >
+          {item.image ? (
+            <img
+              src={item.image}
+              alt={item.name}
+              className="w-full h-full object-contain"
+              draggable={false}
+            />
+          ) : (
+            <div className="w-full h-full bg-gray-100 rounded-xl flex items-center justify-center">
+              <Shirt size={20} className="text-gray-300" />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const OUTFITS_CACHE_KEY = 'wardrobe_daily_outfits';
 
 function todayDateKey() {
@@ -2086,15 +2590,165 @@ function saveCachedOutfits(outfits, city) {
   } catch {}
 }
 
-function TodayTab({ items = [] }) {
+// Temperature bands (°F) that define meaningfully different clothing needs
+const TEMP_BAND_THRESHOLDS = [32, 50, 65, 75, 85];
+function tempBand(t) {
+  for (let i = 0; i < TEMP_BAND_THRESHOLDS.length; i++) if (t < TEMP_BAND_THRESHOLDS[i]) return i;
+  return TEMP_BAND_THRESHOLDS.length;
+}
+
+const PRECIP_LABELS = new Set(['Drizzle', 'Rain', 'Snow', 'Showers', 'Snow Showers', 'Thunderstorm']);
+function hasPrecip(label) { return PRECIP_LABELS.has(label); }
+
+function weatherNeedsRegen(prev, next) {
+  if (!prev) return true;
+  // Different clothing-band for the day's high
+  if (tempBand(prev.highF) !== tempBand(next.highF)) return true;
+  // Precipitation status changed (current or expected later)
+  if (hasPrecip(prev.conditionLabel) !== hasPrecip(next.conditionLabel)) return true;
+  if (hasPrecip(prev.laterCondition) !== hasPrecip(next.laterCondition)) return true;
+  // High or low shifted by more than 10°F within the same band
+  if (Math.abs(prev.highF - next.highF) > 10 || Math.abs(prev.lowF - next.lowF) > 10) return true;
+  return false;
+}
+
+function LocationBar({ city, onCommit, onSelectLocation }) {
+  const [editing,  setEditing]  = useState(false);
+  const [val,      setVal]      = useState('');
+  const [suggs,    setSuggs]    = useState([]);
+  const [hi,       setHi]       = useState(-1);
+  const inputRef    = useRef(null);
+  const containerRef = useRef(null);
+  const debRef      = useRef(null);
+  const ctrlRef     = useRef(null);
+
+  const clearSearch = () => {
+    clearTimeout(debRef.current);
+    ctrlRef.current?.abort();
+    setSuggs([]);
+    setHi(-1);
+  };
+  const commit = () => {
+    clearSearch();
+    const t = val.trim();
+    if (t && t !== city) onCommit(t);
+    setEditing(false);
+  };
+  const startEdit = () => {
+    setVal(city ?? '');
+    setSuggs([]);
+    setHi(-1);
+    setEditing(true);
+    setTimeout(() => inputRef.current?.focus(), 30);
+  };
+  const pick = s => {
+    clearSearch();
+    const addr = s.address || {};
+    const name = addr.city || addr.town || addr.village || addr.county || s.display_name.split(',')[0].trim();
+    const region = addr.state_code || addr.state || '';
+    onSelectLocation({ city: region ? `${name}, ${region}` : name, lat: parseFloat(s.lat), lon: parseFloat(s.lon) });
+    setEditing(false);
+  };
+  const onChange = v => {
+    setVal(v);
+    setHi(-1);
+    clearTimeout(debRef.current);
+    ctrlRef.current?.abort();
+    if (v.trim().length < 2) { setSuggs([]); return; }
+    debRef.current = setTimeout(async () => {
+      const ctrl = new AbortController();
+      ctrlRef.current = ctrl;
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(v.trim())}&format=json&addressdetails=1&limit=5`,
+          { signal: ctrl.signal, headers: { 'Accept-Language': 'en' } }
+        );
+        setSuggs(await res.json());
+      } catch (e) { if (e.name !== 'AbortError') setSuggs([]); }
+    }, 320);
+  };
+  const onKeyDown = e => {
+    if (suggs.length > 0) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setHi(i => Math.min(i + 1, suggs.length - 1)); return; }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); setHi(i => Math.max(i - 1, -1)); return; }
+      if (e.key === 'Enter' && hi >= 0) { pick(suggs[hi]); return; }
+    }
+    if (e.key === 'Enter')  { commit(); return; }
+    if (e.key === 'Escape') { clearSearch(); setEditing(false); }
+  };
+  // Only commit when focus leaves the entire component (not when moving to a suggestion)
+  const handleBlur = e => {
+    if (containerRef.current?.contains(e.relatedTarget)) return;
+    commit();
+  };
+
+  return (
+    <div ref={containerRef} className="relative flex-shrink-0">
+      {editing ? (
+        <div className="flex items-center gap-2 bg-gray-100 rounded-full px-4 py-2.5">
+          <MapPin size={15} className="text-gray-400 flex-shrink-0" />
+          <input
+            ref={inputRef}
+            value={val}
+            onChange={e => onChange(e.target.value)}
+            onKeyDown={onKeyDown}
+            onBlur={handleBlur}
+            placeholder="Search city…"
+            className="bg-transparent text-base text-gray-700 focus:outline-none w-56 placeholder:text-gray-400"
+          />
+        </div>
+      ) : (
+        <button onClick={startEdit} className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 transition-colors rounded-full px-4 py-2.5">
+          <MapPin size={15} className="text-gray-500 flex-shrink-0" />
+          <span className="text-base text-gray-600 max-w-[220px] truncate">{city ?? 'Set location'}</span>
+        </button>
+      )}
+      {editing && suggs.length > 0 && (
+        <div className="absolute top-full right-0 mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-50 w-72">
+          {suggs.map((s, i) => {
+            const addr = s.address || {};
+            const name = addr.city || addr.town || addr.village || addr.county || s.display_name.split(',')[0].trim();
+            const region = addr.state_code || addr.state || '';
+            const country = addr.country || '';
+            const display = region ? `${name}, ${region}` : name;
+            return (
+              <button key={s.place_id ?? i}
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => pick(s)}
+                className={`w-full text-left px-4 py-2.5 flex items-start gap-2.5 transition-colors ${hi === i ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
+              >
+                <MapPin size={13} className="text-gray-400 flex-shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-800 truncate">{display}</p>
+                  {country && <p className="text-xs text-gray-400 truncate">{country}</p>}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TodayTab({ items = [], onSaveToPublished, onEditInStudio }) {
   const [location,       setLocation]       = useState({ city: null, lat: null, lon: null });
   const [weatherSummary, setWeatherSummary] = useState(null);
   const [outfits,        setOutfits]        = useState([]);
   const [generating,     setGenerating]     = useState(false);
   const [genError,       setGenError]       = useState(null);
   const [currentIdx,     setCurrentIdx]     = useState(0);
+  const [saveState,      setSaveState]      = useState('idle'); // 'idle' | 'saving' | 'saved'
+  const collageScale     = useCollageScale();
+  const outfitWeatherRef = useRef(null); // weather that generated the current outfits
 
   useEffect(() => {
+    // Restore a manually-set location so tab switches don't reset it
+    try {
+      const saved = localStorage.getItem('wardrobe_location');
+      if (saved) { setLocation(JSON.parse(saved)); return; }
+    } catch {}
+
     if (!navigator.geolocation) {
       setLocation({ city: DEFAULT_CITY, lat: DEFAULT_LAT, lon: DEFAULT_LON });
       return;
@@ -2122,15 +2776,52 @@ function TodayTab({ items = [] }) {
   // Load cache or generate outfits — keyed by date + city
   useEffect(() => {
     if (!weatherSummary || items.length === 0 || !location.city) return;
+    // Skip regen if weather hasn't changed meaningfully since last generation
+    if (!weatherNeedsRegen(outfitWeatherRef.current, weatherSummary)) return;
+
     const cached = loadCachedOutfits(location.city);
-    if (cached) { setOutfits(cached); return; }
+    if (cached) {
+      const existingIds = new Set(items.map(i => String(i.id)));
+      const goodOutfits = cached.filter(o => (o.itemIds ?? []).every(id => existingIds.has(String(id))));
+      // All outfits still valid — use cache unchanged
+      if (goodOutfits.length === cached.length) {
+        setOutfits(cached);
+        outfitWeatherRef.current = weatherSummary;
+        return;
+      }
+      // Some outfits reference deleted items — keep the good ones, generate only what's needed
+      const needed = 3 - goodOutfits.length;
+      if (goodOutfits.length > 0) setOutfits(goodOutfits);
+      let cancelled = false;
+      setCurrentIdx(0);
+      setGenError(null);
+      setGenerating(true);
+      callAnthropicForOutfits(weatherSummary, items)
+        .then(fresh => {
+          if (cancelled) return;
+          const combined = [...goodOutfits, ...fresh.slice(0, needed)];
+          setOutfits(combined);
+          saveCachedOutfits(combined, location.city);
+          outfitWeatherRef.current = weatherSummary;
+        })
+        .catch(e => { if (!cancelled) setGenError(e.message); })
+        .finally(() => { if (!cancelled) setGenerating(false); });
+      return () => { cancelled = true; };
+    }
+    // No cache — generate all 3
     let cancelled = false;
     setOutfits([]);
     setCurrentIdx(0);
     setGenError(null);
     setGenerating(true);
     callAnthropicForOutfits(weatherSummary, items)
-      .then(results  => { if (!cancelled) { setOutfits(results); saveCachedOutfits(results, location.city); } })
+      .then(results => {
+        if (!cancelled) {
+          setOutfits(results);
+          saveCachedOutfits(results, location.city);
+          outfitWeatherRef.current = weatherSummary;
+        }
+      })
       .catch(e       => { if (!cancelled) setGenError(e.message); })
       .finally(()    => { if (!cancelled) setGenerating(false); });
     return () => { cancelled = true; };
@@ -2147,10 +2838,14 @@ function TodayTab({ items = [] }) {
     return () => window.removeEventListener('keydown', handler);
   }, [outfits.length]);
 
+  const saveLocation = (loc) => {
+    try { localStorage.setItem('wardrobe_location', JSON.stringify(loc)); } catch {}
+    setLocation(loc);
+  };
+
   const handleSelectLocation = ({ city, lat, lon }) => {
-    setLocation({ city, lat, lon });
-    setWeatherSummary(null);
-    setOutfits([]);
+    saveLocation({ city, lat, lon });
+    setWeatherSummary(null); // triggers fresh weather fetch; outfits stay until regen is confirmed needed
   };
 
   const handleCitySearch = async (query) => {
@@ -2164,16 +2859,14 @@ function TodayTab({ items = [] }) {
         const addr = result.address || {};
         const name = addr.city || addr.town || addr.village || addr.county || result.display_name.split(',')[0].trim();
         const region = addr.state_code || addr.state || '';
-        setLocation({ city: region ? `${name}, ${region}` : name, lat: parseFloat(result.lat), lon: parseFloat(result.lon) });
+        saveLocation({ city: region ? `${name}, ${region}` : name, lat: parseFloat(result.lat), lon: parseFloat(result.lon) });
       } else {
-        setLocation(l => ({ ...l, city: query }));
+        saveLocation({ ...location, city: query });
       }
       setWeatherSummary(null);
-      setOutfits([]);
     } catch {
-      setLocation(l => ({ ...l, city: query }));
+      saveLocation({ ...location, city: query });
       setWeatherSummary(null);
-      setOutfits([]);
     }
   };
 
@@ -2207,148 +2900,201 @@ function TodayTab({ items = [] }) {
   const outfit = outfits[currentIdx] ?? null;
   const outfitItems = outfit ? (outfit.itemIds ?? []).map(id => itemById[id]).filter(Boolean) : [];
 
+  useEffect(() => { setSaveState('idle'); }, [currentIdx]);
+
+  const handleSave = async () => {
+    if (!outfit || !outfitItems.length || saveState !== 'idle') return;
+    setSaveState('saving');
+    const canvasItems = aiOutfitToCanvasItems(outfitItems);
+    await onSaveToPublished?.({
+      name: outfit.outfitName,
+      items: canvasItems,
+      bgColor: '#FFFFFF',
+      canvasWidth: DESIGN_W,
+      canvasHeight: DESIGN_H,
+      thumbnail: '',
+    });
+    setSaveState('saved');
+    setTimeout(() => { setSaveState('idle'); }, 2800);
+  };
+
+  const handleEdit = () => {
+    if (!outfit || !outfitItems.length) return;
+    const canvasItems = aiOutfitToCanvasItems(outfitItems);
+    onEditInStudio?.({
+      name: outfit.outfitName,
+      items: canvasItems,
+      bgColor: '#FFFFFF',
+      canvasWidth: DESIGN_W,
+      canvasHeight: DESIGN_H,
+    });
+  };
+
   return (
-    <div className="flex flex-col h-full overflow-y-auto scrollbar-hide px-6 md:px-10 pb-28 md:pb-8">
-      {/* Header */}
-      <div className="pt-8 mb-7">
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Today's Looks</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Curated from your wardrobe</p>
+    <div className="flex flex-col flex-1 min-h-0 overflow-y-auto scrollbar-hide pb-28 md:pb-8">
+
+      {/* Title */}
+      <div className="px-6 md:px-8 pt-8 mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Today's Looks</h1>
+          <p className="text-sm text-gray-400 mt-0.5">Curated from your wardrobe</p>
+        </div>
+        <LocationBar
+          city={location.city}
+          onCommit={handleCitySearch}
+          onSelectLocation={handleSelectLocation}
+        />
+        {/* hidden — keep mounted so weather fetch + onWeatherReady fire before outfits load */}
+        <div className="hidden">
+          <WeatherWidget
+            compact
+            lat={location.lat}
+            lon={location.lon}
+            city={location.city}
+            onCommit={handleCitySearch}
+            onSelectLocation={handleSelectLocation}
+            onWeatherReady={handleWeatherReady}
+          />
+        </div>
       </div>
 
-      {/* Weather module */}
-      <WeatherWidget
-        lat={location.lat}
-        lon={location.lon}
-        city={location.city}
-        onCommit={handleCitySearch}
-        onSelectLocation={handleSelectLocation}
-        onWeatherReady={handleWeatherReady}
-      />
-
       {/* Outfit section */}
-      {items.length < 3 && (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-gray-200 bg-gray-50 px-6 py-12 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center">
-            <Shirt size={22} className="text-gray-300" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-700">Your wardrobe needs a few more pieces</p>
-            <p className="text-xs text-gray-400 mt-1 leading-relaxed max-w-[220px]">
-              Add more items to unlock daily style inspiration tailored to the weather.
-            </p>
-          </div>
-        </div>
-      )}
+      <div className="flex flex-col gap-4 pl-6 md:pl-8 pr-6 md:pr-10">
 
-      {items.length >= 3 && generating && (
-        <div className="rounded-3xl border border-gray-100 bg-gray-50 p-5 animate-pulse">
-          <div className="flex items-center justify-between mb-4">
-            <div className="h-4 w-32 bg-gray-200 rounded-full" />
-            <div className="flex gap-2">
-              <div className="w-8 h-8 bg-gray-200 rounded-full" />
-              <div className="w-8 h-8 bg-gray-200 rounded-full" />
+        {items.length < 3 && (
+          <div className="ml-6 md:ml-8 flex flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-gray-200 bg-gray-50 px-6 py-12 text-center max-w-sm">
+            <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center">
+              <Shirt size={22} className="text-gray-300" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-700">Your wardrobe needs a few more pieces</p>
+              <p className="text-xs text-gray-400 mt-1 leading-relaxed max-w-[220px]">
+                Add more items to unlock daily style inspiration tailored to the weather.
+              </p>
             </div>
           </div>
-          <div className="flex gap-3 mb-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex flex-col items-center gap-2 flex-shrink-0">
-                <div className="w-20 h-20 bg-gray-200 rounded-2xl" />
-                <div className="h-2.5 w-16 bg-gray-200 rounded-full" />
-              </div>
-            ))}
+        )}
+
+        {items.length >= 3 && generating && (
+          <GeneratingSkeleton />
+        )}
+
+        {items.length >= 3 && !generating && genError && (
+          <div className="ml-6 md:ml-8 rounded-3xl border border-red-100 bg-red-50 px-5 py-4 max-w-sm">
+            <p className="text-sm font-medium text-red-600">Couldn't generate outfits</p>
+            <p className="text-xs text-red-400 mt-0.5">{genError}</p>
           </div>
-          <div className="h-3 w-3/4 bg-gray-200 rounded-full mb-2" />
-          <div className="h-3 w-1/2 bg-gray-200 rounded-full" />
-        </div>
-      )}
+        )}
 
-      {items.length >= 3 && !generating && genError && (
-        <div className="rounded-3xl border border-red-100 bg-red-50 px-5 py-4">
-          <p className="text-sm font-medium text-red-600">Couldn't generate outfits</p>
-          <p className="text-xs text-red-400 mt-0.5">{genError}</p>
-        </div>
-      )}
+        {items.length >= 3 && !generating && outfits.length > 0 && (
+          <div className="flex flex-col items-center [@media(min-width:1000px)_and_(min-height:680px)]:flex-row [@media(min-width:1000px)_and_(min-height:680px)]:items-stretch">
+            {/* Collage — flush left, no padding */}
+            {outfitItems.length > 0 ? (
+              <OutfitCollage items={outfitItems} />
+            ) : (
+              <div className="rounded-3xl bg-white flex-shrink-0 flex items-center justify-center"
+                style={{ height: Math.round(DESIGN_H * collageScale), width: Math.round(DESIGN_H * collageScale * 210 / 297) }}>
+                <p className="text-sm text-gray-400">No items found</p>
+              </div>
+            )}
 
-      {items.length >= 3 && !generating && outfits.length > 0 && (
-        <div className="rounded-3xl border border-gray-100 bg-white shadow-sm overflow-hidden">
-          {/* Card header: outfit name + nav */}
-          <div className="flex items-center justify-between px-5 pt-5 pb-3">
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.14em] mb-0.5">
+            {/* Info panel — right of collage on wide screens, below on narrow */}
+            <div className="flex-1 min-w-0 flex flex-col items-start px-5 pt-4 pb-0 [@media(min-width:1000px)_and_(min-height:680px)]:pl-8 [@media(min-width:1000px)_and_(min-height:680px)]:pt-0">
+              {/* Counter */}
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.14em] mb-1">
                 {currentIdx + 1} of {outfits.length}
               </p>
-              <h3 className="text-base font-semibold text-gray-900 truncate">
+              {/* Outfit name */}
+              <h3 className="text-base font-semibold text-gray-900 leading-snug mb-3">
                 {outfit.outfitName}
               </h3>
-            </div>
-            <div className="flex gap-1.5 flex-shrink-0 ml-3">
-              <button
-                onClick={() => setCurrentIdx(i => Math.max(0, i - 1))}
-                disabled={currentIdx === 0}
-                className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft size={15} strokeWidth={2} />
-              </button>
-              <button
-                onClick={() => setCurrentIdx(i => Math.min(outfits.length - 1, i + 1))}
-                disabled={currentIdx === outfits.length - 1}
-                className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight size={15} strokeWidth={2} />
-              </button>
-            </div>
-          </div>
-
-          {/* Dot indicators */}
-          <div className="flex justify-center gap-1.5 pb-3">
-            {outfits.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setCurrentIdx(i)}
-                className={`rounded-full transition-all ${
-                  i === currentIdx
-                    ? 'w-4 h-1.5 bg-gray-800'
-                    : 'w-1.5 h-1.5 bg-gray-300 hover:bg-gray-400'
-                }`}
-              />
-            ))}
-          </div>
-
-          {/* Item cards row */}
-          <div className="flex gap-3 overflow-x-auto scrollbar-hide px-5 pb-4">
-            {outfitItems.length > 0 ? outfitItems.map(item => (
-              <div key={item.id} className="flex flex-col items-center gap-2 flex-shrink-0">
-                <div className="w-[88px] h-[88px] rounded-2xl overflow-hidden bg-gray-50 border border-gray-100">
-                  {item.image ? (
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="w-full h-full object-cover"
-                      draggable={false}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Shirt size={22} className="text-gray-300" />
-                    </div>
-                  )}
-                </div>
-                <p className="text-[11px] font-medium text-gray-600 text-center w-[88px] leading-tight line-clamp-2">
-                  {item.name}
-                </p>
+              {/* Nav arrows */}
+              <div className="flex gap-1.5 mb-4">
+                <button
+                  onClick={() => setCurrentIdx(i => Math.max(0, i - 1))}
+                  disabled={currentIdx === 0}
+                  className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft size={15} strokeWidth={2} />
+                </button>
+                <button
+                  onClick={() => setCurrentIdx(i => Math.min(outfits.length - 1, i + 1))}
+                  disabled={currentIdx === outfits.length - 1}
+                  className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight size={15} strokeWidth={2} />
+                </button>
               </div>
-            )) : (
-              <p className="text-sm text-gray-400 py-2">No matching items found in wardrobe</p>
-            )}
-          </div>
+              {/* Dot indicators */}
+              <div className="flex gap-1.5 mb-5">
+                {outfits.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setCurrentIdx(i)}
+                    className={`rounded-full transition-all ${
+                      i === currentIdx
+                        ? 'w-4 h-1.5 bg-gray-800'
+                        : 'w-1.5 h-1.5 bg-gray-300 hover:bg-gray-400'
+                    }`}
+                  />
+                ))}
+              </div>
+              {/* Description + action buttons */}
+              {outfit.description && (
+                <p className="text-sm text-gray-500 leading-relaxed mb-3">{outfit.description}</p>
+              )}
+              <div className="flex items-center gap-2">
+                {/* Save */}
+                <div className="relative group">
+                  <button
+                    onClick={handleSave}
+                    disabled={saveState !== 'idle'}
+                    className={`w-9 h-9 flex items-center justify-center rounded-full border transition-colors
+                      ${saveState === 'saved'
+                        ? 'border-green-200 bg-green-50 text-green-500'
+                        : 'border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-40 disabled:cursor-not-allowed'
+                      }`}
+                  >
+                    {saveState === 'saved'
+                      ? <Check size={15} strokeWidth={2.5} />
+                      : <Bookmark size={15} strokeWidth={1.8} />
+                    }
+                  </button>
+                  <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 text-[11px] font-medium text-white bg-gray-800 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                    {saveState === 'saved' ? 'Saved!' : 'Save to Outfits'}
+                  </span>
+                </div>
 
-          {/* Description */}
-          {outfit.description && (
-            <div className="px-5 pb-5 border-t border-gray-50 pt-3">
-              <p className="text-sm text-gray-500 leading-relaxed">{outfit.description}</p>
+                {/* Edit in Studio */}
+                <div className="relative group">
+                  <button
+                    onClick={handleEdit}
+                    className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                  >
+                    <Pencil size={14} strokeWidth={1.8} />
+                  </button>
+                  <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 text-[11px] font-medium text-white bg-gray-800 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                    Edit Outfit
+                  </span>
+                </div>
+              </div>
+
+              {/* Weather Report */}
+              <div className="mt-5 w-full">
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.14em] mb-2">Weather Report</p>
+                <WeatherWidget
+                  lat={location.lat}
+                  lon={location.lon}
+                  city={location.city}
+                  onCommit={handleCitySearch}
+                  onSelectLocation={handleSelectLocation}
+                />
+              </div>
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }
@@ -2356,7 +3102,7 @@ function TodayTab({ items = [] }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    CreateOutfitModal
    ───────────────────────────────────────────────────────────────────────────── */
-function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, onClose, onPublish, onAutoSave, onDetachCollage, items = [], boards = ['All'] }) {
+function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, initialDesignWidth, initialDesignHeight, onClose, onPublish, onAutoSave, onDetachCollage, items = [], boards = ['All'] }) {
   const [canvasItems, setCanvasItems] = useState([]);
   const [activeFilter, setActiveFilter] = useState('All');
   const [boardsOpen, setBoardsOpen] = useState(false);
@@ -2378,6 +3124,7 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, on
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [collageMenuOpen, setCollageMenuOpen] = useState(false);
+  const [, trimTick] = useState(0);
 
   const ITEM_SIZE = 220;
   const DOT_GRID_STYLE = {
@@ -2428,15 +3175,56 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, on
   useEffect(() => {
     if (!canvasRef.current) return;
     const base = initialCanvasItems || [];
-    if (!initialItem) {
-      if (base.length > 0) setCanvasItems(base);
+
+    const applyLayout = (width, height) => {
+      if (!initialItem) {
+        if (base.length > 0) {
+          if (initialDesignWidth && initialDesignHeight) {
+            const sx = width  / initialDesignWidth;
+            const sy = height / initialDesignHeight;
+            setCanvasItems(base.map(item => ({
+              ...item,
+              x: Math.round(item.x * sx),
+              y: Math.round(item.y * sy),
+              w: Math.round((item.w ?? ITEM_SIZE) * sx),
+              h: Math.round((item.h ?? ITEM_SIZE) * sy),
+            })));
+          } else {
+            setCanvasItems(base);
+          }
+        }
+        return;
+      }
+      const _cid = `${initialItem.id}-${Date.now()}`;
+      computeImageTrim(initialItem.image).then(trim => {
+        const { w, h } = contentBounds(trim, ITEM_SIZE);
+        const x = Math.max(0, (width  - w) / 2);
+        const y = Math.max(0, (height - h) / 2);
+        setCanvasItems([...base, { ...initialItem, _cid, x, y, w, h, rotation: 0 }]);
+      });
+    };
+
+    // Try immediate measurement; fall back to ResizeObserver if layout isn't ready yet
+    const { width, height } = canvasRef.current.getBoundingClientRect();
+    if (width > 0 && height > 0) {
+      applyLayout(width, height);
       return;
     }
-    const { width, height } = canvasRef.current.getBoundingClientRect();
-    const x = Math.max(0, (width  - ITEM_SIZE) / 2);
-    const y = Math.max(0, (height - ITEM_SIZE) / 2);
-    setCanvasItems([...base, { ...initialItem, _cid: `${initialItem.id}-${Date.now()}`, x, y, w: ITEM_SIZE, h: ITEM_SIZE, rotation: 0 }]);
+    const ro = new ResizeObserver(entries => {
+      const { width: w, height: h } = entries[0].contentRect;
+      if (w > 0 && h > 0) { ro.disconnect(); applyLayout(w, h); }
+    });
+    ro.observe(canvasRef.current);
+    return () => ro.disconnect();
   }, []);
+
+  useEffect(() => {
+    const uncached = canvasItems.filter(i => i.image && !_trimCache.has(i.image));
+    if (!uncached.length) return;
+    let fired = false;
+    Promise.all(uncached.map(i => computeImageTrim(i.image).then(() => { fired = true; })))
+      .then(() => { if (fired) trimTick(n => n + 1); });
+  }, [canvasItems]);
 
   const buildSnapshot = () => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -2464,13 +3252,14 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, on
     const cw = rect?.width ?? 480;
     const ch = rect?.height ?? 679;
     const offset = (canvasItems.length % 7) * 20;
-    const x = Math.max(0, Math.min((cw - ITEM_SIZE) / 2 - 60 + offset, cw - ITEM_SIZE));
-    const y = Math.max(0, Math.min((ch - ITEM_SIZE) / 2 - 60 + offset, ch - ITEM_SIZE));
+    const _cid = `${item.id}-${Date.now()}`;
     pushHistory(canvasItems);
-    setCanvasItems(prev => [
-      ...prev,
-      { ...item, _cid: `${item.id}-${Date.now()}`, x, y, w: ITEM_SIZE, h: ITEM_SIZE, rotation: 0 },
-    ]);
+    computeImageTrim(item.image).then(trim => {
+      const { w, h } = contentBounds(trim, ITEM_SIZE);
+      const x = Math.max(0, Math.min((cw - w) / 2 - 60 + offset, cw - w));
+      const y = Math.max(0, Math.min((ch - h) / 2 - 60 + offset, ch - h));
+      setCanvasItems(prev => [...prev, { ...item, _cid, x, y, w, h, rotation: 0 }]);
+    });
   };
 
   const duplicateItem = cid => {
@@ -2511,10 +3300,16 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, on
     const item = items.find(i => i.id === Number(e.dataTransfer.getData('itemId')));
     if (!item) return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(e.clientX - rect.left - ITEM_SIZE / 2, rect.width  - ITEM_SIZE));
-    const y = Math.max(0, Math.min(e.clientY - rect.top  - ITEM_SIZE / 2, rect.height - ITEM_SIZE));
+    const dropX = e.clientX - rect.left;
+    const dropY = e.clientY - rect.top;
+    const _cid = `${item.id}-${Date.now()}`;
     pushHistory(canvasItems);
-    setCanvasItems(prev => [...prev, { ...item, _cid: `${item.id}-${Date.now()}`, x, y, w: ITEM_SIZE, h: ITEM_SIZE, rotation: 0 }]);
+    computeImageTrim(item.image).then(trim => {
+      const { w, h } = contentBounds(trim, ITEM_SIZE);
+      const x = Math.max(0, Math.min(dropX - w / 2, rect.width  - w));
+      const y = Math.max(0, Math.min(dropY - h / 2, rect.height - h));
+      setCanvasItems(prev => [...prev, { ...item, _cid, x, y, w, h, rotation: 0 }]);
+    });
   };
 
   // ── Mouse drag: reposition items already on canvas ──
@@ -2983,17 +3778,38 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, on
                   width: w,
                   height: h,
                   transform: `rotate(${rot}deg)`,
-                  zIndex: draggingCid === item._cid ? 1000 : isSelected ? 500 : idx + 1,
+                  zIndex: draggingCid === item._cid ? 1000 : isSelected ? 500 : (item.zIndex ?? idx + 1),
                 }}
                 className="absolute group select-none cursor-grab active:cursor-grabbing"
                 onMouseDown={e => startItemDrag(e, item._cid)}
                 onClick={e => e.stopPropagation()}
               >
                 <div
-                  className={`w-full h-full ${isSelected ? 'ring-2 ring-blue-400 rounded-xl' : ''}`}
+                  className={`w-full h-full overflow-hidden ${isSelected ? 'ring-2 ring-blue-400 rounded-xl' : ''}`}
                   style={item.flipX ? { transform: 'scaleX(-1)' } : undefined}
                 >
-                  <img src={item.image} alt={item.name} draggable={false} className="w-full h-full object-contain pointer-events-none" />
+                  {(() => {
+                    const trim = _trimCache.get(item.image) ?? null;
+                    const canCrop = trim && trim.nw && trim.nh &&
+                      Math.abs(item.w / item.h - (trim.fw * trim.nw) / (trim.fh * trim.nh)) < 0.05;
+                    return canCrop ? (
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        draggable={false}
+                        className="pointer-events-none"
+                        style={{
+                          position: 'absolute',
+                          width:  `${100 / trim.fw}%`,
+                          height: `${100 / trim.fh}%`,
+                          left:   `${-trim.fx / trim.fw * 100}%`,
+                          top:    `${-trim.fy / trim.fh * 100}%`,
+                        }}
+                      />
+                    ) : (
+                      <img src={item.image} alt={item.name} draggable={false} className="w-full h-full object-contain pointer-events-none" />
+                    );
+                  })()}
                 </div>
                 {/* Selection handles */}
                 {isSelected && (
@@ -3101,8 +3917,10 @@ async function saveCollageAsPng(outfit) {
     ctx.fillRect(0, 0, W, H);
   }
 
+  const sorted = [...items].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
+
   const bitmaps = await Promise.all(
-    items.map(async item => {
+    sorted.map(async item => {
       try {
         const res = await fetch(item.image);
         if (!res.ok) return null;
@@ -3111,7 +3929,7 @@ async function saveCollageAsPng(outfit) {
     })
   );
 
-  items.forEach((item, idx) => {
+  sorted.forEach((item, idx) => {
     const bitmap = bitmaps[idx];
     if (!bitmap) return;
     const x   = (item.x   ?? 0)   * SCALE;
@@ -3146,35 +3964,99 @@ async function saveCollageAsPng(outfit) {
   }, 'image/png');
 }
 
-function OutfitCard({ outfit, onDelete, onEdit, isDraft }) {
-  const [menuOpen, setMenuOpen] = useState(false);
+function OutfitOrganizeCard({ outfit, draggedId, selected, onSelect, onDragStart, onDragHover, onDragEnd }) {
+  const { items = [], bgColor = '#FFFFFF', canvasWidth = 480, canvasHeight = 679 } = outfit;
+  const bgStyle = bgColor === '#FFFFFF' ? { backgroundColor: '#F3F5F4' } : { backgroundColor: bgColor };
+  return (
+    <div
+      draggable
+      onClick={onSelect}
+      onDragStart={onDragStart}
+      onDragOver={e => {
+        e.preventDefault();
+        if (draggedId === outfit.id) return;
+        onDragHover(outfit.id);
+      }}
+      onDrop={e => e.preventDefault()}
+      onDragEnd={onDragEnd}
+      style={{ aspectRatio: '210 / 297', ...bgStyle }}
+      className={`relative rounded-2xl overflow-hidden cursor-grab active:cursor-grabbing select-none transition-all duration-150 ${
+        draggedId === outfit.id ? 'opacity-40' : ''
+      } ${selected ? 'ring-[3px] ring-gray-900' : ''}`}
+    >
+      {outfit.thumbnail ? (
+        <img src={outfit.thumbnail} alt={outfit.name || 'Outfit'} className="w-full h-full object-cover pointer-events-none" />
+      ) : items.map((item, idx) => {
+        const w = item.w ?? 128;
+        const h = item.h ?? 128;
+        const rot = item.rotation ?? 0;
+        return (
+          <div
+            key={item._cid ?? idx}
+            style={{
+              position: 'absolute',
+              left: `${(item.x / canvasWidth) * 100}%`,
+              top: `${(item.y / canvasHeight) * 100}%`,
+              width: `${(w / canvasWidth) * 100}%`,
+              height: `${(h / canvasHeight) * 100}%`,
+              transform: item.flipX ? `rotate(${rot}deg) scaleX(-1)` : `rotate(${rot}deg)`,
+              zIndex: item.zIndex ?? idx + 1,
+            }}
+          >
+            <img src={item.image} alt={item.name} draggable={false} className="w-full h-full object-contain pointer-events-none" />
+          </div>
+        );
+      })}
+      {selected && <div className="absolute inset-0 bg-black/25 pointer-events-none" />}
+    </div>
+  );
+}
+
+function OutfitCard({
+  outfit, onDelete, onEdit, onDuplicate, isDraft, liked, outfitBoards, organizeMode, dragging,
+  onToggleLike, onToggleBoard, onDragStart, onDragOver, onDragEnd,
+}) {
+  const [menuOpen,    setMenuOpen]    = useState(false);
+  const [boardMenuOpen, setBoardMenuOpen] = useState(false);
+  const [boardSearch, setBoardSearch] = useState('');
   const [saving, setSaving] = useState(false);
-  const dotsRef = useRef(null);
-  const dropdownRef = useRef(null);
+  const dotsRef      = useRef(null);
+  const dropdownRef  = useRef(null);
+  const boardBtnRef  = useRef(null);
+  const boardDropRef = useRef(null);
   const { items = [], bgColor = '#FFFFFF', canvasWidth = 480, canvasHeight = 679 } = outfit;
   const bgStyle = bgColor === '#FFFFFF' ? { backgroundColor: '#F3F5F4' } : { backgroundColor: bgColor };
 
   useEffect(() => {
     if (!menuOpen) return;
     const handler = e => {
-      if (!dotsRef.current?.contains(e.target) && !dropdownRef.current?.contains(e.target)) {
-        setMenuOpen(false);
-      }
+      if (!dotsRef.current?.contains(e.target) && !dropdownRef.current?.contains(e.target)) setMenuOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [menuOpen]);
 
+  useEffect(() => {
+    if (!boardMenuOpen) { setBoardSearch(''); return; }
+    const handler = e => {
+      if (!boardBtnRef.current?.contains(e.target) && !boardDropRef.current?.contains(e.target)) setBoardMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [boardMenuOpen]);
+
   return (
     <div
-      className="group relative cursor-pointer"
+      className={`group relative cursor-pointer ${organizeMode ? 'cursor-grab active:cursor-grabbing' : ''} ${dragging ? 'opacity-40' : ''}`}
       style={{ aspectRatio: '210 / 297' }}
+      draggable={organizeMode}
+      onDragStart={organizeMode ? onDragStart : undefined}
+      onDragOver={organizeMode ? onDragOver : undefined}
+      onDragEnd={organizeMode ? onDragEnd : undefined}
+      onMouseLeave={() => { if (!boardMenuOpen) setBoardMenuOpen(false); }}
     >
-      {/* Background + items (clipped to rounded rect) */}
-      <div
-        className="absolute inset-0 rounded-2xl overflow-hidden"
-        style={bgStyle}
-      >
+      {/* Background + items */}
+      <div className="absolute inset-0 rounded-2xl overflow-hidden" style={bgStyle}>
         {items.length === 0 ? (
           <div className="w-full h-full flex items-center justify-center">
             <Wand2 size={20} className="text-gray-300" />
@@ -3188,75 +4070,169 @@ function OutfitCard({ outfit, onDelete, onEdit, isDraft }) {
               key={item._cid ?? idx}
               style={{
                 position: 'absolute',
-                left: `${(item.x / canvasWidth) * 100}%`,
-                top: `${(item.y / canvasHeight) * 100}%`,
-                width: `${(w / canvasWidth) * 100}%`,
+                left:   `${(item.x / canvasWidth) * 100}%`,
+                top:    `${(item.y / canvasHeight) * 100}%`,
+                width:  `${(w / canvasWidth) * 100}%`,
                 height: `${(h / canvasHeight) * 100}%`,
                 transform: item.flipX ? `rotate(${rot}deg) scaleX(-1)` : `rotate(${rot}deg)`,
-                zIndex: idx + 1,
+                zIndex: item.zIndex ?? idx + 1,
               }}
             >
               <img src={item.image} alt={item.name} draggable={false} className="w-full h-full object-contain pointer-events-none" />
             </div>
           );
         })}
-
         {/* Hover overlay */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 pointer-events-none z-10" />
       </div>
 
-      {/* Action buttons — outside overflow-hidden so menu can escape card bounds */}
-      <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1">
+      {/* Heart — top right, shown on hover or when liked */}
+      {!organizeMode && (
         <button
-          onClick={e => { e.stopPropagation(); onEdit?.(); }}
-          className="px-2.5 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-gray-50 shadow-sm transition-all opacity-0 group-hover:opacity-100"
+          onClick={e => { e.stopPropagation(); onToggleLike?.(); }}
+          className={`absolute top-2 right-2 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-white/80 backdrop-blur-sm shadow-sm transition-all ${liked ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
         >
-          <Pencil size={13} className="text-gray-700" />
+          <Heart size={13} strokeWidth={2} className={liked ? 'fill-rose-500 text-rose-500' : 'text-gray-600'} />
         </button>
-        <div ref={dotsRef}>
+      )}
+
+      {/* Board dropdown — positioned relative to card, above action bar */}
+      {boardMenuOpen && (
+        <div ref={boardDropRef} className="absolute bottom-12 right-2 bg-white rounded-xl shadow-lg border border-gray-100 py-1.5 w-52 z-30">
+          <p className="px-3 pt-1 pb-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Move to Board</p>
+          <div className="px-2 pb-1.5">
+            <input
+              autoFocus
+              value={boardSearch}
+              onChange={e => setBoardSearch(e.target.value)}
+              onClick={e => e.stopPropagation()}
+              placeholder="Search boards…"
+              className="w-full text-xs px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-400 placeholder-gray-400"
+            />
+          </div>
+          {(() => {
+            const visible = (outfitBoards ?? []).filter(b => b !== 'All' && b.toLowerCase().includes(boardSearch.toLowerCase()));
+            if (visible.length === 0) return <p className="px-3 py-2 text-xs text-gray-400">{boardSearch ? 'No matches' : 'No boards yet'}</p>;
+            return (
+              <div className="overflow-y-auto max-h-[96px]">
+                {visible.map(board => {
+                  const inBoard = (outfit.boards ?? []).includes(board);
+                  return (
+                    <button
+                      key={board}
+                      onClick={e => { e.stopPropagation(); onToggleBoard?.(board); }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <span className="truncate">{board}</span>
+                      {inBoard && <Check size={13} strokeWidth={2.5} className="text-gray-500 flex-shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* Bottom action buttons */}
+      {!organizeMode && (
+        <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1">
+          {/* Board assignment */}
+          <div ref={boardBtnRef}>
+            <button
+              onClick={e => { e.stopPropagation(); setBoardMenuOpen(o => !o); }}
+              className="px-2.5 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-gray-50 shadow-sm transition-all opacity-0 group-hover:opacity-100"
+            >
+              <Layers size={13} className="text-gray-700" />
+            </button>
+          </div>
+
+          {/* Edit */}
           <button
-            onClick={e => { e.stopPropagation(); setMenuOpen(o => !o); }}
+            onClick={e => { e.stopPropagation(); onEdit?.(); }}
             className="px-2.5 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-gray-50 shadow-sm transition-all opacity-0 group-hover:opacity-100"
           >
-            <MoreHorizontal size={16} className="text-gray-700" />
+            <Pencil size={13} className="text-gray-700" />
           </button>
-        </div>
-      </div>
 
-      {/* Dropdown — child of outer card so top-full aligns to card's bottom edge */}
-      {menuOpen && (
-        <div ref={dropdownRef} className="absolute top-full right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 p-1 w-40 z-20 overflow-hidden">
-          <button
-            onClick={async e => {
-              e.stopPropagation();
-              setMenuOpen(false);
-              setSaving(true);
-              try { await saveCollageAsPng(outfit); } finally { setSaving(false); }
-            }}
-            disabled={saving}
-            className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50"
-          >
-            {saving ? 'Saving…' : 'Save to device'}
-          </button>
-          <button
-            onClick={e => { e.stopPropagation(); setMenuOpen(false); onDelete?.(); }}
-            className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
-          >
-            Delete
-          </button>
+          {/* More (⋯) */}
+          <div ref={dotsRef} className="relative">
+            <button
+              onClick={e => { e.stopPropagation(); setMenuOpen(o => !o); }}
+              className="px-2.5 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-gray-50 shadow-sm transition-all opacity-0 group-hover:opacity-100"
+            >
+              <MoreHorizontal size={16} className="text-gray-700" />
+            </button>
+            {menuOpen && (
+              <div ref={dropdownRef} className="absolute bottom-full right-0 mb-1 bg-white rounded-xl shadow-lg border border-gray-100 p-1 w-40 z-20 overflow-hidden">
+                <button
+                  onClick={async e => { e.stopPropagation(); setMenuOpen(false); setSaving(true); try { await saveCollageAsPng(outfit); } finally { setSaving(false); } }}
+                  disabled={saving}
+                  className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {saving ? 'Saving…' : 'Save to device'}
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); setMenuOpen(false); onDuplicate?.(); }}
+                  className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  Duplicate
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); setMenuOpen(false); onDelete?.(); }}
+                  className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function StudioTab({ savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit, onUpdateSavedOutfit, onUpdateDraftOutfit, onRemoveDraftOutfit, onRemoveSavedOutfit, pendingOutfitItem, pendingTargetCollage, onClearPendingOutfit, items, boards }) {
-  const [showCreate, setShowCreate]         = useState(false);
-  const [createSeed, setCreateSeed]         = useState(null);
+function StudioTab({
+  savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit,
+  onUpdateSavedOutfit, onUpdateDraftOutfit, onRemoveDraftOutfit, onRemoveSavedOutfit,
+  pendingOutfitItem, pendingTargetCollage, onClearPendingOutfit,
+  pendingAiCollage, onClearPendingAiCollage, items, boards,
+  outfitBoards, outfitBoardMeta, likedOutfits,
+  onCreateOutfitBoard, onDeleteOutfitBoard, onEditOutfitBoard, onToggleOutfitBoard, onToggleOutfitLike,
+}) {
+  const [showCreate, setShowCreate]               = useState(false);
+  const [createSeed, setCreateSeed]               = useState(null);
   const [initialCanvasItems, setInitialCanvasItems] = useState(null);
-  const [initialBgColor, setInitialBgColor] = useState(null);
-  const [editingCollage, setEditingCollage] = useState(null);
-  const [view, setView]                     = useState('saved');
+  const [initialBgColor, setInitialBgColor]       = useState(null);
+  const [initialDesignWidth,  setInitialDesignWidth]  = useState(null);
+  const [initialDesignHeight, setInitialDesignHeight] = useState(null);
+  const [editingCollage, setEditingCollage]       = useState(null);
+
+  // Board / favorites / organize state
+  const [activeOutfitFilter,  setActiveOutfitFilter]  = useState('All');
+  const [outfitFavoritesOnly, setOutfitFavoritesOnly] = useState(false);
+  const [newBoardOpen,   setNewBoardOpen]   = useState(false);
+  const [newBoardName,   setNewBoardName]   = useState('');
+  const [newBoardDesc,   setNewBoardDesc]   = useState('');
+  const [editBoard,      setEditBoard]      = useState(null);
+  const [editName,       setEditName]       = useState('');
+  const [editDesc,       setEditDesc]       = useState('');
+  const [deleteConfirmBoard, setDeleteConfirmBoard] = useState(null);
+  const [boardMenuOpen,  setBoardMenuOpen]  = useState(false);
+  const [addMenuOpen,    setAddMenuOpen]    = useState(false);
+  const [organizeMode,   setOrganizeMode]   = useState(false);
+  const [organizedList,  setOrganizedList]  = useState([]);
+  const [draggedId,      setDraggedId]      = useState(null);
+  const [selectedOutfitIds, setSelectedOutfitIds] = useState(new Set());
+  const [showDeleteOrganizeConfirm, setShowDeleteOrganizeConfirm] = useState(false);
+  const [organizeBoardPickerOpen, setOrganizeBoardPickerOpen] = useState(false);
+  const [pendingOrganizeAdd, setPendingOrganizeAdd] = useState(null);
+  const boardMenuRef           = useRef(null);
+  const addMenuRef             = useRef(null);
+  const organizeBoardPickerRef = useRef(null);
+  const [addToBoardMode, setAddToBoardMode] = useState(false);
+  const [addToBoardSelectedIds, setAddToBoardSelectedIds] = useState(new Set());
 
   useEffect(() => {
     if (!pendingOutfitItem) return;
@@ -3266,107 +4242,612 @@ function StudioTab({ savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit
       const outfit = list.find(o => o.id === pendingTargetCollage.id);
       setInitialCanvasItems(outfit?.items || []);
       setInitialBgColor(outfit?.bgColor ?? null);
+      setInitialDesignWidth(outfit?.canvasWidth ?? null);
+      setInitialDesignHeight(outfit?.canvasHeight ?? null);
       setEditingCollage(pendingTargetCollage);
     } else {
       setInitialCanvasItems(null);
       setInitialBgColor(null);
+      setInitialDesignWidth(null);
+      setInitialDesignHeight(null);
       setEditingCollage(null);
     }
     setShowCreate(true);
     onClearPendingOutfit();
   }, [pendingOutfitItem]);
 
-  const list = view === 'saved' ? savedOutfits : draftOutfits;
+  useEffect(() => {
+    if (!pendingAiCollage) return;
+    setCreateSeed(null);
+    setInitialCanvasItems(pendingAiCollage.items);
+    setInitialBgColor(pendingAiCollage.bgColor ?? '#FFFFFF');
+    setInitialDesignWidth(pendingAiCollage.canvasWidth ?? null);
+    setInitialDesignHeight(pendingAiCollage.canvasHeight ?? null);
+    setEditingCollage(null);
+    setShowCreate(true);
+    onClearPendingAiCollage();
+  }, [pendingAiCollage]);
+
+  useEffect(() => {
+    if (!addMenuOpen) return;
+    const handler = e => { if (!addMenuRef.current?.contains(e.target)) setAddMenuOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [addMenuOpen]);
+
+  useEffect(() => {
+    if (!organizeBoardPickerOpen) return;
+    const handler = e => { if (!organizeBoardPickerRef.current?.contains(e.target)) setOrganizeBoardPickerOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [organizeBoardPickerOpen]);
+
+  const draftIds = new Set(draftOutfits.map(o => o.id));
+
+  const applyFilters = list => {
+    let l = list;
+    if (activeOutfitFilter !== 'All') l = l.filter(o => (o.boards ?? []).includes(activeOutfitFilter));
+    if (outfitFavoritesOnly) l = l.filter(o => likedOutfits.has(o.id));
+    return l;
+  };
+
+  const filteredDrafts = applyFilters(draftOutfits);
+  const filteredSaved  = applyFilters(savedOutfits);
 
   const openCollageForEditing = (outfit, type) => {
     setCreateSeed(null);
     setInitialCanvasItems(outfit.items || []);
     setInitialBgColor(outfit.bgColor ?? null);
+    setInitialDesignWidth(outfit.canvasWidth ?? null);
+    setInitialDesignHeight(outfit.canvasHeight ?? null);
     setEditingCollage({ id: outfit.id, type });
     setShowCreate(true);
   };
 
-  const emptyLabel = view === 'saved'
-    ? { title: 'No published outfits', sub: 'Tap + and publish to save your look' }
-    : { title: 'No drafts', sub: 'Start a collage and it will autosave as a draft' };
+  const enterOrganize = () => {
+    setOrganizedList([...filteredDrafts, ...filteredSaved]);
+    setSelectedOutfitIds(new Set());
+    setOrganizeMode(true);
+  };
+
+  const exitOrganize = () => {
+    setOrganizeMode(false);
+    setOrganizedList([]);
+    setSelectedOutfitIds(new Set());
+    setDraggedId(null);
+  };
+
+  const toggleSelectOutfit = id => {
+    setSelectedOutfitIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const enterAddToBoard = () => {
+    setAddToBoardSelectedIds(new Set());
+    setAddToBoardMode(true);
+  };
+
+  const exitAddToBoard = () => {
+    setAddToBoardMode(false);
+    setAddToBoardSelectedIds(new Set());
+  };
+
+  const confirmAddToBoard = () => {
+    addToBoardSelectedIds.forEach(id => onToggleOutfitBoard(id, activeOutfitFilter));
+    setAddToBoardMode(false);
+    setAddToBoardSelectedIds(new Set());
+  };
+
+  const toggleAddBoardOutfit = id => {
+    setAddToBoardSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const handleOrganizeDragHover = targetId => {
+    if (!draggedId || targetId === draggedId) return;
+    setOrganizedList(prev => {
+      const from = prev.findIndex(o => o.id === draggedId);
+      const to   = prev.findIndex(o => o.id === targetId);
+      if (from === -1 || to === -1) return prev;
+      const next = [...prev];
+      next.splice(to, 0, next.splice(from, 1)[0]);
+      return next;
+    });
+  };
 
   return (
     <>
       <div className="flex flex-col h-full overflow-hidden">
 
-        {/* Header */}
-        <div className="px-6 md:px-10 pt-8 pb-4 flex-shrink-0">
-          <div className="flex items-center justify-between mb-5">
-            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Style Studio</h1>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-900 hover:bg-gray-700 transition-colors shadow-sm"
-            >
-              <Plus size={17} strokeWidth={2.5} className="text-white" />
-            </button>
+        {/* ── Tab header ── */}
+        <div className="px-5 md:px-7 pt-5 pb-0 flex-shrink-0">
+          {/* Row 1: page title + add */}
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-3xl font-semibold tracking-tight text-gray-900">Style Studio</h1>
+            <div className="relative" ref={addMenuRef}>
+              <button
+                onClick={() => setAddMenuOpen(o => !o)}
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-900 hover:bg-gray-700 transition-colors shadow-sm"
+              >
+                <Plus size={17} strokeWidth={2.5} className="text-white" />
+              </button>
+              {addMenuOpen && (
+                <div className="absolute right-0 top-11 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-36 z-20">
+                  <button
+                    onClick={() => { setAddMenuOpen(false); setShowCreate(true); }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Outfit
+                  </button>
+                  <button
+                    onClick={() => { setAddMenuOpen(false); setNewBoardName(''); setNewBoardDesc(''); setNewBoardOpen(true); }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Board
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          {/* Row 2: board title + organize/settings */}
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-3xl font-semibold text-gray-900 truncate max-w-[20ch]">{activeOutfitFilter}</p>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {activeOutfitFilter !== 'All' && (
+                <div className="relative" ref={boardMenuRef}>
+                  <button
+                    onClick={() => setBoardMenuOpen(o => !o)}
+                    className="w-10 h-10 flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 transition-colors text-gray-700 text-xl leading-none"
+                  >
+                    ···
+                  </button>
+                  {boardMenuOpen && (
+                    <div className="absolute right-0 top-12 bg-white rounded-xl shadow-lg border border-gray-100 py-1 w-40 z-20">
+                      <button
+                        onClick={() => {
+                          setBoardMenuOpen(false);
+                          setEditBoard(activeOutfitFilter);
+                          setEditName(activeOutfitFilter);
+                          setEditDesc(outfitBoardMeta?.[activeOutfitFilter]?.description ?? '');
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Edit board
+                      </button>
+                      <button
+                        onClick={() => { setBoardMenuOpen(false); enterAddToBoard(); }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Add to board
+                      </button>
+                      <button
+                        onClick={() => { setBoardMenuOpen(false); setDeleteConfirmBoard(activeOutfitFilter); }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-gray-50 transition-colors"
+                      >
+                        Delete board
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+              <button
+                onClick={enterOrganize}
+                className="flex items-center gap-1.5 px-4 h-10 rounded-full transition-colors text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
+              >
+                <Brush size={14} strokeWidth={2} />
+                Organize
+              </button>
+            </div>
+          </div>
+          <div className="mb-5">
+            <p className="text-sm text-gray-400 mt-0.5">{filteredDrafts.length + filteredSaved.length} outfit{filteredDrafts.length + filteredSaved.length !== 1 ? 's' : ''}</p>
+            <div className="min-h-[1.25rem] mt-0.5">
+              {activeOutfitFilter !== 'All' && outfitBoardMeta?.[activeOutfitFilter]?.description && (
+                <p className="text-sm text-gray-400 italic pl-3">{outfitBoardMeta[activeOutfitFilter].description}</p>
+              )}
+            </div>
           </div>
 
-          {/* Published / Drafts toggle */}
-          <div className="flex bg-gray-100 rounded-xl p-1 w-fit gap-1">
-            {[
-              { key: 'saved',  label: 'Published',  count: savedOutfits.length  },
-              { key: 'drafts', label: 'Drafts', count: draftOutfits.length },
-            ].map(({ key, label, count }) => (
-              <button
-                key={key}
-                onClick={() => setView(key)}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  view === key
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {label}
-                {count > 0 && (
-                  <span className={`text-[11px] tabular-nums ${view === key ? 'text-gray-400' : 'text-gray-400'}`}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            ))}
+          {/* Board filter chips */}
+          <div className="flex gap-5 overflow-x-auto scrollbar-hide pb-4">
+            {(outfitBoards ?? ['All']).map(board => {
+              const active = activeOutfitFilter === board;
+              return (
+                <button
+                  key={board}
+                  onClick={() => setActiveOutfitFilter(board)}
+                  className={`flex-shrink-0 flex items-center gap-1.5 text-base font-medium transition-colors pb-0.5 ${
+                    active ? 'text-gray-900 border-b-2 border-gray-900' : 'text-gray-400 hover:text-gray-700 border-b-2 border-transparent'
+                  }`}
+                >
+                  {board}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Favorites toggle */}
+          <div className="pb-3">
+            <button
+              onClick={() => setOutfitFavoritesOnly(o => !o)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                outfitFavoritesOnly ? 'bg-rose-50 text-rose-500' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              <Heart size={13} className={outfitFavoritesOnly ? 'fill-rose-500' : ''} />
+              Favorites
+            </button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide px-6 md:px-10 pb-28 md:pb-8">
-          {list.length === 0 ? (
+        <div className="flex-1 overflow-y-auto scrollbar-hide px-5 md:px-7 pb-28 md:pb-8">
+          {filteredDrafts.length === 0 && filteredSaved.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
                 <Wand2 size={22} className="text-gray-300" />
               </div>
-              <p className="text-sm font-semibold text-gray-800">{emptyLabel.title}</p>
-              <p className="text-sm text-gray-400 mt-1">{emptyLabel.sub}</p>
+              <p className="text-sm font-semibold text-gray-800">No outfits yet</p>
+              <p className="text-sm text-gray-400 mt-1">Tap + to create your first collage</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-              {list.map(outfit => (
-                <OutfitCard
-                  key={outfit.id}
-                  outfit={outfit}
-                  isDraft={view === 'drafts'}
-                  onEdit={() => openCollageForEditing(outfit, view === 'drafts' ? 'drafts' : 'saved')}
-                  onDelete={() => {
-                    if (view === 'drafts') onRemoveDraftOutfit(outfit.id);
-                    else onRemoveSavedOutfit?.(outfit.id);
-                  }}
-                />
-              ))}
-            </div>
+            <>
+              {filteredDrafts.length > 0 && (
+                <div className="mb-6">
+                  <p className="text-xl font-semibold text-gray-800 mb-3">Drafts ({filteredDrafts.length})</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {filteredDrafts.map(outfit => (
+                      <OutfitCard
+                        key={outfit.id}
+                        outfit={outfit}
+                        isDraft={true}
+                        liked={likedOutfits.has(outfit.id)}
+                        outfitBoards={outfitBoards ?? ['All']}
+                        onEdit={() => openCollageForEditing(outfit, 'drafts')}
+                        onDelete={() => onRemoveDraftOutfit(outfit.id)}
+                        onDuplicate={() => {
+                          const copy = { items: outfit.items, bgColor: outfit.bgColor, canvasWidth: outfit.canvasWidth, canvasHeight: outfit.canvasHeight, name: outfit.name ? `${outfit.name} (copy)` : '', thumbnail: outfit.thumbnail || '' };
+                          onSaveDraftOutfit(copy);
+                        }}
+                        onToggleLike={() => onToggleOutfitLike(outfit.id)}
+                        onToggleBoard={board => onToggleOutfitBoard(outfit.id, board)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {filteredSaved.length > 0 && (
+                <div>
+                  <p className="text-xl font-semibold text-gray-800 mb-3">Published ({filteredSaved.length})</p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {filteredSaved.map(outfit => (
+                      <OutfitCard
+                        key={outfit.id}
+                        outfit={outfit}
+                        isDraft={false}
+                        liked={likedOutfits.has(outfit.id)}
+                        outfitBoards={outfitBoards ?? ['All']}
+                        onEdit={() => openCollageForEditing(outfit, 'saved')}
+                        onDelete={() => onRemoveSavedOutfit?.(outfit.id)}
+                        onDuplicate={() => {
+                          const copy = { items: outfit.items, bgColor: outfit.bgColor, canvasWidth: outfit.canvasWidth, canvasHeight: outfit.canvasHeight, name: outfit.name ? `${outfit.name} (copy)` : '', thumbnail: outfit.thumbnail || '' };
+                          onSaveOutfit(copy);
+                        }}
+                        onToggleLike={() => onToggleOutfitLike(outfit.id)}
+                        onToggleBoard={board => onToggleOutfitBoard(outfit.id, board)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
+
+      {/* ── Organize mode full-screen overlay ── */}
+      {organizeMode && (
+        <div className="fixed inset-0 z-50 bg-white flex flex-col">
+
+          {/* Header */}
+          <div className="relative flex items-center justify-center px-5 md:px-7 pt-14 md:pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
+            <h2 className="text-xl font-semibold text-gray-900">Organize Outfits</h2>
+            <button
+              onClick={() => {
+                const allSelected = selectedOutfitIds.size > 0;
+                setSelectedOutfitIds(allSelected ? new Set() : new Set(organizedList.map(o => o.id)));
+              }}
+              className="absolute left-5 md:left-7 text-sm font-medium text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-xl transition-colors"
+            >
+              {selectedOutfitIds.size > 0 ? 'Deselect All' : 'Select All'}
+            </button>
+            <button
+              onClick={exitOrganize}
+              className="absolute right-5 md:right-7 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <X size={16} className="text-gray-600" />
+            </button>
+          </div>
+
+          {/* Outfit grid */}
+          <div className="flex-1 overflow-y-auto scrollbar-hide px-5 md:px-7 pt-4 pb-36">
+            {organizedList.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
+                  <Wand2 size={22} className="text-gray-300" />
+                </div>
+                <p className="text-sm font-semibold text-gray-800">No outfits here</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                {organizedList.map(outfit => (
+                  <OutfitOrganizeCard
+                    key={outfit.id}
+                    outfit={outfit}
+                    draggedId={draggedId}
+                    selected={selectedOutfitIds.has(outfit.id)}
+                    onSelect={() => toggleSelectOutfit(outfit.id)}
+                    onDragStart={() => setDraggedId(outfit.id)}
+                    onDragHover={handleOrganizeDragHover}
+                    onDragEnd={() => setDraggedId(null)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Floating action bar */}
+          <div className="absolute bottom-8 inset-x-0 flex justify-center pointer-events-none z-10">
+            <div className="pointer-events-auto bg-white rounded-2xl shadow-2xl border border-gray-100 px-5 py-3 flex items-center gap-3">
+              {selectedOutfitIds.size > 0 && (
+                <span className="text-sm text-gray-500 tabular-nums">{selectedOutfitIds.size} selected</span>
+              )}
+              {/* Move to board */}
+              <div className="relative" ref={organizeBoardPickerRef}>
+                <div className="relative group">
+                  <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 transition-opacity pointer-events-none ${
+                    selectedOutfitIds.size > 0 && !organizeBoardPickerOpen ? 'opacity-0 group-hover:opacity-100' : 'opacity-0'
+                  }`}>
+                    <span className="text-xs font-semibold text-white bg-gray-800 rounded-lg px-2.5 py-1 whitespace-nowrap">Move to board</span>
+                  </div>
+                  <button
+                    disabled={selectedOutfitIds.size === 0}
+                    onClick={() => setOrganizeBoardPickerOpen(o => !o)}
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
+                      selectedOutfitIds.size > 0 ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                    }`}
+                  >
+                    <Layers size={18} />
+                  </button>
+                </div>
+                {organizeBoardPickerOpen && (
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-white rounded-xl shadow-lg border border-gray-100 py-1 w-48 z-10">
+                    {(outfitBoards ?? []).filter(b => b !== 'All').length === 0 && (
+                      <p className="px-4 py-2.5 text-xs text-gray-400">No boards yet</p>
+                    )}
+                    {(outfitBoards ?? []).filter(b => b !== 'All').map(board => {
+                      const selectedArr = organizedList.filter(o => selectedOutfitIds.has(o.id));
+                      const allInBoard = selectedArr.length > 0 && selectedArr.every(o => (o.boards ?? []).includes(board));
+                      return (
+                        <button
+                          key={board}
+                          onClick={() => {
+                            const toAdd = organizedList.filter(o =>
+                              selectedOutfitIds.has(o.id) && !(o.boards ?? []).includes(board)
+                            );
+                            toAdd.forEach(o => onToggleOutfitBoard(o.id, board));
+                            if (toAdd.length > 0) {
+                              setOrganizedList(prev => prev.map(o =>
+                                toAdd.some(t => t.id === o.id)
+                                  ? { ...o, boards: [...(o.boards ?? []), board] }
+                                  : o
+                              ));
+                            }
+                          }}
+                          className="w-full flex items-center justify-between px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          {board}
+                          {allInBoard && <Check size={13} strokeWidth={2.5} className="text-gray-500" />}
+                        </button>
+                      );
+                    })}
+                    <div className="border-t border-gray-100 mt-1 pt-1">
+                      <button
+                        onClick={() => {
+                          setPendingOrganizeAdd(new Set(selectedOutfitIds));
+                          setOrganizeBoardPickerOpen(false);
+                          setNewBoardName('');
+                          setNewBoardDesc('');
+                          setNewBoardOpen(true);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        New board…
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              {/* Delete */}
+              <div className="relative group">
+                <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 transition-opacity pointer-events-none ${
+                  selectedOutfitIds.size > 0 ? 'opacity-0 group-hover:opacity-100' : 'opacity-0'
+                }`}>
+                  <span className="text-xs font-semibold text-white bg-gray-800 rounded-lg px-2.5 py-1 whitespace-nowrap">{activeOutfitFilter === 'All' ? 'Delete' : 'Remove'}</span>
+                </div>
+                <button
+                  disabled={selectedOutfitIds.size === 0}
+                  onClick={() => setShowDeleteOrganizeConfirm(true)}
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${
+                    selectedOutfitIds.size > 0
+                      ? 'bg-red-50 text-red-500 hover:bg-red-100'
+                      : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                  }`}
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Delete selected confirmation */}
+          {showDeleteOrganizeConfirm && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-6">
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowDeleteOrganizeConfirm(false)} />
+              <div className="relative bg-white rounded-3xl shadow-2xl p-6 w-full max-w-xs">
+                <h3 className="text-base font-semibold text-gray-900 mb-1">
+                  {activeOutfitFilter === 'All'
+                    ? `Delete ${selectedOutfitIds.size} outfit${selectedOutfitIds.size !== 1 ? 's' : ''}?`
+                    : `Remove ${selectedOutfitIds.size} outfit${selectedOutfitIds.size !== 1 ? 's' : ''} from board?`}
+                </h3>
+                <p className="text-sm text-gray-500 mb-5 leading-relaxed">
+                  {activeOutfitFilter === 'All'
+                    ? `${selectedOutfitIds.size === 1 ? 'This outfit' : 'These outfits'} will be permanently removed.`
+                    : `${selectedOutfitIds.size === 1 ? 'This outfit' : 'These outfits'} will be removed from "${activeOutfitFilter}" but kept in your studio.`}
+                </p>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => {
+                      const toDelete = new Set(selectedOutfitIds);
+                      if (activeOutfitFilter === 'All') {
+                        toDelete.forEach(id => {
+                          if (draftIds.has(id)) onRemoveDraftOutfit(id);
+                          else onRemoveSavedOutfit?.(id);
+                        });
+                      } else {
+                        toDelete.forEach(id => onToggleOutfitBoard(id, activeOutfitFilter));
+                      }
+                      setOrganizedList(prev => prev.filter(o => !toDelete.has(o.id)));
+                      setSelectedOutfitIds(new Set());
+                      setShowDeleteOrganizeConfirm(false);
+                    }}
+                    className="w-full py-2.5 bg-red-500 text-white text-sm font-semibold rounded-2xl hover:bg-red-600 transition-colors"
+                  >{activeOutfitFilter === 'All' ? 'Delete' : 'Remove'}</button>
+                  <button
+                    onClick={() => setShowDeleteOrganizeConfirm(false)}
+                    className="w-full py-2.5 border border-gray-200 text-gray-700 text-sm font-semibold rounded-2xl hover:bg-gray-50 transition-colors"
+                  >Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Add to board full-screen overlay (Studio) ── */}
+      {addToBoardMode && (
+        <div className="fixed inset-0 z-50 bg-white flex flex-col">
+          {/* Header */}
+          <div className="relative flex items-center justify-center px-5 md:px-7 pt-14 md:pt-5 pb-4 border-b border-gray-100 flex-shrink-0">
+            <h2 className="text-xl font-semibold text-gray-900">Add to {activeOutfitFilter}</h2>
+            <button
+              onClick={exitAddToBoard}
+              className="absolute right-5 md:right-7 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <X size={16} className="text-gray-600" />
+            </button>
+          </div>
+
+          {/* All saved outfits grid */}
+          <div className="flex-1 overflow-y-auto scrollbar-hide px-5 md:px-7 pt-4 pb-36">
+            {savedOutfits.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mb-4">
+                  <Wand2 size={22} className="text-gray-300" />
+                </div>
+                <p className="text-sm font-semibold text-gray-800">No published outfits yet</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                {savedOutfits.map(outfit => {
+                  const alreadyInBoard = (outfit.boards ?? []).includes(activeOutfitFilter);
+                  const isSelected = addToBoardSelectedIds.has(outfit.id);
+                  const { items: oItems = [], bgColor = '#FFFFFF', canvasWidth = 480, canvasHeight = 679 } = outfit;
+                  const bgStyle = bgColor === '#FFFFFF' ? { backgroundColor: '#F3F5F4' } : { backgroundColor: bgColor };
+                  return (
+                    <div
+                      key={outfit.id}
+                      onClick={alreadyInBoard ? undefined : () => toggleAddBoardOutfit(outfit.id)}
+                      style={{ aspectRatio: '210 / 297', ...bgStyle }}
+                      className={`relative rounded-2xl overflow-hidden transition-all duration-150 select-none ${
+                        alreadyInBoard ? 'cursor-default' : 'cursor-pointer'
+                      } ${isSelected && !alreadyInBoard ? 'ring-[3px] ring-gray-900' : ''} ${
+                        alreadyInBoard ? 'ring-[3px] ring-emerald-400' : ''
+                      }`}
+                    >
+                      {outfit.thumbnail ? (
+                        <img src={outfit.thumbnail} alt={outfit.name || 'Outfit'} className="w-full h-full object-cover pointer-events-none" />
+                      ) : oItems.map((item, idx) => {
+                        const w = item.w ?? 128;
+                        const h = item.h ?? 128;
+                        const rot = item.rotation ?? 0;
+                        return (
+                          <div
+                            key={item._cid ?? idx}
+                            style={{
+                              position: 'absolute',
+                              left: `${(item.x / canvasWidth) * 100}%`,
+                              top: `${(item.y / canvasHeight) * 100}%`,
+                              width: `${(w / canvasWidth) * 100}%`,
+                              height: `${(h / canvasHeight) * 100}%`,
+                              transform: item.flipX ? `rotate(${rot}deg) scaleX(-1)` : `rotate(${rot}deg)`,
+                              zIndex: item.zIndex ?? idx + 1,
+                            }}
+                          >
+                            <img src={item.image} alt={item.name} draggable={false} className="w-full h-full object-contain pointer-events-none" />
+                          </div>
+                        );
+                      })}
+                      {isSelected && !alreadyInBoard && <div className="absolute inset-0 bg-black/25 pointer-events-none" />}
+                      {alreadyInBoard && (
+                        <div className="absolute inset-0 bg-white/60 flex items-center justify-center pointer-events-none">
+                          <Check size={20} strokeWidth={2.5} className="text-emerald-500" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Floating action bar */}
+          <div className="absolute bottom-8 inset-x-0 flex justify-center pointer-events-none">
+            <div className="pointer-events-auto bg-white rounded-2xl shadow-2xl border border-gray-100 px-5 py-3 flex items-center gap-3">
+              {addToBoardSelectedIds.size > 0 && (
+                <span className="text-sm text-gray-500 tabular-nums">{addToBoardSelectedIds.size} selected</span>
+              )}
+              <button
+                onClick={confirmAddToBoard}
+                disabled={addToBoardSelectedIds.size === 0}
+                className={`h-12 px-5 rounded-2xl flex items-center gap-2 font-medium text-sm transition-colors ${
+                  addToBoardSelectedIds.size > 0
+                    ? 'bg-gray-900 text-white hover:bg-gray-700'
+                    : 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                }`}
+              >
+                <Plus size={16} />
+                Add to board
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showCreate && (
         <CreateOutfitModal
           initialItem={createSeed}
           initialCanvasItems={initialCanvasItems}
           initialBgColor={initialBgColor}
-          onClose={() => { setShowCreate(false); setCreateSeed(null); setInitialCanvasItems(null); setInitialBgColor(null); setEditingCollage(null); }}
+          initialDesignWidth={initialDesignWidth}
+          initialDesignHeight={initialDesignHeight}
+          onClose={() => { setShowCreate(false); setCreateSeed(null); setInitialCanvasItems(null); setInitialBgColor(null); setInitialDesignWidth(null); setInitialDesignHeight(null); setEditingCollage(null); }}
           onPublish={collage => {
             if (editingCollage?.type === 'saved') {
               onUpdateSavedOutfit(editingCollage.id, collage);
@@ -3374,24 +4855,113 @@ function StudioTab({ savedOutfits, draftOutfits, onSaveOutfit, onSaveDraftOutfit
               if (editingCollage?.type === 'drafts') onRemoveDraftOutfit(editingCollage.id);
               onSaveOutfit(collage);
             }
-            setView('saved');
           }}
           onAutoSave={collage => {
             if (editingCollage?.type === 'saved') {
               onUpdateSavedOutfit(editingCollage.id, collage);
-              setView('saved');
             } else if (editingCollage?.type === 'drafts') {
               onUpdateDraftOutfit(editingCollage.id, collage);
-              setView('drafts');
             } else if (collage.items.length > 0) {
               onSaveDraftOutfit(collage);
-              setView('drafts');
             }
           }}
           onDetachCollage={() => setEditingCollage(null)}
           items={items}
           boards={boards}
         />
+      )}
+
+      {/* ── New board modal ── */}
+      {newBoardOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setNewBoardOpen(false)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl p-6 w-full max-w-xs">
+            <h3 className="text-base font-semibold text-gray-900 mb-4">New Board</h3>
+            <div className="space-y-3 mb-6">
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest block mb-1">Name <span className="text-red-400">*</span></label>
+                <input value={newBoardName} onChange={e => setNewBoardName(e.target.value)} maxLength={20}
+                  className="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                  placeholder="Board name" autoFocus />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest block mb-1">Description <span className="text-gray-300 normal-case font-normal tracking-normal">optional</span></label>
+                <textarea value={newBoardDesc} onChange={e => setNewBoardDesc(e.target.value)} maxLength={150} rows={3}
+                  className="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none leading-relaxed"
+                  placeholder="Add a description…" />
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                disabled={!newBoardName.trim() || (outfitBoards ?? []).includes(newBoardName.trim())}
+                onClick={() => {
+                  const n = newBoardName.trim();
+                  onCreateOutfitBoard(n, newBoardDesc.trim());
+                  if (pendingOrganizeAdd) {
+                    organizedList.forEach(outfit => {
+                      if (pendingOrganizeAdd.has(outfit.id)) onToggleOutfitBoard(outfit.id, n);
+                    });
+                    setPendingOrganizeAdd(null);
+                  }
+                  setActiveOutfitFilter(n);
+                  setNewBoardOpen(false);
+                }}
+                className="w-full py-2.5 bg-gray-900 text-white text-sm font-semibold rounded-2xl hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >Create</button>
+              <button onClick={() => { setPendingOrganizeAdd(null); setNewBoardOpen(false); }} className="w-full py-2.5 border border-gray-200 text-gray-700 text-sm font-semibold rounded-2xl hover:bg-gray-50 transition-colors">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit board modal ── */}
+      {editBoard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setEditBoard(null)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl p-6 w-full max-w-xs">
+            <h3 className="text-base font-semibold text-gray-900 mb-4">Edit Board</h3>
+            <div className="space-y-3 mb-6">
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest block mb-1">Name <span className="text-red-400">*</span></label>
+                <input value={editName} onChange={e => setEditName(e.target.value)} maxLength={20} autoFocus
+                  className="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                  placeholder="Board name" />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest block mb-1">Description <span className="text-gray-300 normal-case font-normal tracking-normal">optional</span></label>
+                <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} maxLength={150} rows={3}
+                  className="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300 resize-none leading-relaxed"
+                  placeholder="Add a description…" />
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                disabled={!editName.trim()}
+                onClick={() => { const n = editName.trim(); onEditOutfitBoard(editBoard, n, editDesc.trim()); if (activeOutfitFilter === editBoard) setActiveOutfitFilter(n); setEditBoard(null); }}
+                className="w-full py-2.5 bg-gray-900 text-white text-sm font-semibold rounded-2xl hover:bg-gray-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              >Save</button>
+              <button onClick={() => setEditBoard(null)} className="w-full py-2.5 border border-gray-200 text-gray-700 text-sm font-semibold rounded-2xl hover:bg-gray-50 transition-colors">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete board confirmation ── */}
+      {deleteConfirmBoard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDeleteConfirmBoard(null)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl p-6 w-full max-w-xs">
+            <h3 className="text-base font-semibold text-gray-900 mb-1">Delete "{deleteConfirmBoard}"?</h3>
+            <p className="text-sm text-gray-500 mb-5 leading-relaxed">This board will be permanently removed. Outfits inside won't be deleted.</p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => { onDeleteOutfitBoard(deleteConfirmBoard); if (activeOutfitFilter === deleteConfirmBoard) setActiveOutfitFilter('All'); setDeleteConfirmBoard(null); }}
+                className="w-full py-2.5 bg-red-500 text-white text-sm font-semibold rounded-2xl hover:bg-red-600 transition-colors"
+              >Delete Board</button>
+              <button onClick={() => setDeleteConfirmBoard(null)} className="w-full py-2.5 border border-gray-200 text-gray-700 text-sm font-semibold rounded-2xl hover:bg-gray-50 transition-colors">Cancel</button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
@@ -3512,6 +5082,53 @@ async function resizeImage(file) {
   });
 }
 
+async function trimTransparentPixels(file) {
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const { naturalWidth: w, naturalHeight: h } = img;
+      const src = document.createElement('canvas');
+      src.width = w; src.height = h;
+      const ctx = src.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const { data } = ctx.getImageData(0, 0, w, h);
+      // Sum alpha per column and per row; a column/row only counts as content
+      // if its total alpha exceeds a meaningful threshold. This ignores isolated
+      // ghost pixels (alpha 5–30) left by background-removal models while still
+      // capturing genuine semi-transparent clothing edges.
+      const COL_THRESHOLD = Math.max(255, h * 0.5);   // at least ~half a fully-opaque pixel per col
+      const ROW_THRESHOLD = Math.max(255, w * 0.5);
+      const colSum = new Float32Array(w);
+      const rowSum = new Float32Array(h);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const a = data[(y * w + x) * 4 + 3];
+          colSum[x] += a;
+          rowSum[y] += a;
+        }
+      }
+      let x0 = w, y0 = h, x1 = -1, y1 = -1;
+      for (let x = 0; x < w; x++) { if (colSum[x] >= COL_THRESHOLD) { if (x < x0) x0 = x; if (x > x1) x1 = x; } }
+      for (let y = 0; y < h; y++) { if (rowSum[y] >= ROW_THRESHOLD) { if (y < y0) y0 = y; if (y > y1) y1 = y; } }
+      // No visible content, or already tight — return original unchanged
+      if (x1 < 0 || (x0 <= 2 && y0 <= 2 && x1 >= w - 3 && y1 >= h - 3)) {
+        resolve(file); return;
+      }
+      const cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+      const dst = document.createElement('canvas');
+      dst.width = cw; dst.height = ch;
+      dst.getContext('2d').drawImage(src, x0, y0, cw, ch, 0, 0, cw, ch);
+      dst.toBlob(blob => {
+        resolve(new File([blob], file.name || 'trimmed.png', { type: 'image/png' }));
+      }, 'image/png');
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
 async function enrichItem({ imageUrl, imageFile, name, brand, category, material, color }) {
   const body = imageFile
     ? { imageBase64: await fileToBase64(imageFile), mediaType: imageFile.type, name, brand, category, material, color }
@@ -3549,11 +5166,11 @@ function AddMethodModal({ onClose, onImageSelected }) {
         worker.postMessage({ buffer, name: file.name, type: file.type }, [buffer]);
       });
       const processedFile = new File([resultBlob], file.name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' });
-      onImageSelected(await resizeImage(processedFile));
+      onImageSelected(await trimTransparentPixels(await resizeImage(processedFile)));
     } catch (err) {
       console.error('Background removal failed, converting to PNG:', err);
       const converted = await convertToPng(file);
-      onImageSelected(await resizeImage(converted));
+      onImageSelected(await trimTransparentPixels(await resizeImage(converted)));
     }
   };
 
@@ -3782,10 +5399,12 @@ function dbOutfitToApp(row) {
     id: row.id,
     name: row.name,
     thumbnail: row.thumbnail,
-    items:       isLegacyArray ? ci          : (ci?.items       ?? []),
-    bgColor:     isLegacyArray ? '#FFFFFF'   : (ci?.bgColor     ?? '#FFFFFF'),
-    canvasWidth:  isLegacyArray ? 480        : (ci?.canvasWidth  ?? 480),
-    canvasHeight: isLegacyArray ? 679        : (ci?.canvasHeight ?? 679),
+    items:        isLegacyArray ? ci        : (ci?.items        ?? []),
+    bgColor:      isLegacyArray ? '#FFFFFF' : (ci?.bgColor      ?? '#FFFFFF'),
+    canvasWidth:  isLegacyArray ? 480       : (ci?.canvasWidth  ?? 480),
+    canvasHeight: isLegacyArray ? 679       : (ci?.canvasHeight ?? 679),
+    liked:        row.liked        ?? false,
+    boards:       row.board_names  ?? [],
   };
 }
 
@@ -4153,17 +5772,22 @@ export default function WardrobeApp() {
   });
   const [pendingOutfitItem, setPendingOutfitItem] = useState(null);
   const [pendingTargetCollage, setPendingTargetCollage] = useState(null);
+  const [pendingAiCollage, setPendingAiCollage] = useState(null);
   const [savedOutfits, setSavedOutfits]   = useState([]);
   const [draftOutfits, setDraftOutfits]   = useState([]);
   const [likedItems, setLikedItems]       = useState(() => new Set());
+  const [outfitBoards, setOutfitBoards]       = useState(['All']);
+  const [outfitBoardMeta, setOutfitBoardMeta] = useState({});
+  const [likedOutfits, setLikedOutfits]       = useState(() => new Set());
 
   // ── Auth + data loading ──────────────────────────────────────────────────
   const loadUserData = async (uid) => {
-    const [profileRes, itemsRes, boardsRes, outfitsRes] = await Promise.all([
+    const [profileRes, itemsRes, boardsRes, outfitsRes, outfitBoardsRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', uid).single(),
       supabase.from('items').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
       supabase.from('boards').select('*').eq('user_id', uid).order('created_at'),
       supabase.from('outfits').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
+      supabase.from('outfit_boards').select('*').eq('user_id', uid).order('created_at'),
     ]);
 
     if (profileRes.data) {
@@ -4185,8 +5809,18 @@ export default function WardrobeApp() {
     }
 
     if (outfitsRes.data) {
-      setSavedOutfits(outfitsRes.data.filter(o => !o.is_draft).map(dbOutfitToApp));
-      setDraftOutfits(outfitsRes.data.filter(o => o.is_draft).map(dbOutfitToApp));
+      const allAppOutfits = outfitsRes.data.map(dbOutfitToApp);
+      const rawRows = outfitsRes.data;
+      setSavedOutfits(allAppOutfits.filter((_, i) => !rawRows[i].is_draft));
+      setDraftOutfits(allAppOutfits.filter((_, i) =>  rawRows[i].is_draft));
+      setLikedOutfits(new Set(allAppOutfits.filter(o => o.liked).map(o => o.id)));
+    }
+
+    if (outfitBoardsRes.data) {
+      setOutfitBoards(['All', ...outfitBoardsRes.data.map(b => b.name)]);
+      const meta = {};
+      outfitBoardsRes.data.forEach(b => { if (b.description) meta[b.name] = { description: b.description }; });
+      setOutfitBoardMeta(meta);
     }
   };
 
@@ -4203,6 +5837,7 @@ export default function WardrobeApp() {
       else {
         setItems([]); setBoards(['All']); setBoardMeta({});
         setSavedOutfits([]); setDraftOutfits([]); setLikedItems(new Set());
+        setOutfitBoards(['All']); setOutfitBoardMeta({}); setLikedOutfits(new Set());
         setProfile({ name: '', bio: '', topSize: '', bottomSize: '', shoeSize: '', styles: [] });
       }
     });
@@ -4318,7 +5953,7 @@ export default function WardrobeApp() {
   const updateItemImage = async (id, blob) => {
     if (!user) return;
     const path = `${user.id}/${Date.now()}-edited.png`;
-    const file = new File([blob], 'edited.png', { type: 'image/png' });
+    const file = await trimTransparentPixels(new File([blob], 'edited.png', { type: 'image/png' }));
     const { error: uploadErr } = await supabase.storage.from('item-images').upload(path, file);
     if (uploadErr) { console.error('Image upload error:', uploadErr); return; }
     const { data: { publicUrl } } = supabase.storage.from('item-images').getPublicUrl(path);
@@ -4388,10 +6023,72 @@ export default function WardrobeApp() {
     setSelectedItem(null);
   };
 
+  // ── Outfit board handlers ─────────────────────────────────────────────────
+  const handleCreateOutfitBoard = async (name, description) => {
+    setOutfitBoards(prev => [...prev, name]);
+    if (description) setOutfitBoardMeta(prev => ({ ...prev, [name]: { description } }));
+    if (user) await supabase.from('outfit_boards').insert({ user_id: user.id, name, description: description || '' });
+  };
+
+  const handleDeleteOutfitBoard = async name => {
+    setOutfitBoards(prev => prev.filter(b => b !== name));
+    setOutfitBoardMeta(prev => { const next = { ...prev }; delete next[name]; return next; });
+    const strip = list => list.map(o => ({ ...o, boards: o.boards.filter(b => b !== name) }));
+    setSavedOutfits(prev => strip(prev));
+    setDraftOutfits(prev => strip(prev));
+    if (user) {
+      await supabase.from('outfit_boards').delete().eq('user_id', user.id).eq('name', name);
+      const affected = [...savedOutfits, ...draftOutfits].filter(o => o.boards.includes(name));
+      await Promise.all(affected.map(o =>
+        supabase.from('outfits').update({ board_names: o.boards.filter(b => b !== name) }).eq('id', o.id)
+      ));
+    }
+  };
+
+  const handleEditOutfitBoard = async (oldName, newName, description) => {
+    setOutfitBoards(prev => prev.map(b => b === oldName ? newName : b));
+    setOutfitBoardMeta(prev => {
+      const next = { ...prev }; delete next[oldName];
+      if (description) next[newName] = { description };
+      return next;
+    });
+    const rename = list => list.map(o => ({ ...o, boards: o.boards.map(b => b === oldName ? newName : b) }));
+    setSavedOutfits(prev => rename(prev));
+    setDraftOutfits(prev => rename(prev));
+    if (user) {
+      await supabase.from('outfit_boards').update({ name: newName, description: description || '' }).eq('user_id', user.id).eq('name', oldName);
+      const affected = [...savedOutfits, ...draftOutfits].filter(o => o.boards.includes(oldName));
+      await Promise.all(affected.map(o =>
+        supabase.from('outfits').update({ board_names: o.boards.map(b => b === oldName ? newName : b) }).eq('id', o.id)
+      ));
+    }
+  };
+
+  const handleToggleOutfitBoard = async (outfitId, board) => {
+    let nextBoards;
+    const toggle = list => list.map(o => {
+      if (o.id !== outfitId) return o;
+      const inBoard = o.boards.includes(board);
+      nextBoards = inBoard ? o.boards.filter(b => b !== board) : [...o.boards, board];
+      return { ...o, boards: nextBoards };
+    });
+    setSavedOutfits(prev => toggle(prev));
+    setDraftOutfits(prev => toggle(prev));
+    if (user && nextBoards !== undefined)
+      await supabase.from('outfits').update({ board_names: nextBoards }).eq('id', outfitId).eq('user_id', user.id);
+  };
+
+  const toggleOutfitLike = async id => {
+    const nowLiked = !likedOutfits.has(id);
+    setLikedOutfits(prev => { const next = new Set(prev); nowLiked ? next.add(id) : next.delete(id); return next; });
+    if (user) await supabase.from('outfits').update({ liked: nowLiked }).eq('id', id).eq('user_id', user.id);
+  };
+
   const handleSaveOutfit = async collage => {
     if (!collage.items.length) return;
     const { data } = await supabase.from('outfits').insert({
-      user_id: user.id, name: collage.name || '', canvas_items: collageToDbPayload(collage), thumbnail: collage.thumbnail || '', is_draft: false,
+      user_id: user.id, name: collage.name || '', canvas_items: collageToDbPayload(collage),
+      thumbnail: collage.thumbnail || '', is_draft: false, liked: false, board_names: [],
     }).select().single();
     if (data) setSavedOutfits(prev => [dbOutfitToApp(data), ...prev]);
   };
@@ -4399,18 +6096,19 @@ export default function WardrobeApp() {
   const handleSaveDraftOutfit = async collage => {
     if (!collage.items.length) return;
     const { data } = await supabase.from('outfits').insert({
-      user_id: user.id, name: collage.name || '', canvas_items: collageToDbPayload(collage), thumbnail: collage.thumbnail || '', is_draft: true,
+      user_id: user.id, name: collage.name || '', canvas_items: collageToDbPayload(collage),
+      thumbnail: collage.thumbnail || '', is_draft: true, liked: false, board_names: [],
     }).select().single();
     if (data) setDraftOutfits(prev => [dbOutfitToApp(data), ...prev]);
   };
 
   const updateSavedOutfit = async (id, collage) => {
-    setSavedOutfits(prev => prev.map(o => o.id === id ? { ...o, ...collage } : o));
+    setSavedOutfits(prev => prev.map(o => o.id === id ? { ...o, ...collage, boards: o.boards, liked: o.liked } : o));
     await supabase.from('outfits').update({ canvas_items: collageToDbPayload(collage), thumbnail: collage.thumbnail || '' }).eq('id', id);
   };
 
   const updateDraftOutfit = async (id, collage) => {
-    setDraftOutfits(prev => prev.map(o => o.id === id ? { ...o, ...collage } : o));
+    setDraftOutfits(prev => prev.map(o => o.id === id ? { ...o, ...collage, boards: o.boards, liked: o.liked } : o));
     await supabase.from('outfits').update({ canvas_items: collageToDbPayload(collage), thumbnail: collage.thumbnail || '' }).eq('id', id);
   };
 
@@ -4457,9 +6155,16 @@ export default function WardrobeApp() {
           onCreateBoard={handleCreateBoard}
           onToggleItemBoard={handleToggleItemBoard}
           onAddItem={() => setAddStep('picker')}
+          userId={user?.id}
         />
       );
-      case 'today':   return <TodayTab items={items} />;
+      case 'today':   return (
+        <TodayTab
+          items={items}
+          onSaveToPublished={handleSaveOutfit}
+          onEditInStudio={collage => { setPendingAiCollage(collage); setActiveTab('studio'); }}
+        />
+      );
       case 'studio':  return (
         <StudioTab
           savedOutfits={savedOutfits}
@@ -4473,8 +6178,18 @@ export default function WardrobeApp() {
           pendingOutfitItem={pendingOutfitItem}
           pendingTargetCollage={pendingTargetCollage}
           onClearPendingOutfit={() => { setPendingOutfitItem(null); setPendingTargetCollage(null); }}
+          pendingAiCollage={pendingAiCollage}
+          onClearPendingAiCollage={() => setPendingAiCollage(null)}
           items={items}
           boards={boards}
+          outfitBoards={outfitBoards}
+          outfitBoardMeta={outfitBoardMeta}
+          likedOutfits={likedOutfits}
+          onCreateOutfitBoard={handleCreateOutfitBoard}
+          onDeleteOutfitBoard={handleDeleteOutfitBoard}
+          onEditOutfitBoard={handleEditOutfitBoard}
+          onToggleOutfitBoard={handleToggleOutfitBoard}
+          onToggleOutfitLike={toggleOutfitLike}
         />
       );
       case 'stylist': return <StylistTab />;
