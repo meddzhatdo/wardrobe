@@ -54,11 +54,11 @@ const GLOBAL_CSS = `
 const BOARDS = ['All', 'Workwear', 'Weekend', 'Evening', 'Basics', 'Outerwear'];
 
 const PRESET_LOCATIONS = [
-  { city: 'New York, NY',    lat: 40.7128,  lon: -74.0060  },
-  { city: 'Los Angeles, CA', lat: 34.0522,  lon: -118.2437 },
-  { city: 'Miami, FL',       lat: 25.7617,  lon: -80.1918  },
-  { city: 'Chicago, IL',     lat: 41.8781,  lon: -87.6298  },
-  { city: 'Seattle, WA',     lat: 47.6062,  lon: -122.3321 },
+  { city: 'New York, NY',    lat: 40.7128,  lon: -74.0060,  weather: { tempF: 38, conditionLabel: 'Overcast',      highF: 44, lowF: 31, laterCondition: null      } },
+  { city: 'Los Angeles, CA', lat: 34.0522,  lon: -118.2437, weather: { tempF: 73, conditionLabel: 'Clear',         highF: 78, lowF: 64, laterCondition: null      } },
+  { city: 'Miami, FL',       lat: 25.7617,  lon: -80.1918,  weather: { tempF: 86, conditionLabel: 'Partly Cloudy', highF: 90, lowF: 79, laterCondition: 'Showers' } },
+  { city: 'Chicago, IL',     lat: 41.8781,  lon: -87.6298,  weather: { tempF: 26, conditionLabel: 'Snow',          highF: 31, lowF: 20, laterCondition: null      } },
+  { city: 'Seattle, WA',     lat: 47.6062,  lon: -122.3321, weather: { tempF: 52, conditionLabel: 'Rain',          highF: 56, lowF: 46, laterCondition: null      } },
 ];
 
 const CATEGORIES = [
@@ -2878,9 +2878,22 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
   const outfitWeatherRef = useRef(null); // weather that generated the current outfits
 
   useEffect(() => {
-    // Preview mode always starts at first preset location (no geolocation, no persistence)
+    // Preview mode: restore saved location only if it's a known preset, otherwise use first preset
     if (isPreview) {
+      try {
+        const saved = localStorage.getItem('wardrobe_location');
+        if (saved) {
+          const loc = JSON.parse(saved);
+          const preset = PRESET_LOCATIONS.find(p => p.city === loc.city);
+          if (preset) {
+            setLocation(preset);
+            setWeatherSummary(preset.weather);
+            return;
+          }
+        }
+      } catch {}
       setLocation(PRESET_LOCATIONS[0]);
+      setWeatherSummary(PRESET_LOCATIONS[0].weather);
       return;
     }
 
@@ -3101,7 +3114,7 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
                 {PRESET_LOCATIONS.map(l => (
                   <button
                     key={l.city}
-                    onClick={() => { setLocation(l); setWeatherSummary(null); setLocationMenuOpen(false); }}
+                    onClick={() => { saveLocation(l); setWeatherSummary(l.weather ?? null); setLocationMenuOpen(false); }}
                     className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-between gap-3"
                   >
                     {l.city}
@@ -3118,18 +3131,20 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
             onSelectLocation={handleSelectLocation}
           />
         )}
-        {/* hidden — keep mounted so weather fetch + onWeatherReady fire before outfits load */}
-        <div className="hidden">
-          <WeatherWidget
-            compact
-            lat={location.lat}
-            lon={location.lon}
-            city={location.city}
-            onCommit={handleCitySearch}
-            onSelectLocation={handleSelectLocation}
-            onWeatherReady={handleWeatherReady}
-          />
-        </div>
+        {/* hidden — keep mounted so weather fetch + onWeatherReady fire before outfits load; skipped in preview since presets supply static weather */}
+        {!isPreview && (
+          <div className="hidden">
+            <WeatherWidget
+              compact
+              lat={location.lat}
+              lon={location.lon}
+              city={location.city}
+              onCommit={handleCitySearch}
+              onSelectLocation={handleSelectLocation}
+              onWeatherReady={handleWeatherReady}
+            />
+          </div>
+        )}
       </div>
 
       {/* Outfit section */}
@@ -3302,7 +3317,7 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
 /* ─────────────────────────────────────────────────────────────────────────────
    CreateOutfitModal
    ───────────────────────────────────────────────────────────────────────────── */
-function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, initialDesignWidth, initialDesignHeight, onClose, onPublish, onAutoSave, onDetachCollage, items = [], boards = ['All'] }) {
+function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, initialDesignWidth, initialDesignHeight, onClose, onPublish, onAutoSave, onDetachCollage, onDelete, items = [], boards = ['All'] }) {
   const [canvasItems, setCanvasItems] = useState([]);
   const [activeFilter, setActiveFilter] = useState('All');
   const [boardsOpen, setBoardsOpen] = useState(false);
@@ -3747,7 +3762,7 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, in
                   Start new collage
                 </button>
                 <button
-                  onClick={() => { setCollageMenuOpen(false); onClose(); }}
+                  onClick={() => { setCollageMenuOpen(false); onDelete?.(); onClose(); }}
                   className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-gray-50 transition-colors"
                 >
                   Delete collage
@@ -4492,8 +4507,8 @@ function StudioTab({
     return l;
   };
 
-  const filteredDrafts = isPreview ? [] : applyFilters(draftOutfits);
-  const filteredSaved  = isPreview ? previewCollages : applyFilters(savedOutfits);
+  const filteredDrafts = applyFilters(draftOutfits);
+  const filteredSaved  = applyFilters(isPreview ? previewCollages : savedOutfits);
 
   const openCollageForEditing = (outfit, type) => {
     setCreateSeed(null);
@@ -4571,32 +4586,30 @@ function StudioTab({
           {/* Row 1: page title + add */}
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-3xl font-semibold tracking-tight text-gray-900">Style Studio</h1>
-            {!isPreview && (
-              <div className="relative" ref={addMenuRef}>
-                <button
-                  onClick={() => setAddMenuOpen(o => !o)}
-                  className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-900 hover:bg-gray-700 transition-colors shadow-sm"
-                >
-                  <Plus size={17} strokeWidth={2.5} className="text-white" />
-                </button>
-                {addMenuOpen && (
-                  <div className="absolute right-0 top-11 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-36 z-20">
-                    <button
-                      onClick={() => { setAddMenuOpen(false); setShowCreate(true); }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Outfit
-                    </button>
-                    <button
-                      onClick={() => { setAddMenuOpen(false); setNewBoardName(''); setNewBoardDesc(''); setNewBoardOpen(true); }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Board
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+            <div className="relative" ref={addMenuRef}>
+              <button
+                onClick={() => setAddMenuOpen(o => !o)}
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-900 hover:bg-gray-700 transition-colors shadow-sm"
+              >
+                <Plus size={17} strokeWidth={2.5} className="text-white" />
+              </button>
+              {addMenuOpen && (
+                <div className="absolute right-0 top-11 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 w-36 z-20">
+                  <button
+                    onClick={() => { setAddMenuOpen(false); setShowCreate(true); }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Outfit
+                  </button>
+                  <button
+                    onClick={() => { setAddMenuOpen(false); setNewBoardName(''); setNewBoardDesc(''); setNewBoardOpen(true); }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    Board
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           {/* Row 2: board title + organize/settings */}
           <div className="flex items-center justify-between mb-1">
@@ -5067,6 +5080,10 @@ function StudioTab({
             } else if (collage.items.length > 0) {
               onSaveDraftOutfit(collage);
             }
+          }}
+          onDelete={() => {
+            if (editingCollage?.type === 'saved') onRemoveSavedOutfit?.(editingCollage.id);
+            else if (editingCollage?.type === 'drafts') onRemoveDraftOutfit(editingCollage.id);
           }}
           onDetachCollage={() => setEditingCollage(null)}
           items={items}
@@ -5654,6 +5671,7 @@ function AuthModal({ onClose }) {
         const { error: err } = await supabase.auth.signInWithPassword({ email, password });
         if (err) throw err;
       }
+      onClose?.();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -5672,10 +5690,10 @@ function AuthModal({ onClose }) {
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 p-8 relative">
+        <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 px-8 pt-12 pb-8 relative">
           {onClose && (
-            <button onClick={onClose} className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600">
-              <X size={14} />
+            <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600">
+              <X size={18} strokeWidth={2} />
             </button>
           )}
           {/* Mode toggle */}
@@ -5984,6 +6002,19 @@ export default function WardrobeApp() {
   const [pendingAiCollage, setPendingAiCollage] = useState(null);
   const [savedOutfits, setSavedOutfits]   = useState([]);
   const [draftOutfits, setDraftOutfits]   = useState([]);
+  const [previewDraftOutfits, setPreviewDraftOutfits] = useState([]);
+  const [previewSavedOutfits, setPreviewSavedOutfits] = useState(() => {
+    const byId = {};
+    for (const item of ITEMS) byId[item.id] = item;
+    const build = (id, name, ids) => {
+      const outfitItems = ids.map(i => byId[i]).filter(Boolean);
+      return { id, name, items: aiOutfitToCanvasItems(outfitItems), bgColor: '#FFFFFF', canvasWidth: DESIGN_W, canvasHeight: DESIGN_H, liked: false, boards: [], thumbnail: '' };
+    };
+    return [
+      build('preview-1', 'Weekend Casual', [8, 5, 3, 7]),
+      build('preview-2', 'Work Ready',     [11, 9, 10, 7]),
+    ];
+  });
   const [likedItems, setLikedItems]       = useState(() => new Set());
   const [outfitBoards, setOutfitBoards]       = useState(['All']);
   const [outfitBoardMeta, setOutfitBoardMeta] = useState({});
@@ -6379,13 +6410,25 @@ export default function WardrobeApp() {
       case 'studio':  return (
         <StudioTab
           savedOutfits={savedOutfits}
-          draftOutfits={draftOutfits}
-          onSaveOutfit={handleSaveOutfit}
-          onSaveDraftOutfit={handleSaveDraftOutfit}
-          onUpdateSavedOutfit={updateSavedOutfit}
-          onUpdateDraftOutfit={updateDraftOutfit}
-          onRemoveDraftOutfit={handleRemoveDraftOutfit}
-          onRemoveSavedOutfit={handleRemoveSavedOutfit}
+          draftOutfits={isPreview ? previewDraftOutfits : draftOutfits}
+          onSaveOutfit={isPreview
+            ? collage => { if (collage.items?.length) setPreviewSavedOutfits(prev => [{ ...collage, id: `preview-${Date.now()}`, liked: false, boards: [] }, ...prev]); }
+            : handleSaveOutfit}
+          onSaveDraftOutfit={isPreview
+            ? collage => { if (collage.items?.length) setPreviewDraftOutfits(prev => [{ ...collage, id: `preview-draft-${Date.now()}`, liked: false, boards: [] }, ...prev]); }
+            : handleSaveDraftOutfit}
+          onUpdateSavedOutfit={isPreview
+            ? (id, collage) => setPreviewSavedOutfits(prev => prev.map(o => o.id === id ? { ...o, ...collage, boards: o.boards, liked: o.liked } : o))
+            : updateSavedOutfit}
+          onUpdateDraftOutfit={isPreview
+            ? (id, collage) => setPreviewDraftOutfits(prev => prev.map(o => o.id === id ? { ...o, ...collage, boards: o.boards, liked: o.liked } : o))
+            : updateDraftOutfit}
+          onRemoveDraftOutfit={isPreview
+            ? id => setPreviewDraftOutfits(prev => prev.filter(o => o.id !== id))
+            : handleRemoveDraftOutfit}
+          onRemoveSavedOutfit={isPreview
+            ? id => setPreviewSavedOutfits(prev => prev.filter(o => o.id !== id))
+            : handleRemoveSavedOutfit}
           pendingOutfitItem={pendingOutfitItem}
           pendingTargetCollage={pendingTargetCollage}
           onClearPendingOutfit={() => { setPendingOutfitItem(null); setPendingTargetCollage(null); }}
@@ -6393,8 +6436,8 @@ export default function WardrobeApp() {
           onClearPendingAiCollage={() => setPendingAiCollage(null)}
           items={previewItems}
           boards={isPreview ? BOARDS : boards}
-          outfitBoards={isPreview ? ['All'] : outfitBoards}
-          outfitBoardMeta={isPreview ? {} : outfitBoardMeta}
+          outfitBoards={outfitBoards}
+          outfitBoardMeta={outfitBoardMeta}
           likedOutfits={likedOutfits}
           onCreateOutfitBoard={handleCreateOutfitBoard}
           onDeleteOutfitBoard={handleDeleteOutfitBoard}
@@ -6432,20 +6475,7 @@ export default function WardrobeApp() {
 
   // In preview mode: use mock wardrobe items and 2 pre-built collages
   const previewItems = isPreview ? ITEMS : items;
-  const previewCollages = isPreview
-    ? (() => {
-        const byId = {};
-        for (const item of ITEMS) byId[item.id] = item;
-        const buildCollage = (id, name, ids) => {
-          const outfitItems = ids.map(i => byId[i]).filter(Boolean);
-          return { id, name, items: aiOutfitToCanvasItems(outfitItems), bgColor: '#FFFFFF', canvasWidth: DESIGN_W, canvasHeight: DESIGN_H, liked: false, boards: [], thumbnail: '' };
-        };
-        return [
-          buildCollage('preview-1', 'Weekend Casual', [8, 5, 3, 7]),
-          buildCollage('preview-2', 'Work Ready',     [11, 9, 10, 7]),
-        ];
-      })()
-    : [];
+  const previewCollages = previewSavedOutfits;
 
   return (
     <div className="flex h-screen bg-white overflow-hidden antialiased font-sans">
