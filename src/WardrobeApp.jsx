@@ -46,6 +46,14 @@ const GLOBAL_CSS = `
   /* Location badge transitions */
   .loc-pill  { transition: max-width 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.22s ease; }
   .loc-input { transition: max-width 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.22s ease; }
+
+  /* Outfit carousel transitions */
+  @keyframes outfitSlideRight { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes outfitSlideLeft  { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes outfitFade       { from { opacity: 0; } to { opacity: 1; } }
+  .outfit-enter-right { animation: outfitSlideRight 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+  .outfit-enter-left  { animation: outfitSlideLeft  0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+  .outfit-text-fade   { animation: outfitFade       0.25s ease-out both; }
 `;
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -1154,6 +1162,30 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
       {/* Panel */}
       <div className="relative w-full md:w-[440px] bg-white rounded-t-[2rem] md:rounded-[2rem] shadow-2xl overflow-hidden modal-animate max-h-[92vh] flex flex-col">
 
+        {/* Delete confirmation overlay */}
+        {showDeleteConfirm && !isPreview && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-t-[2rem] md:rounded-[2rem]">
+            <div className="bg-white rounded-2xl p-6 mx-6 shadow-2xl w-full max-w-xs">
+              <p className="text-sm font-semibold text-gray-800 mb-1">Delete this item?</p>
+              <p className="text-xs text-gray-500 mb-5">This action can't be undone.</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 py-2.5 border border-gray-200 bg-white text-sm font-medium text-gray-600 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => onDelete(item.id)}
+                  className="flex-1 py-2.5 bg-red-500 text-white text-sm font-medium rounded-xl hover:bg-red-600 transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Drag handle — mobile only */}
         <div className="flex justify-center pt-3 pb-1 md:hidden flex-shrink-0">
           <div className="w-10 h-1 bg-gray-200 rounded-full" />
@@ -1411,26 +1443,7 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
                   Add to Outfit
                 </button>
 
-                {!isPreview && (showDeleteConfirm ? (
-                  <div className="border border-red-100 bg-red-50 rounded-2xl p-4">
-                    <p className="text-sm font-semibold text-gray-800 mb-1">Delete this item?</p>
-                    <p className="text-xs text-gray-500 mb-3">This action can't be undone.</p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setShowDeleteConfirm(false)}
-                        className="flex-1 py-2 border border-gray-200 bg-white text-sm font-medium text-gray-600 rounded-xl hover:bg-gray-50 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => onDelete(item.id)}
-                        className="flex-1 py-2 bg-red-500 text-white text-sm font-medium rounded-xl hover:bg-red-600 transition-colors"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ) : (
+                {!isPreview && (
                   <button
                     onClick={() => setShowDeleteConfirm(true)}
                     className="w-full py-2 text-sm text-red-400 hover:text-red-600 transition-colors flex items-center justify-center gap-1.5"
@@ -1438,7 +1451,7 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
                     <Trash2 size={13} />
                     Delete item
                   </button>
-                ))}
+                )}
               </>
             )}
 
@@ -1475,16 +1488,29 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
    GridCard
    ───────────────────────────────────────────────────────────────────────────── */
 function GridCard({ item, onClick }) {
+  const [imgLoaded, setImgLoaded] = useState(false);
   return (
     <div className="cursor-pointer group" onClick={() => onClick(item)}>
       <div className="relative rounded-2xl overflow-hidden bg-gray-100">
-        <div className="w-full aspect-[3/4] p-5">
+        <div className="w-full aspect-[3/4] p-5 relative">
+          {!imgLoaded && (
+            <div className="absolute inset-0 bg-gray-200 animate-pulse" />
+          )}
           <img
             src={item.image}
             alt={item.name}
             loading="lazy"
-            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-[1.04]"
+            onLoad={() => setImgLoaded(true)}
+            className={`w-full h-full object-contain transition-all duration-300 group-hover:scale-[1.04] ${imgLoaded ? 'opacity-100' : 'opacity-0'} ${item._bgRemoving ? 'blur-sm' : ''}`}
           />
+          {item._bgRemoving && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-white/90 backdrop-blur-sm rounded-full shadow-sm border border-gray-100">
+                <Loader2 size={11} className="animate-spin text-gray-400 flex-shrink-0" />
+                <span className="text-[11px] font-medium text-gray-500 whitespace-nowrap">Processing…</span>
+              </div>
+            </div>
+          )}
         </div>
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/6 transition-colors duration-300 pointer-events-none" />
       </div>
@@ -2536,7 +2562,7 @@ function WeatherWidget({ lat, lon, city, onCommit, onSelectLocation, onWeatherRe
     }
     return (
       <div className="rounded-3xl overflow-hidden" style={{ background: skeletonBg }}>
-        <div className="px-6 pt-5 pb-4 animate-pulse">
+        <div className="px-6 pt-5 pb-5 animate-pulse">
           <div className="h-3 w-24 bg-white/20 rounded-full mb-4" />
           <div className="flex items-center justify-between">
             <div className="h-[72px] w-28 bg-white/20 rounded-2xl" />
@@ -2545,16 +2571,6 @@ function WeatherWidget({ lat, lon, city, onCommit, onSelectLocation, onWeatherRe
               <div className="h-4 w-24 bg-white/20 rounded-full ml-auto" />
             </div>
           </div>
-        </div>
-        <div className="mx-5 h-px bg-white/20" />
-        <div className="flex px-4 py-3 gap-0.5 animate-pulse">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="flex flex-col items-center gap-1.5 px-3 py-2 flex-shrink-0">
-              <div className="h-3 w-7 bg-white/20 rounded-full" />
-              <div className="h-[15px] w-[15px] bg-white/20 rounded-full" />
-              <div className="h-3.5 w-7 bg-white/20 rounded-full" />
-            </div>
-          ))}
         </div>
       </div>
     );
@@ -2852,6 +2868,7 @@ async function callAnthropicForOutfits(weather, allItems) {
       `6. OUTERWEAR WEIGHT: Above 65°F include no outerwear or only a very light jacket. Between 50–65°F a medium jacket or blazer is appropriate — avoid heavy coats, shearling, or thick parkas. Below 50°F heavier coats are suitable. Below 32°F heavy outerwear is expected.\n` +
       `7. DISTINCT: No two outfits may share the exact same item set.\n` +
       `If an outfit is not fully weather-appropriate (e.g. the wardrobe lacks a heavy coat for freezing temperatures, or only light fabrics are available for rain), the "description" field may include a brief, practical recommendation for what to add or swap to make it work for the conditions.\n` +
+      `The "description" field must be no more than 200 characters.\n` +
       `Return ONLY a raw JSON array of exactly 3 objects: ` +
       `[{"outfitName":"...","description":"...","itemIds":["id1","id2",...]}]`,
   });
@@ -3037,22 +3054,36 @@ function aiOutfitToCanvasItems(outfitItems) {
 
 
 
-function GeneratingSkeleton() {
-  const scale = useCollageScale();
-  const displayH = Math.round(DESIGN_H * scale);
-  const displayW = Math.round(displayH * 210 / 297);
+function FadeIn({ children, className = '' }) {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setShow(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
   return (
-    <div className="flex animate-pulse">
-      <div className="bg-gray-100 rounded-3xl flex-shrink-0"
-        style={{ width: displayW, height: displayH }} />
-      <div className="flex-1 min-w-0 p-6 flex flex-col gap-3">
-        <div className="h-3 w-20 bg-gray-200 rounded-full" />
-        <div className="h-5 w-36 bg-gray-200 rounded-full" />
-        <div className="h-3 w-8 bg-gray-200 rounded-full mt-2" />
-        <div className="h-3 w-full bg-gray-200 rounded-full mt-4" />
-        <div className="h-3 w-4/5 bg-gray-200 rounded-full" />
-        <div className="h-3 w-3/5 bg-gray-200 rounded-full" />
+    <div className={`transition-all duration-500 ease-out ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'} ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+function GeneratingSkeleton({ city, weatherSummary }) {
+  const phase = !weatherSummary ? 'weather' : 'outfits';
+  return (
+    <div className="flex flex-col items-center justify-center py-20 px-8 text-center">
+      <div className="w-14 h-14 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center mb-5 animate-pulse">
+        {phase === 'weather'
+          ? <Cloud size={24} className="text-gray-300" />
+          : <Sparkles size={24} className="text-gray-300" />}
       </div>
+      <p className="text-[15px] font-semibold text-gray-700 mb-1.5">
+        {phase === 'weather' ? 'Checking the weather…' : 'Styling your day…'}
+      </p>
+      <p className="text-sm text-gray-400 leading-relaxed max-w-[210px]">
+        {phase === 'weather'
+          ? (city ? `Looking up conditions in ${city}` : 'Fetching your local weather')
+          : (city ? `Picking outfits for ${city}'s weather today` : 'Crafting your daily looks')}
+      </p>
     </div>
   );
 }
@@ -3147,25 +3178,41 @@ function OutfitCollage({ items }) {
   );
 }
 
-const OUTFITS_CACHE_KEY = 'wardrobe_daily_outfits';
+// v2: array of { date, sig, outfits } — keyed by weather signature, not city
+const OUTFITS_CACHE_KEY = 'wardrobe_daily_outfits_v2';
 
 function todayDateKey() {
   const d = new Date();
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-function loadCachedOutfits(city) {
+// Encodes what actually drives outfit choice: temp band + precipitation now + precipitation later
+function weatherSig(weather) {
+  return `${tempBand(weather.highF)}-${hasPrecip(weather.conditionLabel) ? 'p' : 'd'}-${hasPrecip(weather.laterCondition) ? 'p' : 'd'}`;
+}
+
+function loadCachedOutfits(weather) {
   try {
     const raw = localStorage.getItem(OUTFITS_CACHE_KEY);
     if (!raw) return null;
-    const { date, city: cachedCity, outfits } = JSON.parse(raw);
-    return date === todayDateKey() && cachedCity === city ? outfits : null;
+    const entries = JSON.parse(raw);
+    if (!Array.isArray(entries)) return null;
+    const entry = entries.find(e => e.date === todayDateKey() && e.sig === weatherSig(weather));
+    return entry?.outfits ?? null;
   } catch { return null; }
 }
 
-function saveCachedOutfits(outfits, city) {
+function saveCachedOutfits(outfits, weather) {
   try {
-    localStorage.setItem(OUTFITS_CACHE_KEY, JSON.stringify({ date: todayDateKey(), city, outfits }));
+    const raw = localStorage.getItem(OUTFITS_CACHE_KEY);
+    let entries = [];
+    try { const p = JSON.parse(raw); if (Array.isArray(p)) entries = p; } catch {}
+    const today = todayDateKey();
+    const sig = weatherSig(weather);
+    // Replace existing entry for same sig, drop stale dates
+    entries = entries.filter(e => e.date === today && e.sig !== sig);
+    entries.push({ date: today, sig, outfits });
+    localStorage.setItem(OUTFITS_CACHE_KEY, JSON.stringify(entries));
   } catch {}
 }
 
@@ -3352,6 +3399,12 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
   const locationMenuRef = useRef(null);
   const collageScale     = useCollageScale();
   const outfitWeatherRef = useRef(null); // weather that generated the current outfits
+  const directionRef     = useRef('right'); // tracks nav direction for slide animation
+
+  const navigate = (toIdx) => {
+    directionRef.current = toIdx >= currentIdx ? 'right' : 'left';
+    setCurrentIdx(toIdx);
+  };
 
   const locationKey = isPreview ? 'wardrobe_location_preview' : `wardrobe_location_user_${userId}`;
 
@@ -3424,7 +3477,7 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
     // Skip regen if weather hasn't changed meaningfully since last generation
     if (!weatherNeedsRegen(outfitWeatherRef.current, weatherSummary)) return;
 
-    const cached = loadCachedOutfits(location.city);
+    const cached = loadCachedOutfits(weatherSummary);
     if (cached) {
       const existingIds = new Set(items.map(i => String(i.id)));
       const goodOutfits = cached.filter(o => (o.itemIds ?? []).every(id => existingIds.has(String(id))));
@@ -3447,7 +3500,7 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
           if (cancelled) return;
           const combined = [...goodOutfits, ...fresh.slice(0, needed)];
           setOutfits(combined);
-          saveCachedOutfits(combined, location.city);
+          saveCachedOutfits(combined, weatherSummary);
           outfitWeatherRef.current = weatherSummary;
         })
         .catch(e => { if (!cancelled) setGenError(e.message); })
@@ -3464,7 +3517,7 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
       .then(results => {
         if (!cancelled) {
           setOutfits(results);
-          saveCachedOutfits(results, location.city);
+          saveCachedOutfits(results, weatherSummary);
           outfitWeatherRef.current = weatherSummary;
         }
       })
@@ -3484,8 +3537,8 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
   useEffect(() => {
     if (outfits.length === 0) return;
     const handler = (e) => {
-      if (e.key === 'ArrowLeft')  setCurrentIdx(i => Math.max(0, i - 1));
-      if (e.key === 'ArrowRight') setCurrentIdx(i => Math.min(outfits.length - 1, i + 1));
+      if (e.key === 'ArrowLeft')  { directionRef.current = 'left';  setCurrentIdx(i => Math.max(0, i - 1)); }
+      if (e.key === 'ArrowRight') { directionRef.current = 'right'; setCurrentIdx(i => Math.min(outfits.length - 1, i + 1)); }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -3596,13 +3649,14 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
           <div className="relative flex-shrink-0" ref={locationMenuRef}>
             <button
               onClick={() => setLocationMenuOpen(o => !o)}
-              className="flex items-center gap-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-full px-4 py-2 transition-colors"
+              className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 transition-colors rounded-full px-4 py-2.5"
             >
-              {location.city ?? 'Select city'}
-              <ChevronDown size={13} strokeWidth={2.5} className={`text-gray-500 transition-transform ${locationMenuOpen ? 'rotate-180' : ''}`} />
+              <MapPin size={15} className="text-gray-500 flex-shrink-0" />
+              <span className="text-base text-gray-600 max-w-[220px] truncate">{location.city ?? 'Select city'}</span>
+              <ChevronDown size={15} strokeWidth={2} className={`text-gray-400 flex-shrink-0 transition-transform ${locationMenuOpen ? 'rotate-180' : ''}`} />
             </button>
             {locationMenuOpen && (
-              <div className="absolute right-0 top-10 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 min-w-[160px] z-20">
+              <div className="absolute right-0 top-12 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 min-w-[180px] z-20">
                 {PRESET_LOCATIONS.map(l => (
                   <button
                     key={l.city}
@@ -3656,8 +3710,9 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
           </div>
         )}
 
-        {items.length >= 3 && generating && (
-          <GeneratingSkeleton />
+        {/* Unified skeleton — wait for outfits AND weather before revealing any content */}
+        {items.length >= 3 && !genError && (generating || !outfits.length || !weatherSummary) && (
+          <GeneratingSkeleton city={location.city} weatherSummary={weatherSummary} />
         )}
 
         {items.length >= 3 && !generating && genError && (
@@ -3693,17 +3748,20 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
           </div>
         )}
 
-        {items.length >= 3 && !generating && outfits.length > 0 && (
+        {items.length >= 3 && !generating && outfits.length > 0 && weatherSummary && (
+          <FadeIn>
           <div className="flex flex-col items-center [@media(min-width:1000px)_and_(min-height:680px)]:flex-row [@media(min-width:1000px)_and_(min-height:680px)]:items-stretch">
-            {/* Collage — flush left, no padding */}
-            {outfitItems.length > 0 ? (
-              <OutfitCollage items={outfitItems} />
-            ) : (
-              <div className="rounded-3xl bg-white flex-shrink-0 flex items-center justify-center"
-                style={{ height: Math.round(DESIGN_H * collageScale), width: Math.round(DESIGN_H * collageScale * 210 / 297) }}>
-                <p className="text-sm text-gray-400">No items found</p>
-              </div>
-            )}
+            {/* Collage — slides in from direction of navigation */}
+            <div key={`collage-${currentIdx}`} className={directionRef.current === 'right' ? 'outfit-enter-right' : 'outfit-enter-left'}>
+              {outfitItems.length > 0 ? (
+                <OutfitCollage items={outfitItems} />
+              ) : (
+                <div className="rounded-3xl bg-white flex-shrink-0 flex items-center justify-center"
+                  style={{ height: Math.round(DESIGN_H * collageScale), width: Math.round(DESIGN_H * collageScale * 210 / 297) }}>
+                  <p className="text-sm text-gray-400">No items found</p>
+                </div>
+              )}
+            </div>
 
             {/* Info panel — right of collage on wide screens, below on narrow */}
             <div className="flex-1 min-w-0 flex flex-col items-start px-5 pt-4 pb-0 [@media(min-width:1000px)_and_(min-height:680px)]:pl-8 [@media(min-width:1000px)_and_(min-height:680px)]:pt-0">
@@ -3712,20 +3770,20 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
                 {currentIdx + 1} of {outfits.length}
               </p>
               {/* Outfit name */}
-              <h3 className="text-base font-semibold text-gray-900 leading-snug mb-3">
+              <h3 key={`name-${currentIdx}`} className="text-base font-semibold text-gray-900 leading-snug mb-3 outfit-text-fade">
                 {outfit.outfitName}
               </h3>
               {/* Nav arrows */}
               <div className="flex gap-1.5 mb-4">
                 <button
-                  onClick={() => setCurrentIdx(i => Math.max(0, i - 1))}
+                  onClick={() => navigate(Math.max(0, currentIdx - 1))}
                   disabled={currentIdx === 0}
                   className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
                   <ChevronLeft size={15} strokeWidth={2} />
                 </button>
                 <button
-                  onClick={() => setCurrentIdx(i => Math.min(outfits.length - 1, i + 1))}
+                  onClick={() => navigate(Math.min(outfits.length - 1, currentIdx + 1))}
                   disabled={currentIdx === outfits.length - 1}
                   className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 >
@@ -3737,7 +3795,7 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
                 {outfits.map((_, i) => (
                   <button
                     key={i}
-                    onClick={() => setCurrentIdx(i)}
+                    onClick={() => navigate(i)}
                     className={`rounded-full transition-all ${
                       i === currentIdx
                         ? 'w-4 h-1.5 bg-gray-800'
@@ -3746,11 +3804,13 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
                   />
                 ))}
               </div>
-              {/* Description + action buttons */}
-              {outfit.description && (
-                <p className="text-sm text-gray-500 leading-relaxed mb-3">{outfit.description}</p>
-              )}
-              <div className="flex items-center gap-2">
+              {/* Description — fixed height so buttons don't jump between outfits */}
+              <div key={`desc-${currentIdx}`} className="h-24 mb-3 flex items-start justify-center overflow-hidden outfit-text-fade">
+                {outfit.description && (
+                  <p className="text-sm text-gray-500 leading-relaxed text-center">{outfit.description}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2 justify-center">
                 {/* Save */}
                 <div className="relative group">
                   <button
@@ -3786,13 +3846,13 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
                 </div>
               </div>
 
-              {/* Weather Report */}
-              <div className="mt-5 w-full">
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.14em] mb-2">Weather Report</p>
-                {isPreview && weatherSummary ? (() => {
-                  const meta = CONDITION_LABEL_META[weatherSummary.conditionLabel] ?? CONDITION_LABEL_META['Clear'];
-                  const CondIcon = meta.Icon;
-                  return (
+              {/* Weather Report — weatherSummary is guaranteed non-null here */}
+              {(() => {
+                const meta = CONDITION_LABEL_META[weatherSummary.conditionLabel] ?? CONDITION_LABEL_META['Clear'];
+                const CondIcon = meta.Icon;
+                return (
+                  <div className="mt-5 w-full">
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.14em] mb-2">Weather Report</p>
                     <div className="rounded-3xl overflow-hidden" style={{ background: meta.bg }}>
                       <div className="px-6 pt-5">
                         <div className="flex items-center gap-1.5">
@@ -3817,17 +3877,12 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
                         </div>
                       </div>
                     </div>
-                  );
-                })() : (
-                  <WeatherWidget
-                    lat={location.lat}
-                    lon={location.lon}
-                    city={location.city}
-                  />
-                )}
-              </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
+          </FadeIn>
         )}
 
       </div>
@@ -3842,7 +3897,13 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, in
   const [canvasItems, setCanvasItems] = useState([]);
   const [activeFilter, setActiveFilter] = useState('All');
   const [boardsOpen, setBoardsOpen] = useState(false);
+  const [studioFilter, setStudioFilter] = useState(new Set());
+  const [studioFilterOpen, setStudioFilterOpen] = useState(false);
+  const studioFilterRef = useRef(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [wideLayout, setWideLayout] = useState(
+    () => window.innerWidth >= 1250
+  );
   const [draggingCid, setDraggingCid] = useState(null);
   const [selectedCid, setSelectedCid] = useState(null);
   const [bgColor, setBgColor] = useState(initialBgColor ?? '#FFFFFF');
@@ -3977,10 +4038,11 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, in
     onClose();
   };
 
-  const filtered =
-    activeFilter === 'All'
-      ? items
-      : items.filter(i => i.boards.includes(activeFilter));
+  const filtered = (() => {
+    let list = activeFilter === 'All' ? items : items.filter(i => i.boards.includes(activeFilter));
+    if (studioFilter.size > 0) list = list.filter(i => studioFilter.has(i.category));
+    return list;
+  })();
 
   // Click-to-add: cascade items from center so they don't stack
   const addToCanvas = item => {
@@ -4224,6 +4286,19 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, in
     return () => document.removeEventListener('mousedown', handler);
   }, [collageMenuOpen]);
 
+  useEffect(() => {
+    if (!studioFilterOpen) return;
+    const handler = e => { if (!studioFilterRef.current?.contains(e.target)) setStudioFilterOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [studioFilterOpen]);
+
+  useEffect(() => {
+    const check = () => setWideLayout(window.innerWidth >= 1250);
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
   const startNewCollage = () => {
     setCanvasItems([]);
     setSelectedCid(null);
@@ -4304,16 +4379,15 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, in
       </div>
 
       {/* Body — layers left, canvas center, wardrobe panel right */}
-      <div className="flex flex-1 overflow-hidden flex-col md:flex-row relative">
+      <div className={`flex-1 relative ${wideLayout ? 'flex flex-row overflow-hidden' : 'grid grid-cols-2 overflow-y-auto'}`}>
 
         {/* ── Layers panel ── */}
-        <div className="hidden md:flex flex-col w-72 flex-shrink-0 border-r border-gray-100 bg-white overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 flex-shrink-0">
+        <div className={`flex flex-col flex-shrink-0 border-gray-100 bg-white overflow-hidden ${wideLayout ? 'w-72 border-r h-auto' : 'col-start-1 row-start-2 border-t border-r h-72'}`}>
+          <div className="px-4 py-2.5 border-b border-gray-100 flex-shrink-0">
             <p className="text-xs font-bold text-gray-700 uppercase tracking-widest">Layers</p>
-            <p className="text-xs text-gray-400 mt-1 leading-snug">Tap or drag to add an item to the canvas</p>
           </div>
 
-          {/* All layers in one scrollable list — items first, background last */}
+          {/* All layers in one scrollable vertical list — items first, background last */}
           <div className="flex-1 overflow-y-auto scrollbar-hide py-1">
             {[...canvasItems].reverse().map(item => (
               <div
@@ -4362,8 +4436,9 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, in
         {/* Color picker popup — fixed position aligned to background layer row */}
         {bgLayerSelected && bgRowRef.current && (() => {
           const r = bgRowRef.current.getBoundingClientRect();
+          const style = { top: r.top, left: r.right + 8 };
           return (
-            <div className="hidden md:block fixed z-[60]" style={{ top: r.top, left: r.right + 8 }}>
+            <div className="fixed z-[60]" style={style}>
               <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-3 w-64">
                 <div className="grid grid-cols-7 gap-1.5 mb-3">
                   {BG_COLORS.map(color => (
@@ -4474,7 +4549,7 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, in
 
         {/* ── Canvas viewport (neutral surround) ── */}
         <div
-          className="flex-1 flex items-center justify-center overflow-hidden bg-white p-8"
+          className={`flex items-center justify-center overflow-hidden bg-white ${wideLayout ? 'flex-1 p-8' : 'col-span-2 row-start-1 p-4 min-h-[50vh]'}`}
           onClick={() => { setSelectedCid(null); setBgLayerSelected(false); }}
         >
           {/* ── A4 paper canvas ── */}
@@ -4572,7 +4647,46 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, in
         </div>
 
         {/* ── Mini wardrobe panel ── */}
-        <div className="w-full flex flex-col flex-shrink-0 h-56 md:h-auto md:w-[480px] bg-white border-l border-gray-100">
+        <div className={`flex flex-col flex-shrink-0 bg-white border-gray-100 ${wideLayout ? 'h-auto w-[480px] border-l' : 'col-start-2 row-start-2 h-72 border-t overflow-hidden'}`}>
+
+          {/* Category filter */}
+          <div className="relative flex-shrink-0 border-b border-gray-100 px-3 py-2.5" ref={studioFilterRef}>
+            <button
+              onClick={() => setStudioFilterOpen(o => !o)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors w-full ${
+                studioFilter.size > 0
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              <SlidersHorizontal size={11} />
+              Filter{studioFilter.size > 0 ? ` · ${studioFilter.size}` : ''}
+            </button>
+            {studioFilterOpen && (
+              <div className="absolute left-3 right-3 mt-1 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-30 max-h-48 overflow-y-auto scrollbar-hide">
+                {CATEGORIES.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setStudioFilter(prev => { const next = new Set(prev); next.has(cat) ? next.delete(cat) : next.add(cat); return next; })}
+                    className="w-full text-left px-4 py-2.5 text-sm flex items-center justify-between hover:bg-gray-50 transition-colors"
+                  >
+                    <span className={studioFilter.has(cat) ? 'text-gray-900 font-medium' : 'text-gray-600'}>{cat}</span>
+                    {studioFilter.has(cat) && <Check size={13} strokeWidth={2.5} className="text-gray-900 flex-shrink-0" />}
+                  </button>
+                ))}
+                {studioFilter.size > 0 && (
+                  <div className="border-t border-gray-100 mt-1 pt-1">
+                    <button
+                      onClick={() => { setStudioFilter(new Set()); setStudioFilterOpen(false); }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-gray-50 transition-colors"
+                    >
+                      Clear filter
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Board filter — collapsible */}
           <div className="flex-shrink-0 border-b border-gray-100">
@@ -4752,18 +4866,25 @@ function OutfitOrganizeCard({ outfit, draggedId, selected, onSelect, onDragStart
 
 function OutfitCard({
   outfit, onDelete, onEdit, onDuplicate, isDraft, liked, outfitBoards, organizeMode, dragging,
-  onToggleLike, onToggleBoard, onDragStart, onDragOver, onDragEnd,
+  onToggleLike, onToggleBoard, onDragStart, onDragOver, onDragEnd, isPreview = false,
 }) {
   const [menuOpen,    setMenuOpen]    = useState(false);
   const [boardMenuOpen, setBoardMenuOpen] = useState(false);
   const [boardSearch, setBoardSearch] = useState('');
   const [saving, setSaving] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const loadedCountRef = useRef(0);
   const dotsRef      = useRef(null);
   const dropdownRef  = useRef(null);
   const boardBtnRef  = useRef(null);
   const boardDropRef = useRef(null);
   const { items = [], bgColor = '#FFFFFF', canvasWidth = 480, canvasHeight = 679 } = outfit;
   const bgStyle = bgColor === '#FFFFFF' ? { backgroundColor: '#F3F5F4' } : { backgroundColor: bgColor };
+
+  const handleItemImgLoad = () => {
+    loadedCountRef.current++;
+    if (loadedCountRef.current >= items.length) setImgLoaded(true);
+  };
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -4816,10 +4937,14 @@ function OutfitCard({
                 zIndex: item.zIndex ?? idx + 1,
               }}
             >
-              <img src={item.image} alt={item.name} draggable={false} className="w-full h-full object-contain pointer-events-none" />
+              <img src={item.image} alt={item.name} draggable={false} onLoad={handleItemImgLoad} className="w-full h-full object-contain pointer-events-none" />
             </div>
           );
         })}
+        {/* Skeleton overlay — fades out once all images load */}
+        {items.length > 0 && (
+          <div className={`absolute inset-0 bg-gray-200 z-20 transition-opacity duration-500 ${imgLoaded ? 'opacity-0 pointer-events-none' : 'animate-pulse'}`} />
+        )}
         {/* Hover overlay */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 pointer-events-none z-10" />
       </div>
@@ -4910,18 +5035,22 @@ function OutfitCard({
                 >
                   {saving ? 'Saving…' : 'Save to device'}
                 </button>
-                <button
-                  onClick={e => { e.stopPropagation(); setMenuOpen(false); onDuplicate?.(); }}
-                  className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
-                >
-                  Duplicate
-                </button>
-                <button
-                  onClick={e => { e.stopPropagation(); setMenuOpen(false); onDelete?.(); }}
-                  className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
-                >
-                  Delete
-                </button>
+                {!isPreview && (
+                  <button
+                    onClick={e => { e.stopPropagation(); setMenuOpen(false); onDuplicate?.(); }}
+                    className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    Duplicate
+                  </button>
+                )}
+                {!isPreview && (
+                  <button
+                    onClick={e => { e.stopPropagation(); setMenuOpen(false); onDelete?.(); }}
+                    className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    Delete
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -5246,6 +5375,7 @@ function StudioTab({
                         key={outfit.id}
                         outfit={outfit}
                         isDraft={true}
+                        isPreview={isPreview}
                         liked={likedOutfits.has(outfit.id)}
                         outfitBoards={outfitBoards ?? ['All']}
                         onEdit={() => openCollageForEditing(outfit, 'drafts')}
@@ -5270,6 +5400,7 @@ function StudioTab({
                         key={outfit.id}
                         outfit={outfit}
                         isDraft={false}
+                        isPreview={isPreview}
                         liked={likedOutfits.has(outfit.id)}
                         outfitBoards={outfitBoards ?? ['All']}
                         onEdit={() => openCollageForEditing(outfit, 'saved')}
@@ -5782,6 +5913,35 @@ function fileToBase64(file) {
   });
 }
 
+// Returns true if the image has a meaningfully transparent background already removed —
+// requires >5% of pixels at alpha < 128 to avoid false-positives from edge anti-aliasing
+// or device-frame corner artifacts on screenshots saved as PNG.
+async function hasTransparency(file) {
+  if (!file.type.includes('png') && !file.type.includes('webp')) return false;
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, 200 / Math.max(img.naturalWidth, img.naturalHeight));
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(img.naturalWidth  * scale);
+      canvas.height = Math.round(img.naturalHeight * scale);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const total = data.length / 4;
+      let transparent = 0;
+      for (let i = 3; i < data.length; i += 4) {
+        if (data[i] < 128) transparent++;
+      }
+      resolve(transparent / total > 0.05);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(false); };
+    img.src = url;
+  });
+}
+
 async function convertToPng(file) {
   return new Promise(resolve => {
     const img = new Image();
@@ -5855,14 +6015,16 @@ async function trimTransparentPixels(file) {
       let x0 = w, y0 = h, x1 = -1, y1 = -1;
       for (let x = 0; x < w; x++) { if (colSum[x] >= COL_THRESHOLD) { if (x < x0) x0 = x; if (x > x1) x1 = x; } }
       for (let y = 0; y < h; y++) { if (rowSum[y] >= ROW_THRESHOLD) { if (y < y0) y0 = y; if (y > y1) y1 = y; } }
-      // No visible content, or already tight — return original unchanged
-      if (x1 < 0 || (x0 <= 2 && y0 <= 2 && x1 >= w - 3 && y1 >= h - 3)) {
-        resolve(file); return;
-      }
+      // No visible content — return original unchanged
+      if (x1 < 0) { resolve(file); return; }
       const cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+      // Add symmetric padding so the subject has breathing room and any minor
+      // asymmetry from the bg-removal model is absorbed. Place the trimmed
+      // content on a new canvas rather than cropping directly to the bounding box.
+      const PAD = Math.max(8, Math.round(Math.min(cw, ch) * 0.04));
       const dst = document.createElement('canvas');
-      dst.width = cw; dst.height = ch;
-      dst.getContext('2d').drawImage(src, x0, y0, cw, ch, 0, 0, cw, ch);
+      dst.width = cw + PAD * 2; dst.height = ch + PAD * 2;
+      dst.getContext('2d').drawImage(src, x0, y0, cw, ch, PAD, PAD, cw, ch);
       dst.toBlob(blob => {
         resolve(new File([blob], file.name || 'trimmed.png', { type: 'image/png' }));
       }, 'image/png');
@@ -5887,50 +6049,44 @@ async function enrichItem({ imageUrl, imageFile, name, brand, category, material
 
 function AddMethodModal({ onClose, onImageSelected }) {
   const fileInputRef = useRef(null);
-  const [processing, setProcessing] = useState(false);
 
-  const handleFileChange = async e => {
+  const handleFileChange = e => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setProcessing(true);
-    try {
-      const buffer = await file.arrayBuffer();
-      const resultBlob = await new Promise((resolve, reject) => {
-        const worker = new Worker(
-          new URL('./bgRemovalWorker.js', import.meta.url),
-          { type: 'module' },
-        );
-        worker.onmessage = ({ data }) => {
-          worker.terminate();
-          if (data.ok) resolve(new Blob([data.buffer], { type: 'image/png' }));
-          else reject(new Error(data.message));
-        };
-        worker.onerror = (err) => { worker.terminate(); reject(err); };
-        worker.postMessage({ buffer, name: file.name, type: file.type }, [buffer]);
-      });
-      const processedFile = new File([resultBlob], file.name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' });
-      onImageSelected(await trimTransparentPixels(await resizeImage(processedFile)));
-    } catch (err) {
-      console.error('Background removal failed, converting to PNG:', err);
-      const converted = await convertToPng(file);
-      onImageSelected(await trimTransparentPixels(await resizeImage(converted)));
-    }
-  };
 
-  if (processing) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center">
-        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm backdrop-fade" />
-        <div className="relative bg-white rounded-3xl px-10 py-8 flex flex-col items-center gap-4 shadow-2xl">
-          <Loader2 size={26} className="text-gray-400 animate-spin" />
-          <div className="text-center">
-            <p className="text-sm font-semibold text-gray-900">Removing background</p>
-            <p className="text-xs text-gray-400 mt-0.5">This may take a moment…</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+    // Kick off bg removal in the background — don't block the UI
+    const bgPromise = (async () => {
+      // Skip the worker entirely if the image already has transparency
+      if (await hasTransparency(file)) {
+        return await trimTransparentPixels(await resizeImage(file));
+      }
+
+      const buffer = await file.arrayBuffer();
+      try {
+        const resultBlob = await new Promise((resolve, reject) => {
+          const worker = new Worker(
+            new URL('./bgRemovalWorker.js', import.meta.url),
+            { type: 'module' },
+          );
+          worker.onmessage = ({ data }) => {
+            worker.terminate();
+            if (data.ok) resolve(new Blob([data.buffer], { type: 'image/png' }));
+            else reject(new Error(data.message));
+          };
+          worker.onerror = (err) => { worker.terminate(); reject(err); };
+          worker.postMessage({ buffer, name: file.name, type: file.type }, [buffer]);
+        });
+        const processedFile = new File([resultBlob], file.name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' });
+        return await trimTransparentPixels(await resizeImage(processedFile));
+      } catch {
+        const converted = await convertToPng(file);
+        return await trimTransparentPixels(await resizeImage(converted));
+      }
+    })();
+
+    // Open the form immediately with the raw file; bgPromise resolves the final image
+    onImageSelected(file, bgPromise);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-6">
@@ -5983,15 +6139,31 @@ function AddMethodModal({ onClose, onImageSelected }) {
   );
 }
 
-function AddItemModal({ onClose, onAdd, initialImage }) {
+function AddItemModal({ onClose, onAdd, initialImage, imageProcessingPromise }) {
   const [imageFile, setImageFile] = useState(initialImage ?? null);
   const [previewUrl, setPreviewUrl] = useState(() => initialImage ? URL.createObjectURL(initialImage) : null);
+  const [imageProcessing, setImageProcessing] = useState(!!imageProcessingPromise);
   const [showEraser, setShowEraser] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     name: '', brand: '', price: '', size: '', material: '', color: '',
     category: CATEGORIES[0], notes: '',
   });
+
+  // Resolve bg removal in background; swap preview when done
+  useEffect(() => {
+    if (!imageProcessingPromise) return;
+    let cancelled = false;
+    imageProcessingPromise
+      .then(processedFile => {
+        if (cancelled) return;
+        setImageFile(processedFile);
+        setPreviewUrl(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(processedFile); });
+        setImageProcessing(false);
+      })
+      .catch(() => { if (!cancelled) setImageProcessing(false); });
+    return () => { cancelled = true; };
+  }, [imageProcessingPromise]);
 
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
   const editInput = "w-full bg-transparent border-b border-gray-200 focus:border-gray-500 focus:outline-none transition-colors text-sm font-medium text-gray-800 pb-0.5";
@@ -6007,7 +6179,8 @@ function AddItemModal({ onClose, onAdd, initialImage }) {
   const handleAdd = () => {
     if (!form.name.trim() || saving) return;
     setSaving(true);
-    onAdd(form, imageFile);
+    // Pass the promise if bg removal is still running — addItem will resolve it in the background
+    onAdd(form, imageFile, imageProcessing ? imageProcessingPromise : null);
     onClose();
   };
 
@@ -6044,13 +6217,22 @@ function AddItemModal({ onClose, onAdd, initialImage }) {
             style={{ backgroundImage: 'repeating-conic-gradient(#e5e7eb 0% 25%, #f9fafb 0% 50%)', backgroundSize: '20px 20px' }}
           >
             <img src={previewUrl} alt="" className="w-full h-full object-contain" />
-            <button
-              onClick={() => setShowEraser(true)}
-              className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-4 py-2 bg-white/90 backdrop-blur-sm text-xs font-semibold text-gray-700 rounded-full shadow-md hover:bg-white border border-gray-200 transition-colors whitespace-nowrap"
-            >
-              <Eraser size={13} />
-              Edit background
-            </button>
+            {imageProcessing ? (
+              <div className="absolute inset-0 bg-white/50 backdrop-blur-[2px] flex items-end justify-center pb-3">
+                <div className="flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-sm rounded-full shadow-sm border border-gray-100">
+                  <Loader2 size={12} className="animate-spin text-gray-400" />
+                  <span className="text-xs font-medium text-gray-500">Removing background…</span>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowEraser(true)}
+                className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-4 py-2 bg-white/90 backdrop-blur-sm text-xs font-semibold text-gray-700 rounded-full shadow-md hover:bg-white border border-gray-200 transition-colors whitespace-nowrap"
+              >
+                <Eraser size={13} />
+                Edit background
+              </button>
+            )}
           </div>
         )}
 
@@ -6207,7 +6389,7 @@ function AuthModal({ onClose }) {
       <div className="w-full max-w-sm modal-animate">
         {/* Logo */}
         <div className="text-center mb-8">
-          <p className="text-[10px] font-bold text-gray-300 uppercase tracking-[0.22em] mb-1">est. 2024</p>
+          <p className="text-[10px] font-bold text-gray-300 uppercase tracking-[0.22em] mb-1">est. 2026</p>
           <h1 className="text-3xl font-bold tracking-tight text-white">Vêtu</h1>
           <p className="text-sm text-gray-300 mt-1">Your digital wardrobe</p>
         </div>
@@ -6511,12 +6693,29 @@ export default function WardrobeApp() {
   const [authLoading, setAuthLoading]     = useState(true);
   const [transitioning, setTransitioning] = useState(false);
   const authInitializedRef                = useRef(false);
+  const currentUserIdRef                  = useRef(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [activeTab, setActiveTab]         = useState('today');
+  const [activeTab, setActiveTab]         = useState(() => {
+    try {
+      const saved = localStorage.getItem('wardrobe_active_tab');
+      if (saved && ['today', 'wardrobe', 'studio', 'stylist', 'profile'].includes(saved)) return saved;
+    } catch {}
+    return 'today';
+  });
+  const [mountedTabs, setMountedTabs]     = useState(() => {
+    try {
+      const saved = localStorage.getItem('wardrobe_active_tab');
+      if (saved && ['today', 'wardrobe', 'studio', 'stylist', 'profile'].includes(saved)) {
+        return new Set(['today', saved]);
+      }
+    } catch {}
+    return new Set(['today']);
+  });
   const [selectedItem, setSelectedItem]   = useState(null);
   const [items, setItems]                 = useState([]);
-  const [addStep, setAddStep]             = useState(null);
-  const [addItemFile, setAddItemFile]     = useState(null);
+  const [addStep, setAddStep]                 = useState(null);
+  const [addItemFile, setAddItemFile]         = useState(null);
+  const [addItemProcessing, setAddItemProcessing] = useState(null); // Promise for bg removal
   const [boards, setBoards]               = useState(['All']);
   const [boardMeta, setBoardMeta]         = useState({});
   const [profile, setProfile]             = useState({
@@ -6592,23 +6791,29 @@ export default function WardrobeApp() {
   useEffect(() => {
     // Initial session check — await data before revealing UI to avoid flash
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) await loadUserData(session.user.id);
+      const u = session?.user ?? null;
+      currentUserIdRef.current = u?.id ?? null;
+      setUser(u);
+      if (u) await loadUserData(u.id);
       setAuthLoading(false);
       authInitializedRef.current = true;
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // TOKEN_REFRESHED fires on tab focus (Supabase silently rotates JWT) — nothing changed
+      if (event === 'TOKEN_REFRESHED') return;
       const u = session?.user ?? null;
+      const prevId = currentUserIdRef.current;
+      currentUserIdRef.current = u?.id ?? null;
       setUser(u);
       if (u) {
-        if (authInitializedRef.current) {
-          // True sign-in transition (not the page-load event): block content until data ready
+        // Only transition when it's a genuinely new sign-in (different user ID).
+        // Same-user SIGNED_IN can fire from cross-tab sync or re-auth and must not reload.
+        if (authInitializedRef.current && event === 'SIGNED_IN' && u.id !== prevId) {
           setTransitioning(true);
           await loadUserData(u.id);
           setTransitioning(false);
         }
-        // else: page load — getSession handler above takes care of it
       } else {
         setItems([]); setBoards(['All']); setBoardMeta({});
         setSavedOutfits([]); setDraftOutfits([]); setLikedItems(new Set());
@@ -6737,21 +6942,34 @@ export default function WardrobeApp() {
     await supabase.from('items').update({ image_url: publicUrl }).eq('id', id).eq('user_id', user.id);
   };
 
-  const addItem = async (form, imageFile) => {
+  const addItem = async (form, imageFile, imageProcessingPromise) => {
     const tempId = `temp-${Date.now()}`;
     const previewUrl = imageFile ? URL.createObjectURL(imageFile) : '';
     setItems(prev => [{
       id: tempId, ...form, image: previewUrl, boards: [], liked: false, ratio: 'portrait',
       attributes: { warmthRating: 'none' },
       _enriching: true,
+      _bgRemoving: !!imageProcessingPromise,
     }, ...prev]);
 
     try {
+      // If bg removal is still running, wait for it and swap the optimistic preview
+      let finalImageFile = imageFile;
+      if (imageProcessingPromise) {
+        try {
+          finalImageFile = await imageProcessingPromise;
+          const processedUrl = URL.createObjectURL(finalImageFile);
+          setItems(prev => prev.map(i => i.id === tempId ? { ...i, image: processedUrl, _bgRemoving: false } : i));
+        } catch {
+          setItems(prev => prev.map(i => i.id === tempId ? { ...i, _bgRemoving: false } : i));
+        }
+      }
+
       let imageUrl = '';
-      if (imageFile && user) {
-        const safeName = imageFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      if (finalImageFile && user) {
+        const safeName = finalImageFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
         const path = `${user.id}/${Date.now()}-${safeName}`;
-        const { error: uploadErr } = await supabase.storage.from('item-images').upload(path, imageFile);
+        const { error: uploadErr } = await supabase.storage.from('item-images').upload(path, finalImageFile);
         if (!uploadErr) {
           imageUrl = supabase.storage.from('item-images').getPublicUrl(path).data.publicUrl;
         }
@@ -6771,7 +6989,7 @@ export default function WardrobeApp() {
 
       const result = await enrichItem({
         imageUrl: imageUrl || null,
-        imageFile: imageUrl ? null : imageFile,
+        imageFile: imageUrl ? null : finalImageFile,
         name: form.name, brand: form.brand, category: form.category, material: form.material, color: form.color,
       });
 
@@ -6787,14 +7005,14 @@ export default function WardrobeApp() {
   const handleAddToOutfit = item => {
     setPendingOutfitItem(item);
     setPendingTargetCollage(null);
-    setActiveTab('studio');
+    switchTab('studio');
     setSelectedItem(null);
   };
 
   const handleOpenExistingCollage = (item, outfit, type) => {
     setPendingOutfitItem(item);
     setPendingTargetCollage({ id: outfit.id, type });
-    setActiveTab('studio');
+    switchTab('studio');
     setSelectedItem(null);
   };
 
@@ -6912,100 +7130,129 @@ export default function WardrobeApp() {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    setActiveTab('wardrobe');
+    switchTab('wardrobe');
+  };
+
+  const switchTab = (id) => {
+    setMountedTabs(prev => { const next = new Set(prev); next.add(id); return next; });
+    setActiveTab(id);
+    try { localStorage.setItem('wardrobe_active_tab', id); } catch {}
+  };
+
+  const handleTabSwitch = (id) => {
+    if (id === activeTab) return;
+    switchTab(id);
   };
 
   const renderContent = () => {
-    if (transitioning) {
-      return (
-        <div className="flex-1 flex items-center justify-center bg-white">
-          <Loader2 size={24} className="animate-spin text-gray-400" />
-        </div>
-      );
-    }
-    switch (activeTab) {
-      case 'wardrobe': return (
-        <WardrobeTab
-          items={previewItems}
-          boards={isPreview ? BOARDS : boards}
-          boardMeta={isPreview ? {} : boardMeta}
-          likedItems={likedItems}
-          onSelectItem={setSelectedItem}
-          onDeleteBoard={handleDeleteBoard}
-          onEditBoard={handleEditBoard}
-          onDeleteItems={handleDeleteItems}
-          onCreateBoard={handleCreateBoard}
-          onToggleItemBoard={handleToggleItemBoard}
-          onAddItem={() => setAddStep('picker')}
-          userId={user?.id}
-          isPreview={isPreview}
-        />
-      );
-      case 'today':   return (
-        <TodayTab
-          items={previewItems}
-          onSaveToPublished={isPreview
-            ? collage => { if (collage.items?.length) setPreviewSavedOutfits(prev => [{ ...collage, id: `preview-${Date.now()}`, liked: false, boards: [] }, ...prev]); }
-            : handleSaveOutfit}
-          onEditInStudio={collage => { setPendingAiCollage(collage); setActiveTab('studio'); }}
-          isPreview={isPreview}
-          userId={user?.id}
-        />
-      );
-      case 'studio':  return (
-        <StudioTab
-          savedOutfits={savedOutfits}
-          draftOutfits={isPreview ? previewDraftOutfits : draftOutfits}
-          onSaveOutfit={isPreview
-            ? collage => { if (collage.items?.length) setPreviewSavedOutfits(prev => [{ ...collage, id: `preview-${Date.now()}`, liked: false, boards: [] }, ...prev]); }
-            : handleSaveOutfit}
-          onSaveDraftOutfit={isPreview
-            ? collage => { if (collage.items?.length) setPreviewDraftOutfits(prev => [{ ...collage, id: `preview-draft-${Date.now()}`, liked: false, boards: [] }, ...prev]); }
-            : handleSaveDraftOutfit}
-          onUpdateSavedOutfit={isPreview
-            ? (id, collage) => setPreviewSavedOutfits(prev => prev.map(o => o.id === id ? { ...o, ...collage, boards: o.boards, liked: o.liked } : o))
-            : updateSavedOutfit}
-          onUpdateDraftOutfit={isPreview
-            ? (id, collage) => setPreviewDraftOutfits(prev => prev.map(o => o.id === id ? { ...o, ...collage, boards: o.boards, liked: o.liked } : o))
-            : updateDraftOutfit}
-          onRemoveDraftOutfit={isPreview
-            ? id => setPreviewDraftOutfits(prev => prev.filter(o => o.id !== id))
-            : handleRemoveDraftOutfit}
-          onRemoveSavedOutfit={isPreview
-            ? id => setPreviewSavedOutfits(prev => prev.filter(o => o.id !== id))
-            : handleRemoveSavedOutfit}
-          pendingOutfitItem={pendingOutfitItem}
-          pendingTargetCollage={pendingTargetCollage}
-          onClearPendingOutfit={() => { setPendingOutfitItem(null); setPendingTargetCollage(null); }}
-          pendingAiCollage={pendingAiCollage}
-          onClearPendingAiCollage={() => setPendingAiCollage(null)}
-          items={previewItems}
-          boards={isPreview ? BOARDS : boards}
-          outfitBoards={outfitBoards}
-          outfitBoardMeta={outfitBoardMeta}
-          likedOutfits={likedOutfits}
-          onCreateOutfitBoard={handleCreateOutfitBoard}
-          onDeleteOutfitBoard={handleDeleteOutfitBoard}
-          onEditOutfitBoard={handleEditOutfitBoard}
-          onToggleOutfitBoard={handleToggleOutfitBoard}
-          onToggleOutfitLike={toggleOutfitLike}
-          isPreview={isPreview}
-          previewCollages={previewCollages}
-        />
-      );
-      case 'stylist': return <StylistTab />;
-      case 'profile': return !isPreview ? (
-        <ProfileTab
-          items={items}
-          boards={boards}
-          savedOutfits={savedOutfits}
-          profile={profile}
-          onUpdateProfile={handleUpdateProfile}
-          onSignOut={handleSignOut}
-        />
-      ) : null;
-      default: return null;
-    }
+    // Each tab is kept permanently mounted after first visit (display:none when inactive)
+    // so state and effects survive tab switches without re-fetching.
+    const tab = (id) => activeTab === id ? 'flex flex-col flex-1 min-h-0' : 'hidden';
+
+    return (
+      <div className="relative flex-1 flex flex-col min-h-0">
+        {/* Spinner overlays tabs without unmounting them, preserving state like activeFilter */}
+        {transitioning && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white z-50">
+            <Loader2 size={24} className="animate-spin text-gray-400" />
+          </div>
+        )}
+      <>
+        {mountedTabs.has('wardrobe') && (
+          <div className={tab('wardrobe')}>
+            <WardrobeTab
+              items={previewItems}
+              boards={isPreview ? BOARDS : boards}
+              boardMeta={isPreview ? {} : boardMeta}
+              likedItems={likedItems}
+              onSelectItem={setSelectedItem}
+              onDeleteBoard={handleDeleteBoard}
+              onEditBoard={handleEditBoard}
+              onDeleteItems={handleDeleteItems}
+              onCreateBoard={handleCreateBoard}
+              onToggleItemBoard={handleToggleItemBoard}
+              onAddItem={() => setAddStep('picker')}
+              userId={user?.id}
+              isPreview={isPreview}
+            />
+          </div>
+        )}
+        {mountedTabs.has('today') && (
+          <div className={tab('today')}>
+            <TodayTab
+              items={readyItems}
+              onSaveToPublished={isPreview
+                ? collage => { if (collage.items?.length) setPreviewSavedOutfits(prev => [{ ...collage, id: `preview-${Date.now()}`, liked: false, boards: [] }, ...prev]); }
+                : handleSaveOutfit}
+              onEditInStudio={collage => { setPendingAiCollage(collage); switchTab('studio'); }}
+              isPreview={isPreview}
+              userId={user?.id}
+            />
+          </div>
+        )}
+        {mountedTabs.has('studio') && (
+          <div className={tab('studio')}>
+            <StudioTab
+              savedOutfits={savedOutfits}
+              draftOutfits={isPreview ? previewDraftOutfits : draftOutfits}
+              onSaveOutfit={isPreview
+                ? collage => { if (collage.items?.length) setPreviewSavedOutfits(prev => [{ ...collage, id: `preview-${Date.now()}`, liked: false, boards: [] }, ...prev]); }
+                : handleSaveOutfit}
+              onSaveDraftOutfit={isPreview
+                ? collage => { if (collage.items?.length) setPreviewDraftOutfits(prev => [{ ...collage, id: `preview-draft-${Date.now()}`, liked: false, boards: [] }, ...prev]); }
+                : handleSaveDraftOutfit}
+              onUpdateSavedOutfit={isPreview
+                ? (id, collage) => setPreviewSavedOutfits(prev => prev.map(o => o.id === id ? { ...o, ...collage, boards: o.boards, liked: o.liked } : o))
+                : updateSavedOutfit}
+              onUpdateDraftOutfit={isPreview
+                ? (id, collage) => setPreviewDraftOutfits(prev => prev.map(o => o.id === id ? { ...o, ...collage, boards: o.boards, liked: o.liked } : o))
+                : updateDraftOutfit}
+              onRemoveDraftOutfit={isPreview
+                ? id => setPreviewDraftOutfits(prev => prev.filter(o => o.id !== id))
+                : handleRemoveDraftOutfit}
+              onRemoveSavedOutfit={isPreview
+                ? id => setPreviewSavedOutfits(prev => prev.filter(o => o.id !== id))
+                : handleRemoveSavedOutfit}
+              pendingOutfitItem={pendingOutfitItem}
+              pendingTargetCollage={pendingTargetCollage}
+              onClearPendingOutfit={() => { setPendingOutfitItem(null); setPendingTargetCollage(null); }}
+              pendingAiCollage={pendingAiCollage}
+              onClearPendingAiCollage={() => setPendingAiCollage(null)}
+              items={readyItems}
+              boards={isPreview ? BOARDS : boards}
+              outfitBoards={outfitBoards}
+              outfitBoardMeta={outfitBoardMeta}
+              likedOutfits={likedOutfits}
+              onCreateOutfitBoard={handleCreateOutfitBoard}
+              onDeleteOutfitBoard={handleDeleteOutfitBoard}
+              onEditOutfitBoard={handleEditOutfitBoard}
+              onToggleOutfitBoard={handleToggleOutfitBoard}
+              onToggleOutfitLike={toggleOutfitLike}
+              isPreview={isPreview}
+              previewCollages={previewCollages}
+            />
+          </div>
+        )}
+        {mountedTabs.has('stylist') && (
+          <div className={tab('stylist')}>
+            <StylistTab />
+          </div>
+        )}
+        {mountedTabs.has('profile') && !isPreview && (
+          <div className={tab('profile')}>
+            <ProfileTab
+              items={items}
+              boards={boards}
+              savedOutfits={savedOutfits}
+              profile={profile}
+              onUpdateProfile={handleUpdateProfile}
+              onSignOut={handleSignOut}
+            />
+          </div>
+        )}
+      </>
+      </div>
+    );
   };
 
   if (authLoading) {
@@ -7020,6 +7267,8 @@ export default function WardrobeApp() {
 
   // In preview mode: use mock wardrobe items and 2 pre-built collages
   const previewItems = isPreview ? ITEMS : items;
+  // Items ready for outfit generation and the collage editor — excludes cards still processing bg removal
+  const readyItems = isPreview ? ITEMS : items.filter(i => !i._bgRemoving);
   const previewCollages = previewSavedOutfits;
 
   return (
@@ -7033,7 +7282,7 @@ export default function WardrobeApp() {
         {/* Logo */}
         <div className="px-3 mb-10">
           <p className="text-[10px] font-bold text-gray-300 uppercase tracking-[0.22em] mb-1">
-            est. 2024
+            est. 2026
           </p>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Vêtu</h1>
           <p className="text-xs text-gray-400 mt-0.5">Your digital wardrobe</p>
@@ -7044,10 +7293,13 @@ export default function WardrobeApp() {
           {TABS.map(({ id, label, Icon }) => {
             if (isPreview && (id === 'profile' || id === 'stylist')) return null;
             const active = activeTab === id;
+            const displayLabel = id === 'today'
+              ? `Today, ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+              : label;
             return (
               <button
                 key={id}
-                onClick={() => setActiveTab(id)}
+                onClick={() => handleTabSwitch(id)}
                 className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
                   active
                     ? 'bg-gray-900 text-white shadow-sm'
@@ -7055,7 +7307,7 @@ export default function WardrobeApp() {
                 }`}
               >
                 <Icon size={17} strokeWidth={active ? 2.2 : 1.75} />
-                {label}
+                {displayLabel}
               </button>
             );
           })}
@@ -7076,7 +7328,7 @@ export default function WardrobeApp() {
             </div>
           ) : (
             <button
-              onClick={() => setActiveTab('profile')}
+              onClick={() => handleTabSwitch('profile')}
               className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-colors group ${
                 activeTab === 'profile' ? 'bg-gray-100' : 'hover:bg-gray-100'
               }`}
@@ -7116,10 +7368,12 @@ export default function WardrobeApp() {
               </button>
             ) : (
               <>
-                <button className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">
-                  <Search size={15} className="text-gray-600" />
-                </button>
-                <button onClick={() => setActiveTab('profile')} className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 shadow-sm" />
+                {activeTab !== 'studio' && (
+                  <button className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">
+                    <Search size={15} className="text-gray-600" />
+                  </button>
+                )}
+                <button onClick={() => handleTabSwitch('profile')} className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 shadow-sm" />
               </>
             )}
           </div>
@@ -7140,7 +7394,7 @@ export default function WardrobeApp() {
             return (
               <button
                 key={id}
-                onClick={() => setActiveTab(id)}
+                onClick={() => handleTabSwitch(id)}
                 className="flex flex-col items-center gap-1 px-3 py-1"
               >
                 <div
@@ -7192,15 +7446,20 @@ export default function WardrobeApp() {
       {addStep === 'picker' && (
         <AddMethodModal
           onClose={() => setAddStep(null)}
-          onImageSelected={file => { setAddItemFile(file); setAddStep('form'); }}
+          onImageSelected={(file, bgPromise) => {
+            setAddItemFile(file);
+            setAddItemProcessing(bgPromise);
+            setAddStep('form');
+          }}
         />
       )}
 
       {addStep === 'form' && (
         <AddItemModal
-          onClose={() => { setAddStep(null); setAddItemFile(null); }}
+          onClose={() => { setAddStep(null); setAddItemFile(null); setAddItemProcessing(null); }}
           onAdd={addItem}
           initialImage={addItemFile}
+          imageProcessingPromise={addItemProcessing}
         />
       )}
 
