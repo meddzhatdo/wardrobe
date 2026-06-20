@@ -3339,7 +3339,7 @@ const PREVIEW_CITY_OUTFITS = {
   ],
 };
 
-function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = false }) {
+function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = false, userId = null }) {
   const [location,       setLocation]       = useState({ city: null, lat: null, lon: null });
   const [weatherSummary, setWeatherSummary] = useState(null);
   const [outfits,        setOutfits]        = useState([]);
@@ -3353,11 +3353,13 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
   const collageScale     = useCollageScale();
   const outfitWeatherRef = useRef(null); // weather that generated the current outfits
 
+  const locationKey = isPreview ? 'wardrobe_location_preview' : `wardrobe_location_user_${userId}`;
+
   useEffect(() => {
     // Preview mode: restore saved location only if it's a known preset, otherwise use first preset
     if (isPreview) {
       try {
-        const saved = localStorage.getItem('wardrobe_location');
+        const saved = localStorage.getItem(locationKey);
         if (saved) {
           const loc = JSON.parse(saved);
           const preset = PRESET_LOCATIONS.find(p => p.city === loc.city);
@@ -3375,7 +3377,7 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
 
     // Restore a manually-set location so tab switches don't reset it
     try {
-      const saved = localStorage.getItem('wardrobe_location');
+      const saved = localStorage.getItem(locationKey);
       if (saved) { setLocation(JSON.parse(saved)); return; }
     } catch {}
 
@@ -3401,7 +3403,7 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
       () => setLocation({ city: DEFAULT_CITY, lat: DEFAULT_LAT, lon: DEFAULT_LON }),
       { timeout: 8000 }
     );
-  }, [isPreview]);
+  }, [isPreview, locationKey]);
 
   // Preview mode: load the static city outfits whenever the city changes — no AI, no cache
   useEffect(() => {
@@ -3490,7 +3492,7 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
   }, [outfits.length]);
 
   const saveLocation = (loc) => {
-    try { localStorage.setItem('wardrobe_location', JSON.stringify(loc)); } catch {}
+    try { localStorage.setItem(locationKey, JSON.stringify(loc)); } catch {}
     setLocation(loc);
   };
 
@@ -6507,6 +6509,8 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
 export default function WardrobeApp() {
   const [user, setUser]                   = useState(null);
   const [authLoading, setAuthLoading]     = useState(true);
+  const [transitioning, setTransitioning] = useState(false);
+  const authInitializedRef                = useRef(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [activeTab, setActiveTab]         = useState('today');
   const [selectedItem, setSelectedItem]   = useState(null);
@@ -6586,16 +6590,26 @@ export default function WardrobeApp() {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Initial session check — await data before revealing UI to avoid flash
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (session?.user) loadUserData(session.user.id);
+      if (session?.user) await loadUserData(session.user.id);
       setAuthLoading(false);
+      authInitializedRef.current = true;
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const u = session?.user ?? null;
       setUser(u);
-      if (u) loadUserData(u.id);
-      else {
+      if (u) {
+        if (authInitializedRef.current) {
+          // True sign-in transition (not the page-load event): block content until data ready
+          setTransitioning(true);
+          await loadUserData(u.id);
+          setTransitioning(false);
+        }
+        // else: page load — getSession handler above takes care of it
+      } else {
         setItems([]); setBoards(['All']); setBoardMeta({});
         setSavedOutfits([]); setDraftOutfits([]); setLikedItems(new Set());
         setOutfitBoards(['All']); setOutfitBoardMeta({}); setLikedOutfits(new Set());
@@ -6902,6 +6916,13 @@ export default function WardrobeApp() {
   };
 
   const renderContent = () => {
+    if (transitioning) {
+      return (
+        <div className="flex-1 flex items-center justify-center bg-white">
+          <Loader2 size={24} className="animate-spin text-gray-400" />
+        </div>
+      );
+    }
     switch (activeTab) {
       case 'wardrobe': return (
         <WardrobeTab
@@ -6928,6 +6949,7 @@ export default function WardrobeApp() {
             : handleSaveOutfit}
           onEditInStudio={collage => { setPendingAiCollage(collage); setActiveTab('studio'); }}
           isPreview={isPreview}
+          userId={user?.id}
         />
       );
       case 'studio':  return (
