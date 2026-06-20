@@ -5,9 +5,10 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Sun, Shirt, Wand2, Sparkles,
+  Sun, Moon, Shirt, Wand2, Sparkles,
   X, Heart, Plus, Search, ChevronRight, ChevronLeft, ChevronDown, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal, SlidersHorizontal,
   Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut, Download, Eraser, MapPin, Bookmark,
+  Eye, EyeOff,
   Cloud, CloudSun, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, CloudFog,
 } from 'lucide-react';
 import { supabase } from './supabase.js';
@@ -54,6 +55,27 @@ const GLOBAL_CSS = `
   .outfit-enter-right { animation: outfitSlideRight 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
   .outfit-enter-left  { animation: outfitSlideLeft  0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
   .outfit-text-fade   { animation: outfitFade       0.25s ease-out both; }
+
+  /* ── Dark mode — remap Tailwind v4 CSS variables ── */
+  html.dark {
+    --color-gray-50:  #141416;
+    --color-gray-100: #1c1c1e;
+    --color-gray-200: #2c2c2e;
+    --color-gray-300: #3a3a3c;
+    --color-gray-400: #636366;
+    --color-gray-500: #8e8e93;
+    --color-gray-600: #aeaeb2;
+    --color-gray-700: #c7c7cc;
+    --color-gray-800: #e5e5ea;
+    --color-gray-900: #f5f5f7;
+  }
+  /* White surfaces → dark */
+  html.dark .bg-white { background-color: #1c1c1e; }
+  /* Keep intentionally-dark elements (CTAs, tooltips) dark */
+  html.dark .bg-gray-900 { background-color: #2d2d30; }
+  html.dark .bg-gray-800 { background-color: #3a3a3c; }
+  html.dark .hover\\:bg-gray-700:hover { background-color: #48484a; }
+  html.dark .hover\\:bg-gray-900:hover { background-color: #3a3a3c; }
 `;
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -6350,6 +6372,7 @@ function AuthModal({ onClose }) {
   const [name, setName]       = useState('');
   const [email, setEmail]     = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
 
@@ -6443,15 +6466,25 @@ function AuthModal({ onClose }) {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                minLength={6}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-gray-400 transition-colors"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  minLength={6}
+                  className="w-full px-4 py-3 pr-11 rounded-xl border border-gray-200 text-sm outline-none focus:border-gray-400 transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
 
             {error && <p className="text-xs text-red-500 bg-red-50 rounded-xl px-4 py-3">{error}</p>}
@@ -6479,9 +6512,11 @@ const TOP_SIZES  = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 const BOTTOM_SIZES = ['24', '25', '26', '27', '28', '29', '30', '32', 'XS', 'S', 'M', 'L', 'XL'];
 const SHOE_SIZES = ['5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10', '11', '12'];
 
-function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onSignOut }) {
+function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onSignOut, darkMode, onToggleDark, onUpdateAvatar }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft]     = useState(profile);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef(null);
 
   useEffect(() => {
     if (!editing) setDraft(profile);
@@ -6545,8 +6580,39 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
 
         {/* Avatar + name + bio */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 shadow-md mb-4 flex items-center justify-center">
-            {!profile.name && <User size={28} className="text-white/80" />}
+          <div className="relative mb-4">
+            <div
+              onClick={() => avatarInputRef.current?.click()}
+              className="w-20 h-20 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 shadow-md flex items-center justify-center overflow-hidden cursor-pointer relative"
+            >
+              {profile.avatarUrl ? (
+                <img src={profile.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                !profile.name && <User size={28} className="text-white/80" />
+              )}
+              {avatarUploading && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                  <Loader2 size={18} className="animate-spin text-white" />
+                </div>
+              )}
+              <div className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center group">
+                <Camera size={18} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </div>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setAvatarUploading(true);
+                await onUpdateAvatar(file);
+                setAvatarUploading(false);
+                e.target.value = '';
+              }}
+            />
           </div>
 
           {editing ? (
@@ -6650,26 +6716,43 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
           )}
         </section>
 
-        {/* Settings (placeholders) */}
+        {/* Settings */}
         <section>
           <h4 className="text-sm font-semibold text-gray-700 mb-3">Settings</h4>
           <div className="space-y-1">
-            {[
-              { label: 'Notifications', sublabel: 'Coming soon' },
-              { label: 'Privacy',       sublabel: 'Coming soon' },
-              { label: 'Appearance',    sublabel: 'Coming soon' },
-            ].map(({ label, sublabel }) => (
-              <div
-                key={label}
-                className="flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-gray-50 transition-colors"
-              >
-                <div>
-                  <p className="text-sm font-medium text-gray-700">{label}</p>
-                  <p className="text-xs text-gray-400">{sublabel}</p>
-                </div>
-                <ChevronRight size={15} className="text-gray-300" />
+            <div className="flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-gray-50 transition-colors">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Privacy</p>
+                <p className="text-xs text-gray-400">Coming soon</p>
               </div>
-            ))}
+              <ChevronRight size={15} className="text-gray-300" />
+            </div>
+
+            <div className="flex items-center justify-between px-4 py-3.5 rounded-xl">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Appearance</p>
+                <p className="text-xs text-gray-400">{darkMode ? 'Dark' : 'Light'} mode</p>
+              </div>
+              <div className="flex items-center gap-0.5 p-1 bg-gray-100 rounded-full">
+                <button
+                  onClick={() => darkMode && onToggleDark()}
+                  className={`w-8 h-8 flex items-center justify-center rounded-full transition-all ${
+                    !darkMode ? 'bg-white shadow-sm text-amber-500' : 'text-gray-400 hover:text-gray-500'
+                  }`}
+                >
+                  <Sun size={15} strokeWidth={2} />
+                </button>
+                <button
+                  onClick={() => !darkMode && onToggleDark()}
+                  className={`w-8 h-8 flex items-center justify-center rounded-full transition-all ${
+                    darkMode ? 'bg-white shadow-sm text-indigo-500' : 'text-gray-400 hover:text-gray-500'
+                  }`}
+                >
+                  <Moon size={15} strokeWidth={2} />
+                </button>
+              </div>
+            </div>
+
             <button
               onClick={onSignOut}
               className="flex items-center gap-3 w-full px-4 py-3.5 rounded-xl hover:bg-red-50 transition-colors group mt-2"
@@ -6689,6 +6772,9 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
    Root — WardrobeApp
    ───────────────────────────────────────────────────────────────────────────── */
 export default function WardrobeApp() {
+  const [darkMode, setDarkMode] = useState(() => {
+    try { return localStorage.getItem('wardrobe_dark_mode') === 'true'; } catch { return false; }
+  });
   const [user, setUser]                   = useState(null);
   const [authLoading, setAuthLoading]     = useState(true);
   const [transitioning, setTransitioning] = useState(false);
@@ -6719,7 +6805,7 @@ export default function WardrobeApp() {
   const [boards, setBoards]               = useState(['All']);
   const [boardMeta, setBoardMeta]         = useState({});
   const [profile, setProfile]             = useState({
-    name: '', bio: '', topSize: '', bottomSize: '', shoeSize: '', styles: [],
+    name: '', bio: '', topSize: '', bottomSize: '', shoeSize: '', styles: [], avatarUrl: '',
   });
   const [pendingOutfitItem, setPendingOutfitItem] = useState(null);
   const [pendingTargetCollage, setPendingTargetCollage] = useState(null);
@@ -6744,6 +6830,12 @@ export default function WardrobeApp() {
   const [outfitBoardMeta, setOutfitBoardMeta] = useState({});
   const [likedOutfits, setLikedOutfits]       = useState(() => new Set());
 
+  // ── Dark mode ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    try { localStorage.setItem('wardrobe_dark_mode', darkMode ? 'true' : 'false'); } catch {}
+  }, [darkMode]);
+
   // ── Auth + data loading ──────────────────────────────────────────────────
   const loadUserData = async (uid) => {
     const [profileRes, itemsRes, boardsRes, outfitsRes, outfitBoardsRes] = await Promise.all([
@@ -6756,7 +6848,7 @@ export default function WardrobeApp() {
 
     if (profileRes.data) {
       const p = profileRes.data;
-      setProfile({ name: p.name, bio: p.bio, topSize: p.top_size, bottomSize: p.bottom_size, shoeSize: p.shoe_size, styles: p.styles });
+      setProfile({ name: p.name, bio: p.bio, topSize: p.top_size, bottomSize: p.bottom_size, shoeSize: p.shoe_size, styles: p.styles, avatarUrl: p.avatar_url || '' });
     }
 
     if (itemsRes.data) {
@@ -7124,8 +7216,27 @@ export default function WardrobeApp() {
         name: updates.name, bio: updates.bio,
         top_size: updates.topSize, bottom_size: updates.bottomSize, shoe_size: updates.shoeSize,
         styles: updates.styles,
+        avatar_url: updates.avatarUrl,
       });
     }
+  };
+
+  const handleUpdateAvatar = async (file) => {
+    if (!user || !file) return;
+    const ext = file.name.split('.').pop() || 'jpg';
+    const path = `avatars/${user.id}/avatar.${ext}`;
+    const { error: uploadErr } = await supabase.storage.from('item-images').upload(path, file, { upsert: true });
+    if (uploadErr) { console.error('Avatar upload failed:', uploadErr.message); return; }
+    const { data: { publicUrl } } = supabase.storage.from('item-images').getPublicUrl(path);
+    const updated = { ...profile, avatarUrl: publicUrl };
+    setProfile(updated);
+    await supabase.from('profiles').upsert({
+      id: user.id,
+      name: updated.name, bio: updated.bio,
+      top_size: updated.topSize, bottom_size: updated.bottomSize, shoe_size: updated.shoeSize,
+      styles: updated.styles,
+      avatar_url: publicUrl,
+    });
   };
 
   const handleSignOut = async () => {
@@ -7247,6 +7358,9 @@ export default function WardrobeApp() {
               profile={profile}
               onUpdateProfile={handleUpdateProfile}
               onSignOut={handleSignOut}
+              darkMode={darkMode}
+              onToggleDark={() => setDarkMode(d => !d)}
+              onUpdateAvatar={handleUpdateAvatar}
             />
           </div>
         )}
@@ -7333,7 +7447,9 @@ export default function WardrobeApp() {
                 activeTab === 'profile' ? 'bg-gray-100' : 'hover:bg-gray-100'
               }`}
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 flex-shrink-0 shadow-sm" />
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 flex-shrink-0 shadow-sm overflow-hidden">
+                {profile.avatarUrl && <img src={profile.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />}
+              </div>
               <div className="text-left min-w-0">
                 <p className="text-sm font-semibold text-gray-900">{profile.name}</p>
                 <p className="text-xs text-gray-400">View profile</p>
