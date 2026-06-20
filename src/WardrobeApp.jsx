@@ -55,6 +55,12 @@ const GLOBAL_CSS = `
   .outfit-enter-right { animation: outfitSlideRight 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
   .outfit-enter-left  { animation: outfitSlideLeft  0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
   .outfit-text-fade   { animation: outfitFade       0.25s ease-out both; }
+
+  @keyframes cardExit {
+    from { opacity: 1; transform: scale(1); }
+    to   { opacity: 0; transform: scale(0.88); }
+  }
+  .card-exit { animation: cardExit 0.28s ease-in forwards; pointer-events: none; }
 `;
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -4874,6 +4880,12 @@ function OutfitCard({
   const [boardSearch, setBoardSearch] = useState('');
   const [saving, setSaving] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [exiting, setExiting] = useState(false);
+
+  const triggerDelete = () => {
+    setExiting(true);
+    setTimeout(() => onDelete?.(), 280);
+  };
   const loadedCountRef = useRef(0);
   const dotsRef      = useRef(null);
   const dropdownRef  = useRef(null);
@@ -4907,7 +4919,7 @@ function OutfitCard({
 
   return (
     <div
-      className={`group relative cursor-pointer ${organizeMode ? 'cursor-grab active:cursor-grabbing' : ''} ${dragging ? 'opacity-40' : ''}`}
+      className={`group relative cursor-pointer ${organizeMode ? 'cursor-grab active:cursor-grabbing' : ''} ${dragging ? 'opacity-40' : ''} ${exiting ? 'card-exit' : ''}`}
       style={{ aspectRatio: '210 / 297' }}
       draggable={organizeMode}
       onDragStart={organizeMode ? onDragStart : undefined}
@@ -5046,7 +5058,7 @@ function OutfitCard({
                 )}
                 {!isPreview && (
                   <button
-                    onClick={e => { e.stopPropagation(); setMenuOpen(false); onDelete?.(); }}
+                    onClick={e => { e.stopPropagation(); setMenuOpen(false); triggerDelete(); }}
                     className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
                   >
                     Delete
