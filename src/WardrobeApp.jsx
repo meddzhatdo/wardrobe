@@ -78,87 +78,615 @@ const CATEGORIES = [
 const ITEMS = [
   {
     id: 1,
-    name: 'Oversized Linen Blazer',
-    brand: 'Theory',
-    price: '$485',
-    material: '100% Belgian Linen',
-    category: 'Outerwear',
+    name: 'Structured Leather Tote',
+    brand: '—',
+    price: '$—',
+    material: 'Grained Leather',
+    category: 'Accessories & Bags',
     boards: ['Workwear', 'Weekend'],
-    color: 'Sand',
-    size: 'S / 36',
-    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=500&q=80',
-    ratio: 'portrait',
-    liked: false,
-    attributes: { layerType: 'outer', sleeveLength: 'long', warmthRating: 'light' },
-    colorProfile: { primaryHex: '#C8B89A', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Muted' },
-  },
-  {
-    id: 2,
-    name: 'Silk Slip Dress',
-    brand: 'Reformation',
-    price: '$248',
-    material: '100% Silk Charmeuse',
-    category: 'Dresses',
-    boards: ['Evening'],
-    color: 'Ivory',
-    size: 'XS',
-    image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=500&q=80',
-    ratio: 'tall',
-    liked: true,
-    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'light' },
-    colorProfile: { primaryHex: '#F5F0E8', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Pastel' },
-  },
-  {
-    id: 3,
-    name: 'Achilles Low Sneaker',
-    brand: 'Common Projects',
-    price: '$495',
-    material: 'Full-grain Leather',
-    category: 'Footwear',
-    boards: ['Weekend', 'Basics'],
-    color: 'White',
-    size: '38',
-    image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=500&q=80',
+    color: 'Chocolate Brown',
+    size: 'OS',
+    image: '/demo/245-DEERCOW-MARRON_FRONT.png',
     ratio: 'square',
     liked: false,
     attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
-    colorProfile: { primaryHex: '#FFFFFF', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Muted' },
+    colorProfile: { primaryHex: '#5C3A1E', colorFamily: 'Brown', undertone: 'Warm', vibrancy: 'Muted' },
+  },
+  {
+    id: 2,
+    name: 'CC Crystal Cuff',
+    brand: 'Chanel',
+    price: '$—',
+    material: 'Lambskin & Crystal',
+    category: 'Jewelry',
+    boards: ['Evening'],
+    color: 'Blush',
+    size: 'OS',
+    image: '/demo/Chanel.png',
+    ratio: 'square',
+    liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+    colorProfile: { primaryHex: '#F0DDD4', colorFamily: 'Pink', undertone: 'Warm', vibrancy: 'Pastel' },
+  },
+  {
+    id: 3,
+    name: 'CC Cashmere Beanie',
+    brand: 'Chanel',
+    price: '$1,300',
+    material: '100% Cashmere',
+    category: 'Accessories & Bags',
+    boards: ['Weekend'],
+    color: 'Ivory',
+    size: 'OS',
+    image: '/demo/Chanel_-_Chasmere_Beanie_($1,300).png',
+    ratio: 'square',
+    liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'warm' },
+    colorProfile: { primaryHex: '#F5F0E6', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Pastel' },
   },
   {
     id: 4,
-    name: 'Cashmere Turtleneck',
-    brand: 'Everlane',
-    price: '$175',
-    material: 'Grade-A Mongolian Cashmere',
-    category: 'Tops',
-    boards: ['Basics', 'Weekend'],
-    color: 'Camel',
-    size: 'S',
-    image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=500&q=80',
+    name: 'Camellia Rain Boot',
+    brand: 'Chanel',
+    price: '$—',
+    material: 'Rubber & Patent',
+    category: 'Shoes',
+    boards: ['Weekend', 'Outerwear'],
+    color: 'Black',
+    size: '38',
+    image: "/demo/Chanel_Women's_Boots.png",
     ratio: 'portrait',
     liked: false,
-    attributes: { layerType: 'base', sleeveLength: 'long', warmthRating: 'warm' },
-    colorProfile: { primaryHex: '#C19A6B', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Muted' },
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+    colorProfile: { primaryHex: '#1A1A1A', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Deep' },
   },
   {
     id: 5,
-    name: '90s Pinch Jeans',
-    brand: 'AGOLDE',
-    price: '$228',
-    material: '100% Organic Cotton Denim',
-    category: 'Bottoms',
+    name: 'Classic Denim Jacket',
+    brand: '—',
+    price: '$—',
+    material: '100% Cotton Denim',
+    category: 'Outerwear',
     boards: ['Weekend', 'Basics'],
-    color: 'Light Indigo',
-    size: '26',
-    image: 'https://images.unsplash.com/photo-1542272454315-4c01d7abdf4a?auto=format&fit=crop&w=500&q=80',
-    ratio: 'tall',
-    liked: true,
-    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'light' },
-    colorProfile: { primaryHex: '#7B93B4', colorFamily: 'Blue', undertone: 'Cool', vibrancy: 'Muted' },
+    color: 'Medium Wash Blue',
+    size: 'S',
+    image: '/demo/Classic_jean_jacket.png',
+    ratio: 'portrait',
+    liked: false,
+    attributes: { layerType: 'outer', sleeveLength: 'long', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#6B8CAD', colorFamily: 'Blue', undertone: 'Cool', vibrancy: 'Muted' },
   },
   {
     id: 6,
-    name: 'Westminster Trench',
+    name: 'Fine Knit Cardigan',
+    brand: 'H&M',
+    price: '$—',
+    material: 'Fine Knit Polyamide Blend',
+    category: 'Knitwear & Sweaters',
+    boards: ['Weekend', 'Basics'],
+    color: 'Pale Yellow',
+    size: 'S',
+    image: '/demo/Gilet_en_maille_fine_-_Jaune_clair_-_ENFANT___H&M_FR.png',
+    ratio: 'portrait',
+    liked: false,
+    attributes: { layerType: 'mid', sleeveLength: 'long', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#F5EBA0', colorFamily: 'Yellow', undertone: 'Warm', vibrancy: 'Pastel' },
+  },
+  {
+    id: 7,
+    name: 'Floral Pleated Charmeuse Skirt',
+    brand: 'Lauren Ralph Lauren',
+    price: '$—',
+    material: '100% Polyester Charmeuse',
+    category: 'Bottoms',
+    boards: ['Evening', 'Weekend'],
+    color: 'Floral Multi',
+    size: 'S',
+    image: '/demo/Lauren_Ralph_Lauren_Floral_Pleated_Satin_Charmeuse_Skirt.png',
+    ratio: 'portrait',
+    liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#7B4F6E', colorFamily: 'Purple', undertone: 'Cool', vibrancy: 'Muted' },
+  },
+  {
+    id: 8,
+    name: 'Lucilla Shirt Dress',
+    brand: 'Cinq à Sept',
+    price: '$—',
+    material: 'Stretch Crepe',
+    category: 'Dresses & Jumpsuits',
+    boards: ['Workwear', 'Evening'],
+    color: 'Navy',
+    size: 'XS',
+    image: '/demo/Lucilla_Dress.png',
+    ratio: 'portrait',
+    liked: true,
+    attributes: { layerType: 'none', sleeveLength: 'long', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#1A2744', colorFamily: 'Blue', undertone: 'Cool', vibrancy: 'Deep' },
+  },
+  {
+    id: 9,
+    name: 'Polka Dot Midi Skirt',
+    brand: 'Ralph Lauren',
+    price: '$—',
+    material: 'Silk Blend',
+    category: 'Bottoms',
+    boards: ['Workwear', 'Weekend'],
+    color: 'Black & White',
+    size: '6',
+    image: '/demo/Ralph_Lauren.png',
+    ratio: 'portrait',
+    liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#1A1A1A', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Deep' },
+  },
+  {
+    id: 10,
+    name: 'Kaida Boot-Cut Jean',
+    brand: 'Ralph Lauren Collection',
+    price: '$—',
+    material: 'Stretch Denim',
+    category: 'Bottoms',
+    boards: ['Weekend', 'Workwear'],
+    color: 'White',
+    size: '26',
+    image: '/demo/Ralph_Lauren_Collection___Kaida_White_Boot-Cut_Jeans___Autumn_•_Winter_Fashion.png',
+    ratio: 'tall',
+    liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#F5F2EC', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Pastel' },
+  },
+  {
+    id: 11,
+    name: 'Flared Sleeve Silk Top',
+    brand: 'Reformation',
+    price: '$—',
+    material: '100% Silk',
+    category: 'Tops',
+    boards: ['Evening', 'Weekend'],
+    color: 'Army Green',
+    size: 'XS',
+    image: '/demo/Reformation_Flared_Sleeve_Silk_Top_-_Green.png',
+    ratio: 'portrait',
+    liked: true,
+    attributes: { layerType: 'base', sleeveLength: 'long', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#4A5C38', colorFamily: 'Green', undertone: 'Warm', vibrancy: 'Muted' },
+  },
+  {
+    id: 12,
+    name: 'Super Puff Long Coat',
+    brand: 'Aritzia',
+    price: '$—',
+    material: 'Recycled Nylon & Down Fill',
+    category: 'Outerwear',
+    boards: ['Outerwear', 'Weekend'],
+    color: 'Black',
+    size: 'XS',
+    image: '/demo/Super Puff Long.png',
+    ratio: 'portrait',
+    liked: false,
+    attributes: { layerType: 'outer', sleeveLength: 'long', warmthRating: 'heavy' },
+    colorProfile: { primaryHex: '#1A1A1A', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Deep' },
+  },
+  {
+    id: 13,
+    name: 'The Icon Watch',
+    brand: 'Hanan Maybin',
+    price: '$—',
+    material: 'Gold-Tone Steel & Leather',
+    category: 'Accessories & Bags',
+    boards: ['Workwear', 'Evening', 'Weekend'],
+    color: 'Gold',
+    size: 'OS',
+    image: '/demo/THE_ICON_WATCH.png',
+    ratio: 'square',
+    liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+    colorProfile: { primaryHex: '#C9A84C', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Muted' },
+  },
+  {
+    id: 14,
+    name: 'Double T-Buckle Pump',
+    brand: 'Tory Burch',
+    price: '$—',
+    material: 'Leather',
+    category: 'Shoes',
+    boards: ['Workwear', 'Evening'],
+    color: 'Black',
+    size: '8',
+    image: "/demo/Tory_Burch_Double_T-Buckle_Pump_80_mm_High_Women's_Heels_Perfect_Black_Perfect_Black___10_M,_Leather.png",
+    ratio: 'square',
+    liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+    colorProfile: { primaryHex: '#1A1A1A', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Deep' },
+  },
+  {
+    id: 15,
+    name: 'Bow Mini Dress',
+    brand: 'Valentino Garavani',
+    price: '$—',
+    material: 'Virgin Wool',
+    category: 'Dresses & Jumpsuits',
+    boards: ['Evening'],
+    color: 'Red',
+    size: 'IT 42',
+    image: '/demo/Valentino_Garavani_Multicolor_Virgin_Wool_Short_Dress_-_IT42.png',
+    ratio: 'portrait',
+    liked: true,
+    attributes: { layerType: 'none', sleeveLength: 'short', warmthRating: 'medium' },
+    colorProfile: { primaryHex: '#C41E3A', colorFamily: 'Red', undertone: 'Warm', vibrancy: 'Vivid' },
+  },
+  {
+    id: 16,
+    name: 'Embroidered Beaded Blouse',
+    brand: 'Zara',
+    price: '$—',
+    material: 'Tulle & Silk Blend',
+    category: 'Tops',
+    boards: ['Evening'],
+    color: 'Cream',
+    size: 'S',
+    image: '/demo/Zara_Tops___Embroidered_Beaded_Structure_Blouse_Zara_Cream_Floral_Embroidered_Blouse___Color__Cream___Size__S.png',
+    ratio: 'portrait',
+    liked: false,
+    attributes: { layerType: 'base', sleeveLength: 'long', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#F0E8D5', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Pastel' },
+  },
+  {
+    id: 17,
+    name: 'CC Quilted Ballet Flat',
+    brand: 'Chanel',
+    price: '$—',
+    material: 'Quilted Lambskin',
+    category: 'Shoes',
+    boards: ['Workwear', 'Weekend', 'Evening'],
+    color: 'Black',
+    size: '38',
+    image: '/demo/blackchanelflats.png',
+    ratio: 'square',
+    liked: true,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+    colorProfile: { primaryHex: '#1A1A1A', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Deep' },
+  },
+  {
+    id: 18,
+    name: 'High-Rise Flare Pant',
+    brand: '—',
+    price: '$—',
+    material: 'Stretch Denim',
+    category: 'Bottoms',
+    boards: ['Workwear', 'Evening', 'Weekend'],
+    color: 'Black',
+    size: '26',
+    image: '/demo/blackpants.png',
+    ratio: 'tall',
+    liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#1A1A1A', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Deep' },
+  },
+  {
+    id: 19,
+    name: 'Wrap Tie Blouse',
+    brand: '—',
+    price: '$—',
+    material: 'Cotton Poplin',
+    category: 'Tops',
+    boards: ['Workwear', 'Weekend'],
+    color: 'Light Blue',
+    size: 'S',
+    image: '/demo/bluelong.png',
+    ratio: 'portrait',
+    liked: false,
+    attributes: { layerType: 'base', sleeveLength: 'long', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#A8C4D8', colorFamily: 'Blue', undertone: 'Cool', vibrancy: 'Pastel' },
+  },
+  {
+    id: 20,
+    name: 'Camellia Leather Jacket',
+    brand: 'Chanel',
+    price: '$—',
+    material: 'Lambskin Leather',
+    category: 'Outerwear',
+    boards: ['Outerwear', 'Evening', 'Weekend'],
+    color: 'Black',
+    size: '36 FR',
+    image: '/demo/camellia leather jacket.png',
+    ratio: 'portrait',
+    liked: false,
+    attributes: { layerType: 'outer', sleeveLength: 'long', warmthRating: 'medium' },
+    colorProfile: { primaryHex: '#1A1A1A', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Deep' },
+  },
+  {
+    id: 21,
+    name: 'Cashmere Turtleneck',
+    brand: '—',
+    price: '$—',
+    material: '100% Cashmere',
+    category: 'Knitwear & Sweaters',
+    boards: ['Basics', 'Weekend'],
+    color: 'Ivory',
+    size: 'S',
+    image: '/demo/cashmeresweater.png',
+    ratio: 'portrait',
+    liked: false,
+    attributes: { layerType: 'mid', sleeveLength: 'long', warmthRating: 'warm' },
+    colorProfile: { primaryHex: '#F5F0E6', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Pastel' },
+  },
+  {
+    id: 22,
+    name: 'Oversized Sunglasses',
+    brand: 'Chanel',
+    price: '$—',
+    material: 'Acetate',
+    category: 'Accessories & Bags',
+    boards: ['Weekend', 'Evening'],
+    color: 'Black',
+    size: 'OS',
+    image: '/demo/chanelglasses.png',
+    ratio: 'square',
+    liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+    colorProfile: { primaryHex: '#1A1A1A', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Deep' },
+  },
+  {
+    id: 23,
+    name: 'One-Shoulder Charmeuse Top',
+    brand: '—',
+    price: '$—',
+    material: 'Silk Charmeuse',
+    category: 'Tops',
+    boards: ['Evening', 'Weekend'],
+    color: 'Olive',
+    size: 'XS',
+    image: '/demo/charmeuse olive top.png',
+    ratio: 'portrait',
+    liked: false,
+    attributes: { layerType: 'base', sleeveLength: 'none', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#4A5C30', colorFamily: 'Green', undertone: 'Warm', vibrancy: 'Muted' },
+  },
+  {
+    id: 24,
+    name: 'Dark Wash Bootcut Jean',
+    brand: '—',
+    price: '$—',
+    material: 'Stretch Denim',
+    category: 'Bottoms',
+    boards: ['Weekend', 'Basics'],
+    color: 'Dark Indigo',
+    size: '26',
+    image: '/demo/darkjeans.png',
+    ratio: 'tall',
+    liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#1E2F4A', colorFamily: 'Blue', undertone: 'Cool', vibrancy: 'Deep' },
+  },
+  {
+    id: 25,
+    name: 'Crochet Knit Midi Dress',
+    brand: 'Sandro',
+    price: '$—',
+    material: 'Cotton Crochet Knit',
+    category: 'Dresses & Jumpsuits',
+    boards: ['Weekend', 'Evening'],
+    color: 'Pale Yellow',
+    size: 'XS',
+    image: '/demo/dress.png',
+    ratio: 'tall',
+    liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'short', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#F5E9A0', colorFamily: 'Yellow', undertone: 'Warm', vibrancy: 'Pastel' },
+  },
+  {
+    id: 26,
+    name: 'Light Wash Flare Jean',
+    brand: '—',
+    price: '$—',
+    material: 'Stretch Denim',
+    category: 'Bottoms',
+    boards: ['Weekend', 'Basics'],
+    color: 'Light Wash Blue',
+    size: '26',
+    image: '/demo/flare jeans.png',
+    ratio: 'tall',
+    liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#9DB8D0', colorFamily: 'Blue', undertone: 'Cool', vibrancy: 'Pastel' },
+  },
+  {
+    id: 27,
+    name: 'Super-Star Sneaker',
+    brand: 'Golden Goose',
+    price: '$—',
+    material: 'Leather & Glitter',
+    category: 'Shoes',
+    boards: ['Weekend', 'Basics'],
+    color: 'White & Gold',
+    size: '38',
+    image: '/demo/ggsneaker.png',
+    ratio: 'square',
+    liked: true,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+    colorProfile: { primaryHex: '#F5F0E6', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Muted' },
+  },
+  {
+    id: 28,
+    name: 'Belted Knit Maxi Dress',
+    brand: '—',
+    price: '$—',
+    material: 'Wool Bouclé Knit',
+    category: 'Dresses & Jumpsuits',
+    boards: ['Evening', 'Weekend'],
+    color: 'Oatmeal',
+    size: 'XS',
+    image: '/demo/knitdress.png',
+    ratio: 'tall',
+    liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'long', warmthRating: 'medium' },
+    colorProfile: { primaryHex: '#D8CCBA', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Pastel' },
+  },
+  {
+    id: 29,
+    name: 'Off-Shoulder Knit Top',
+    brand: 'Michael Kors',
+    price: '$—',
+    material: 'Ribbed Knit',
+    category: 'Tops',
+    boards: ['Workwear', 'Evening'],
+    color: 'Black',
+    size: 'XS',
+    image: '/demo/michael_kors_top_.png',
+    ratio: 'portrait',
+    liked: false,
+    attributes: { layerType: 'base', sleeveLength: 'long', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#1A1A1A', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Deep' },
+  },
+  {
+    id: 30,
+    name: 'Crystal-Heel Mary Jane',
+    brand: 'Miu Miu',
+    price: '$—',
+    material: 'Satin & Crystal',
+    category: 'Shoes',
+    boards: ['Evening'],
+    color: 'Olive Green',
+    size: '38',
+    image: '/demo/miumiu.png',
+    ratio: 'square',
+    liked: true,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+    colorProfile: { primaryHex: '#6B7A3A', colorFamily: 'Green', undertone: 'Warm', vibrancy: 'Muted' },
+  },
+  {
+    id: 31,
+    name: 'Ojima Ruffle Top',
+    brand: 'Isabel Marant',
+    price: '$—',
+    material: 'Silk Chiffon',
+    category: 'Tops',
+    boards: ['Evening', 'Weekend'],
+    color: 'Blush',
+    size: 'XS',
+    image: '/demo/ojima top.png',
+    ratio: 'portrait',
+    liked: false,
+    attributes: { layerType: 'base', sleeveLength: 'none', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#E8C4B8', colorFamily: 'Pink', undertone: 'Warm', vibrancy: 'Pastel' },
+  },
+  {
+    id: 32,
+    name: 'Polka Dot Cap-Sleeve Top',
+    brand: '—',
+    price: '$—',
+    material: 'Jersey',
+    category: 'Tops',
+    boards: ['Weekend', 'Workwear'],
+    color: 'Cream & Black',
+    size: 'S',
+    image: '/demo/polkadot.png',
+    ratio: 'portrait',
+    liked: false,
+    attributes: { layerType: 'base', sleeveLength: 'short', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#F5F0E0', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Pastel' },
+  },
+  {
+    id: 33,
+    name: 'Black Ribbed Turtleneck',
+    brand: 'Ralph Lauren',
+    price: '$—',
+    material: 'Merino Wool Rib Knit',
+    category: 'Knitwear & Sweaters',
+    boards: ['Basics', 'Workwear', 'Weekend'],
+    color: 'Black',
+    size: 'XS',
+    image: '/demo/rlblacksweater.png',
+    ratio: 'portrait',
+    liked: false,
+    attributes: { layerType: 'mid', sleeveLength: 'long', warmthRating: 'warm' },
+    colorProfile: { primaryHex: '#1A1A1A', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Deep' },
+  },
+  {
+    id: 34,
+    name: 'Burgundy Ribbed Turtleneck',
+    brand: 'Ralph Lauren',
+    price: '$—',
+    material: 'Merino Wool Rib Knit',
+    category: 'Knitwear & Sweaters',
+    boards: ['Basics', 'Weekend'],
+    color: 'Burgundy',
+    size: 'XS',
+    image: '/demo/rlburgundysweater.png',
+    ratio: 'portrait',
+    liked: false,
+    attributes: { layerType: 'mid', sleeveLength: 'long', warmthRating: 'warm' },
+    colorProfile: { primaryHex: '#5C1A2A', colorFamily: 'Red', undertone: 'Cool', vibrancy: 'Deep' },
+  },
+  {
+    id: 35,
+    name: 'Shearling Wrap Coat',
+    brand: '—',
+    price: '$—',
+    material: 'Shearling Lamb',
+    category: 'Outerwear',
+    boards: ['Outerwear', 'Weekend'],
+    color: 'Camel',
+    size: 'S',
+    image: '/demo/shearling coat.png',
+    ratio: 'portrait',
+    liked: false,
+    attributes: { layerType: 'outer', sleeveLength: 'long', warmthRating: 'heavy' },
+    colorProfile: { primaryHex: '#C4A882', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Muted' },
+  },
+  {
+    id: 36,
+    name: 'Draped Silk Top',
+    brand: '—',
+    price: '$—',
+    material: '100% Silk',
+    category: 'Tops',
+    boards: ['Evening', 'Workwear'],
+    color: 'Ivory',
+    size: 'XS',
+    image: '/demo/silk top.png',
+    ratio: 'portrait',
+    liked: false,
+    attributes: { layerType: 'base', sleeveLength: 'none', warmthRating: 'light' },
+    colorProfile: { primaryHex: '#F5F0E0', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Pastel' },
+  },
+  {
+    id: 37,
+    name: 'Suede Flare Pant',
+    brand: '—',
+    price: '$—',
+    material: 'Genuine Suede',
+    category: 'Bottoms',
+    boards: ['Weekend', 'Evening'],
+    color: 'Camel',
+    size: '26',
+    image: '/demo/suedejeans.png',
+    ratio: 'portrait',
+    liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'medium' },
+    colorProfile: { primaryHex: '#C4A06A', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Muted' },
+  },
+  {
+    id: 38,
+    name: 'Ava Top-Handle Bag',
+    brand: 'Teddy Blake',
+    price: '$—',
+    material: 'Pebbled Leather',
+    category: 'Accessories & Bags',
+    boards: ['Workwear', 'Weekend', 'Evening'],
+    color: 'Cream',
+    size: 'OS',
+    image: '/demo/teddyblakeava.png',
+    ratio: 'square',
+    liked: false,
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+    colorProfile: { primaryHex: '#D8CDB8', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Muted' },
+  },
+  {
+    id: 39,
+    name: 'Westminster Trench Coat',
     brand: 'Burberry',
     price: '$2,290',
     material: 'Cotton Gabardine',
@@ -166,171 +694,43 @@ const ITEMS = [
     boards: ['Outerwear', 'Workwear', 'Weekend'],
     color: 'Honey',
     size: 'UK 8',
-    image: 'https://images.unsplash.com/photo-1539533018447-63fcce2678e3?auto=format&fit=crop&w=500&q=80',
-    ratio: 'portrait',
-    liked: false,
+    image: '/demo/trench coat.png',
+    ratio: 'tall',
+    liked: true,
     attributes: { layerType: 'outer', sleeveLength: 'long', warmthRating: 'light' },
     colorProfile: { primaryHex: '#C8922A', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Muted' },
   },
   {
-    id: 7,
-    name: 'Numéro Un Tote',
-    brand: 'Polène',
-    price: '$360',
-    material: 'Suede Leather',
-    category: 'Bags',
+    id: 40,
+    name: 'Cera Suede Ankle Boot',
+    brand: 'Veronica Beard',
+    price: '$—',
+    material: 'Suede',
+    category: 'Shoes',
     boards: ['Weekend', 'Workwear'],
-    color: 'Caramel',
-    size: 'OS',
-    image: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=500&q=80',
-    ratio: 'square',
-    liked: true,
-    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
-    colorProfile: { primaryHex: '#B5733B', colorFamily: 'Brown', undertone: 'Warm', vibrancy: 'Muted' },
-  },
-  {
-    id: 8,
-    name: 'Ribbed Modal Tank',
-    brand: 'Toteme',
-    price: '$120',
-    material: '90% Modal, 10% Elastane',
-    category: 'Tops',
-    boards: ['Basics', 'Weekend'],
-    color: 'Off White',
-    size: 'XS / S',
-    image: 'https://images.unsplash.com/photo-1594938298603-c8148c4b02e0?auto=format&fit=crop&w=500&q=80',
-    ratio: 'portrait',
-    liked: false,
-    attributes: { layerType: 'base', sleeveLength: 'none', warmthRating: 'light' },
-    colorProfile: { primaryHex: '#F2EDE4', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Pastel' },
-  },
-  {
-    id: 9,
-    name: 'Fluid Wide-Leg Trouser',
-    brand: 'COS',
-    price: '$155',
-    material: '65% Viscose, 35% Linen',
-    category: 'Bottoms',
-    boards: ['Workwear'],
-    color: 'Stone',
-    size: 'S',
-    image: 'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?auto=format&fit=crop&w=500&q=80',
-    ratio: 'tall',
-    liked: false,
-    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'light' },
-    colorProfile: { primaryHex: '#A89880', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Muted' },
-  },
-  {
-    id: 10,
-    name: 'Nappa Ankle Boot',
-    brand: 'ATP Atelier',
-    price: '$380',
-    material: 'Vegetable-tanned Nappa',
-    category: 'Footwear',
-    boards: ['Evening', 'Weekend'],
-    color: 'Cognac',
-    size: '38',
-    image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=500&q=80',
-    ratio: 'square',
-    liked: true,
-    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
-    colorProfile: { primaryHex: '#8B4513', colorFamily: 'Brown', undertone: 'Warm', vibrancy: 'Deep' },
-  },
-  {
-    id: 11,
-    name: 'Linen Popover Shirt',
-    brand: 'Uniqlo',
-    price: '$39.90',
-    material: '100% French Linen',
-    category: 'Tops',
-    boards: ['Basics', 'Weekend'],
-    color: 'White',
-    size: 'S',
-    image: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=500&q=80',
-    ratio: 'portrait',
-    liked: false,
-    attributes: { layerType: 'base', sleeveLength: 'long', warmthRating: 'light' },
-    colorProfile: { primaryHex: '#FAFAFA', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Muted' },
-  },
-  {
-    id: 12,
-    name: '101801 Camel Coat',
-    brand: 'Max Mara',
-    price: '$1,840',
-    material: 'Camel Hair & Wool Blend',
-    category: 'Outerwear',
-    boards: ['Outerwear', 'Workwear'],
-    color: 'Camel',
-    size: '38 IT',
-    image: 'https://images.unsplash.com/photo-1583744946564-b432d563933f?auto=format&fit=crop&w=500&q=80',
-    ratio: 'tall',
-    liked: true,
-    attributes: { layerType: 'outer', sleeveLength: 'long', warmthRating: 'heavy' },
-    colorProfile: { primaryHex: '#C19A6B', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Muted' },
-  },
-  {
-    id: 13,
-    name: 'Pleated Satin Skirt',
-    brand: 'Sandro',
-    price: '$295',
-    material: '100% Polyester Satin',
-    category: 'Bottoms',
-    boards: ['Evening'],
-    color: 'Champagne',
-    size: '36 FR',
-    image: 'https://images.unsplash.com/photo-1583496661160-fb5974ca5f59?auto=format&fit=crop&w=500&q=80',
-    ratio: 'portrait',
-    liked: false,
-    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'light' },
-    colorProfile: { primaryHex: '#E8D5A3', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Pastel' },
-  },
-  {
-    id: 14,
-    name: 'Tailored City Blazer',
-    brand: 'Zara',
-    price: '$99.90',
-    material: 'Polyester Blend',
-    category: 'Outerwear',
-    boards: ['Workwear'],
     color: 'Black',
-    size: 'S',
-    image: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=500&q=80',
+    size: '38',
+    image: '/demo/veronicabeardceraboots.png',
     ratio: 'square',
     liked: false,
-    attributes: { layerType: 'mid', sleeveLength: 'long', warmthRating: 'light' },
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
     colorProfile: { primaryHex: '#1A1A1A', colorFamily: 'Neutral', undertone: 'Neutral', vibrancy: 'Deep' },
   },
   {
-    id: 15,
-    name: 'Chunky Knit Sweater',
-    brand: 'Arket',
-    price: '$169',
-    material: '100% Lambswool',
-    category: 'Tops',
-    boards: ['Basics', 'Weekend'],
-    color: 'Oatmeal',
-    size: 'S',
-    image: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?auto=format&fit=crop&w=500&q=80',
-    ratio: 'portrait',
-    liked: true,
-    attributes: { layerType: 'mid', sleeveLength: 'long', warmthRating: 'warm' },
-    colorProfile: { primaryHex: '#D4C5A9', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Pastel' },
-  },
-  {
-    id: 16,
-    name: 'Floral Chiffon Gown',
-    brand: 'Self-Portrait',
-    price: '$560',
-    material: 'Silk Chiffon & Lace',
-    category: 'Dresses',
-    boards: ['Evening'],
-    color: 'Floral Multi',
-    size: 'US 6',
-    image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=500&q=80',
-    ratio: 'tall',
+    id: 41,
+    name: 'Raffia Wedge Sandal',
+    brand: 'Jimmy Choo',
+    price: '$—',
+    material: 'Raffia & Metallic Leather',
+    category: 'Shoes',
+    boards: ['Evening', 'Weekend'],
+    color: 'Gold',
+    size: '38',
+    image: '/demo/wedges.png',
+    ratio: 'square',
     liked: false,
-    attributes: { layerType: 'none', sleeveLength: 'short', warmthRating: 'light' },
-    colorProfile: { primaryHex: '#E8B4C8', colorFamily: 'Pink', undertone: 'Cool', vibrancy: 'Pastel' },
+    attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
+    colorProfile: { primaryHex: '#C4A456', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Muted' },
   },
 ];
 
@@ -1990,6 +2390,20 @@ function wmoCondition(code) {
   return           { label: 'Thunderstorm',        Icon: CloudLightning, bg: 'linear-gradient(160deg,#1A1A2E,#0F3460)' };
 }
 
+// Label → icon/bg used by the static preview weather card (mirrors wmoCondition without WMO codes).
+const CONDITION_LABEL_META = {
+  'Clear':        { Icon: Sun,            bg: 'linear-gradient(160deg,#1565C0,#1E88E5 55%,#42A5F5)' },
+  'Partly Cloudy':{ Icon: CloudSun,       bg: 'linear-gradient(160deg,#1976D2,#546E7A)' },
+  'Overcast':     { Icon: Cloud,          bg: 'linear-gradient(160deg,#37474F,#546E7A)' },
+  'Foggy':        { Icon: CloudFog,       bg: 'linear-gradient(160deg,#455A64,#78909C)' },
+  'Drizzle':      { Icon: CloudDrizzle,   bg: 'linear-gradient(160deg,#1A237E,#1565C0)' },
+  'Rain':         { Icon: CloudRain,      bg: 'linear-gradient(160deg,#0D47A1,#1976D2)' },
+  'Snow':         { Icon: CloudSnow,      bg: 'linear-gradient(160deg,#263238,#37474F 55%,#546E7A)' },
+  'Showers':      { Icon: CloudRain,      bg: 'linear-gradient(160deg,#0D47A1,#1976D2)' },
+  'Snow Showers': { Icon: CloudSnow,      bg: 'linear-gradient(160deg,#263238,#37474F 55%,#546E7A)' },
+  'Thunderstorm': { Icon: CloudLightning, bg: 'linear-gradient(160deg,#1A1A2E,#0F3460)' },
+};
+
 function fmtHour(ms) {
   const h = new Date(ms).getHours();
   if (h === 0)  return '12am';
@@ -2173,7 +2587,7 @@ function WeatherWidget({ lat, lon, city, onCommit, onSelectLocation, onWeatherRe
         <div className="rounded-2xl overflow-hidden shadow-md" style={{ background: bg }}>
           <div className="p-3">
             {/* Location */}
-            {isEditing ? (
+            {onCommit && isEditing ? (
               <div className="flex items-center gap-1 mb-2">
                 <MapPin size={10} className="text-white/60 flex-shrink-0" />
                 <input
@@ -2186,11 +2600,16 @@ function WeatherWidget({ lat, lon, city, onCommit, onSelectLocation, onWeatherRe
                   className="bg-transparent text-[11px] font-medium text-white border-b border-white/40 focus:border-white/80 focus:outline-none w-full placeholder:text-white/40"
                 />
               </div>
-            ) : (
+            ) : onCommit ? (
               <button onClick={startEditing} className="flex items-center gap-1 mb-2 w-full min-w-0">
                 <MapPin size={10} className="text-white/60 flex-shrink-0" />
                 <span className="text-[11px] font-medium text-white/80 truncate">{city ?? DEFAULT_CITY}</span>
               </button>
+            ) : (
+              <div className="flex items-center gap-1 mb-2">
+                <MapPin size={10} className="text-white/60 flex-shrink-0" />
+                <span className="text-[11px] font-medium text-white/80 truncate">{city ?? DEFAULT_CITY}</span>
+              </div>
             )}
             {/* Temp */}
             <div className="flex items-start gap-1">
@@ -2244,10 +2663,17 @@ function WeatherWidget({ lat, lon, city, onCommit, onSelectLocation, onWeatherRe
               className="loc-pill absolute left-0 overflow-hidden"
               style={{ maxWidth: isEditing ? 0 : 280, opacity: isEditing ? 0 : 1, pointerEvents: isEditing ? 'none' : 'auto' }}
             >
-              <button onClick={startEditing} className="flex items-center gap-1.5 whitespace-nowrap">
-                <MapPin size={12} className="text-white/60 flex-shrink-0" />
-                <span className="text-sm font-medium text-white/80 tracking-wide">{city ?? DEFAULT_CITY}</span>
-              </button>
+              {onCommit ? (
+                <button onClick={startEditing} className="flex items-center gap-1.5 whitespace-nowrap">
+                  <MapPin size={12} className="text-white/60 flex-shrink-0" />
+                  <span className="text-sm font-medium text-white/80 tracking-wide">{city ?? DEFAULT_CITY}</span>
+                </button>
+              ) : (
+                <div className="flex items-center gap-1.5 whitespace-nowrap">
+                  <MapPin size={12} className="text-white/60 flex-shrink-0" />
+                  <span className="text-sm font-medium text-white/80 tracking-wide">{city ?? DEFAULT_CITY}</span>
+                </div>
+              )}
             </div>
             <div
               className="loc-input absolute left-0 overflow-hidden"
@@ -2346,10 +2772,11 @@ function buildWeatherPool(weather, allItems) {
       i.category !== 'Outerwear' || i.attributes?.warmthRating !== 'heavy'
     );
   } else if (weather.tempF < 40) {
-    // Cold: surface warmer items first, but keep everything available
-    const warm = pool.filter(i => ['heavy', 'warm', 'medium'].includes(i.attributes?.warmthRating));
-    const light = pool.filter(i => i.attributes?.warmthRating === 'light');
-    pool = [...warm, ...light];
+    // Cold: surface warmer items first; unrated items are included after rated ones
+    const warm    = pool.filter(i => ['heavy', 'warm', 'medium'].includes(i.attributes?.warmthRating));
+    const unrated = pool.filter(i => !i.attributes?.warmthRating);
+    const light   = pool.filter(i => i.attributes?.warmthRating === 'light');
+    pool = [...warm, ...unrated, ...light];
   }
 
   // Stratified sample so all outfit roles are represented
@@ -2424,6 +2851,7 @@ async function callAnthropicForOutfits(weather, allItems) {
       `5. LAYERING: Below 50°F, pair short-sleeve or base-layer tops with an "Outerwear" item.\n` +
       `6. OUTERWEAR WEIGHT: Above 65°F include no outerwear or only a very light jacket. Between 50–65°F a medium jacket or blazer is appropriate — avoid heavy coats, shearling, or thick parkas. Below 50°F heavier coats are suitable. Below 32°F heavy outerwear is expected.\n` +
       `7. DISTINCT: No two outfits may share the exact same item set.\n` +
+      `If an outfit is not fully weather-appropriate (e.g. the wardrobe lacks a heavy coat for freezing temperatures, or only light fabrics are available for rain), the "description" field may include a brief, practical recommendation for what to add or swap to make it work for the conditions.\n` +
       `Return ONLY a raw JSON array of exactly 3 objects: ` +
       `[{"outfitName":"...","description":"...","itemIds":["id1","id2",...]}]`,
   });
@@ -2553,7 +2981,14 @@ const LAYOUT_CONFIG = {
   'Activewear / Athleisure': { cx: 500, cy: 450, w: 415, h: 735, z: 3, sx: 26, sy: 10 },
   // Level 4 — Accents (shoes left-bottom, bags right-mid, jewelry top-right)
   'Shoes':                   { cx: 345, cy: 862, w: 275, h: 190, z: 4, sx: 72, sy: 10 },
-  'Accessories & Bags':      { cx: 762, cy: 545, w: 295, h: 295, z: 4, sx: 18, sy: 58 },
+  'Accessories & Bags':      {
+    cx: 762, cy: 490, w: 295, h: 295, z: 4, sx: 18, sy: 58, max: 2,
+    // Explicit per-slot positions: 1st middle-right, 2nd bottom-right (no overlap)
+    slots: [
+      { cx: 762, cy: 490 },
+      { cx: 820, cy: 790 },
+    ],
+  },
   'Jewelry':                 { cx: 762, cy: 195, w: 202, h: 202, z: 4, sx: 28, sy: 28 },
 };
 
@@ -2574,19 +3009,26 @@ function aiOutfitToCanvasItems(outfitItems) {
   }
   const canvasItems = [];
   for (const [cat, catItems] of Object.entries(groups)) {
-    const { cx, cy, w, h, z, sx, sy } = LAYOUT_CONFIG[cat];
-    const n = catItems.length;
-    catItems.forEach((item, i) => {
-      const offset = i - (n - 1) / 2;
+    const { cx, cy, w, h, z, sx, sy, slots, max } = LAYOUT_CONFIG[cat];
+    const limited = max ? catItems.slice(0, max) : catItems;
+    const n = limited.length;
+    limited.forEach((item, i) => {
+      let x, y;
+      if (slots && slots[i] !== undefined) {
+        x = Math.round(slots[i].cx - w / 2);
+        y = Math.round(slots[i].cy - h / 2);
+      } else {
+        const offset = i - (n - 1) / 2;
+        x = Math.round(cx + offset * sx - w / 2);
+        y = Math.round(cy + offset * sy - h / 2);
+      }
       canvasItems.push({
         ...item,
-        _cid:     `${item.id}-${Date.now()}-${i}`,
-        x:        Math.round(cx + offset * sx - w / 2),
-        y:        Math.round(cy + offset * sy - h / 2),
-        w,
-        h,
-        rotation: 0,
-        zIndex:   z,
+        _cid:      `${item.id}-${Date.now()}-${i}`,
+        x, y, w, h,
+        rotation:  0,
+        zIndex:    z,
+        _aiLayout: true, // box sized from LAYOUT_CONFIG (non-uniform A4 scale); skip canCrop in editor
       });
     });
   }
@@ -2644,16 +3086,21 @@ function OutfitCollage({ items }) {
 
   const placed = [];
   for (const [cat, catItems] of Object.entries(groups)) {
-    const { cx, cy, w, h, z, sx: dsx, sy: dsy } = LAYOUT_CONFIG[cat];
-    const n = catItems.length;
-    catItems.forEach((item, i) => {
-      const offset = i - (n - 1) / 2;
-      placed.push({
-        item,
-        left: Math.round(cx + offset * dsx - w / 2),
-        top:  Math.round(cy + offset * dsy - h / 2),
-        w, h, z,
-      });
+    const slot = LAYOUT_CONFIG[cat];
+    const { cx, cy, w, h, z, sx: dsx, sy: dsy, slots, max } = slot;
+    const limited = max ? catItems.slice(0, max) : catItems;
+    const n = limited.length;
+    limited.forEach((item, i) => {
+      let left, top;
+      if (slots && slots[i] !== undefined) {
+        left = Math.round(slots[i].cx - w / 2);
+        top  = Math.round(slots[i].cy - h / 2);
+      } else {
+        const offset = i - (n - 1) / 2;
+        left = Math.round(cx + offset * dsx - w / 2);
+        top  = Math.round(cy + offset * dsy - h / 2);
+      }
+      placed.push({ item, left, top, w, h, z });
     });
   }
 
@@ -2863,6 +3310,35 @@ function LocationBar({ city, onCommit, onSelectLocation }) {
   );
 }
 
+// Static demo outfits shown to non-logged-in users — one set per preset city, never changes.
+const PREVIEW_CITY_OUTFITS = {
+  'New York, NY': [
+    { outfitName: 'Winter Polish',    description: 'Cashmere warmth meets tailored structure for a cold overcast day.', itemIds: [21, 24, 40, 35, 1]  },
+    { outfitName: 'Puff & Polish',    description: 'Max warmth with a sleek monochrome silhouette.',                    itemIds: [33, 18, 4,  12, 3]  },
+    { outfitName: 'Warm Tones',       description: 'Rich burgundy and camel cut through a grey winter morning.',       itemIds: [34, 37, 40, 39, 38] },
+  ],
+  'Los Angeles, CA': [
+    { outfitName: 'Sunny Edit',       description: 'Effortless warm-weather dressing for a clear LA day.',             itemIds: [11, 26, 27, 38, 22] },
+    { outfitName: 'Boho Glam',        description: 'Flowy silk and a floral skirt — perfect for the sunshine.',        itemIds: [23, 7,  41, 1]      },
+    { outfitName: 'Garden Party',     description: 'Polished and playful in the California sun.',                      itemIds: [31, 9,  30, 13]     },
+  ],
+  'Miami, FL': [
+    { outfitName: 'Miami Afternoon',  description: 'Breezy crochet and wedges for a tropical afternoon.',              itemIds: [25, 41, 22, 38]     },
+    { outfitName: 'Poolside Glam',    description: 'Draped silk and crystal heels — resort elegance.',                 itemIds: [36, 7,  30, 2]      },
+    { outfitName: 'Rain-Ready',       description: 'Light and practical for when the afternoon showers arrive.',       itemIds: [19, 26, 4,  1]      },
+  ],
+  'Chicago, IL': [
+    { outfitName: 'Blizzard Chic',    description: 'Staying warm and stylish when it snows.',                          itemIds: [21, 18, 4,  12, 3]  },
+    { outfitName: 'Deep Freeze',      description: 'Sleek tonal layers built for the coldest days.',                   itemIds: [33, 24, 40, 35, 1]  },
+    { outfitName: 'Scarlet Snow',     description: 'A pop of burgundy against a grey winter cityscape.',               itemIds: [34, 37, 4,  12, 38] },
+  ],
+  'Seattle, WA': [
+    { outfitName: 'Northwest Classic',description: 'A timeless trench-and-boot rainy-day uniform.',                    itemIds: [19, 24, 4,  39, 1]  },
+    { outfitName: 'Rainy Layers',     description: 'Cashmere and leather keep the drizzle at bay.',                    itemIds: [21, 37, 4,  20, 38] },
+    { outfitName: 'Effortless Grey',  description: 'Understated and polished for a cool overcast morning.',            itemIds: [29, 10, 40, 39, 13] },
+  ],
+};
+
 function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = false }) {
   const [location,       setLocation]       = useState({ city: null, lat: null, lon: null });
   const [weatherSummary, setWeatherSummary] = useState(null);
@@ -2925,10 +3401,23 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
       () => setLocation({ city: DEFAULT_CITY, lat: DEFAULT_LAT, lon: DEFAULT_LON }),
       { timeout: 8000 }
     );
-  }, []);
+  }, [isPreview]);
+
+  // Preview mode: load the static city outfits whenever the city changes — no AI, no cache
+  useEffect(() => {
+    if (!isPreview || !location.city) return;
+    const cityOutfits = PREVIEW_CITY_OUTFITS[location.city];
+    if (cityOutfits) {
+      setOutfits(cityOutfits);
+      setGenError(null);
+      setCurrentIdx(0);
+      outfitWeatherRef.current = weatherSummary;
+    }
+  }, [isPreview, location.city]);
 
   // Load cache or generate outfits — keyed by date + city
   useEffect(() => {
+    if (isPreview) return; // preview uses static PREVIEW_CITY_OUTFITS above
     if (!weatherSummary || items.length === 0 || !location.city) return;
     // Skip regen if weather hasn't changed meaningfully since last generation
     if (!weatherNeedsRegen(outfitWeatherRef.current, weatherSummary)) return;
@@ -2940,6 +3429,7 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
       // All outfits still valid — use cache unchanged
       if (goodOutfits.length === cached.length) {
         setOutfits(cached);
+        setGenError(null);
         outfitWeatherRef.current = weatherSummary;
         return;
       }
@@ -3297,13 +3787,42 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
               {/* Weather Report */}
               <div className="mt-5 w-full">
                 <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-[0.14em] mb-2">Weather Report</p>
-                <WeatherWidget
-                  lat={location.lat}
-                  lon={location.lon}
-                  city={location.city}
-                  onCommit={handleCitySearch}
-                  onSelectLocation={handleSelectLocation}
-                />
+                {isPreview && weatherSummary ? (() => {
+                  const meta = CONDITION_LABEL_META[weatherSummary.conditionLabel] ?? CONDITION_LABEL_META['Clear'];
+                  const CondIcon = meta.Icon;
+                  return (
+                    <div className="rounded-3xl overflow-hidden" style={{ background: meta.bg }}>
+                      <div className="px-6 pt-5">
+                        <div className="flex items-center gap-1.5">
+                          <MapPin size={12} className="text-white/60 flex-shrink-0" />
+                          <span className="text-sm font-medium text-white/80 tracking-wide">{location.city}</span>
+                        </div>
+                      </div>
+                      <div className="px-6 pt-3 pb-5 flex items-center justify-between">
+                        <div className="flex items-start">
+                          <span className="text-[68px] font-thin text-white leading-none tracking-tight">{weatherSummary.tempF}</span>
+                          <span className="text-xl font-light text-white/60 mt-3 ml-0.5">°F</span>
+                        </div>
+                        <div className="text-right">
+                          <div className="flex items-center gap-2 justify-end mb-2">
+                            <CondIcon size={20} className="text-white/90" strokeWidth={1.8} />
+                            <span className="text-[17px] font-medium text-white">{weatherSummary.conditionLabel}</span>
+                          </div>
+                          <p className="text-sm text-white/60 font-medium tracking-wide">H: {weatherSummary.highF}°  ·  L: {weatherSummary.lowF}°</p>
+                          {weatherSummary.laterCondition && (
+                            <p className="text-xs text-white/50 mt-0.5">{weatherSummary.laterCondition} later</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })() : (
+                  <WeatherWidget
+                    lat={location.lat}
+                    lon={location.lon}
+                    city={location.city}
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -4005,7 +4524,9 @@ function CreateOutfitModal({ initialItem, initialCanvasItems, initialBgColor, in
                 >
                   {(() => {
                     const trim = _trimCache.get(item.image) ?? null;
-                    const canCrop = trim && trim.nw && trim.nh &&
+                    // Skip crop-fit for AI-layout items: their box AR comes from LAYOUT_CONFIG scaled
+                    // non-uniformly to A4, so it won't match the content AR and the image would stretch.
+                    const canCrop = !item._aiLayout && trim && trim.nw && trim.nh &&
                       Math.abs(item.w / item.h - (trim.fw * trim.nw) / (trim.fh * trim.nh)) < 0.05;
                     return canCrop ? (
                       <img
@@ -6011,8 +6532,8 @@ export default function WardrobeApp() {
       return { id, name, items: aiOutfitToCanvasItems(outfitItems), bgColor: '#FFFFFF', canvasWidth: DESIGN_W, canvasHeight: DESIGN_H, liked: false, boards: [], thumbnail: '' };
     };
     return [
-      build('preview-1', 'Weekend Casual', [8, 5, 3, 7]),
-      build('preview-2', 'Work Ready',     [11, 9, 10, 7]),
+      build('preview-1', 'Weekend Casual', [11, 26, 27, 38]),
+      build('preview-2', 'Work Ready',     [8, 14, 1, 13]),
     ];
   });
   const [likedItems, setLikedItems]       = useState(() => new Set());
@@ -6402,7 +6923,9 @@ export default function WardrobeApp() {
       case 'today':   return (
         <TodayTab
           items={previewItems}
-          onSaveToPublished={handleSaveOutfit}
+          onSaveToPublished={isPreview
+            ? collage => { if (collage.items?.length) setPreviewSavedOutfits(prev => [{ ...collage, id: `preview-${Date.now()}`, liked: false, boards: [] }, ...prev]); }
+            : handleSaveOutfit}
           onEditInStudio={collage => { setPendingAiCollage(collage); setActiveTab('studio'); }}
           isPreview={isPreview}
         />
