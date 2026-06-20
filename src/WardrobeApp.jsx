@@ -5080,7 +5080,7 @@ function StudioTab({
   pendingAiCollage, onClearPendingAiCollage, items, boards,
   outfitBoards, outfitBoardMeta, likedOutfits,
   onCreateOutfitBoard, onDeleteOutfitBoard, onEditOutfitBoard, onToggleOutfitBoard, onToggleOutfitLike,
-  isPreview = false, previewCollages = [],
+  isPreview = false, previewCollages = [], userId = null,
 }) {
   const [showCreate, setShowCreate]               = useState(false);
   const [createSeed, setCreateSeed]               = useState(null);
@@ -5172,8 +5172,29 @@ function StudioTab({
     return l;
   };
 
-  const filteredDrafts = applyFilters(draftOutfits);
-  const filteredSaved  = applyFilters(isPreview ? previewCollages : savedOutfits);
+  const studioOrderKey = `studio-order-${userId || 'guest'}-${activeOutfitFilter}-${outfitFavoritesOnly ? 'fav' : 'all'}`;
+
+  const orderedCombined = (() => {
+    const combined = [
+      ...applyFilters(draftOutfits),
+      ...applyFilters(isPreview ? previewCollages : savedOutfits),
+    ];
+    try {
+      const saved = localStorage.getItem(studioOrderKey);
+      if (saved) {
+        const ids = JSON.parse(saved);
+        const idMap = new Map(combined.map(o => [o.id, o]));
+        const ordered = ids.flatMap(id => idMap.has(id) ? [idMap.get(id)] : []);
+        const seenIds = new Set(ids);
+        const newItems = combined.filter(o => !seenIds.has(o.id));
+        return [...newItems, ...ordered];
+      }
+    } catch {}
+    return combined;
+  })();
+
+  const filteredDrafts = orderedCombined.filter(o => draftIds.has(o.id));
+  const filteredSaved  = orderedCombined.filter(o => !draftIds.has(o.id));
 
   const openCollageForEditing = (outfit, type) => {
     setCreateSeed(null);
@@ -5192,6 +5213,9 @@ function StudioTab({
   };
 
   const exitOrganize = () => {
+    try {
+      localStorage.setItem(studioOrderKey, JSON.stringify(organizedList.map(o => o.id)));
+    } catch {}
     setOrganizeMode(false);
     setOrganizedList([]);
     setSelectedOutfitIds(new Set());
@@ -7301,6 +7325,7 @@ export default function WardrobeApp() {
               onToggleOutfitLike={toggleOutfitLike}
               isPreview={isPreview}
               previewCollages={previewCollages}
+              userId={user?.id}
             />
           </div>
         )}
