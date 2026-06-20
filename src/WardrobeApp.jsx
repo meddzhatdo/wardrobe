@@ -6410,6 +6410,7 @@ function collageToDbPayload(collage) {
    ───────────────────────────────────────────────────────────────────────────── */
 function AuthModal({ onClose }) {
   const [mode, setMode]         = useState('signin');
+  const [name, setName]         = useState('');
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -6432,7 +6433,7 @@ function AuthModal({ onClose }) {
         if (data.user) {
           await supabase.from('profiles').insert({
             id: data.user.id,
-            name: '',
+            name: name.trim(),
             bio: '',
             top_size: '',
             bottom_size: '',
@@ -6482,7 +6483,7 @@ function AuthModal({ onClose }) {
                 We sent a confirmation link to <span className="font-medium text-gray-700">{email}</span>. Open it to activate your account, then come back and sign in.
               </p>
               <button
-                onClick={() => { setVerified(false); setMode('signin'); setPassword(''); setError(''); }}
+                onClick={() => { setVerified(false); setMode('signin'); setName(''); setPassword(''); setError(''); }}
                 className="w-full py-3 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-700 transition-colors"
               >
                 Back to sign in
@@ -6506,6 +6507,19 @@ function AuthModal({ onClose }) {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                {mode === 'signup' && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Name</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      placeholder="Your name"
+                      required
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-gray-400 transition-colors"
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1.5">Email</label>
                   <input
