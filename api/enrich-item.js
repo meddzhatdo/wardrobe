@@ -1,14 +1,35 @@
+import { createClient } from '@supabase/supabase-js';
+
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://wardrobe-app.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token) return res.status(401).json({ error: 'Missing auth token' });
+
+  const supabase = createClient(
+    process.env.VITE_SUPABASE_URL,
+    process.env.VITE_SUPABASE_ANON_KEY,
+  );
+  const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
+  if (authErr || !user) return res.status(401).json({ error: 'Invalid token' });
+
   const { imageUrl, imageBase64, mediaType, name, brand, category, material, color } = req.body;
 
   if (!imageUrl && !imageBase64) return res.status(400).json({ error: 'imageUrl or imageBase64 is required' });
+
+  const sanitize = (val, max) =>
+    typeof val === 'string' ? val.replace(/[\r\n\t`]/g, ' ').slice(0, max).trim() : '';
+
+  const safeName     = sanitize(name,     80)  || 'unknown';
+  const safeBrand    = sanitize(brand,    50)  || 'unknown';
+  const safeCategory = sanitize(category, 50)  || 'unknown';
+  const safeMaterial = sanitize(material, 50)  || 'unknown';
+  const safeColor    = sanitize(color,    50)  || 'unknown';
 
   const systemPrompt = `You are a fashion AI that returns structured JSON. Return ONLY valid JSON — no markdown, no explanation.`;
 
@@ -19,7 +40,7 @@ export default async function handler(req, res) {
   }
 }
 
-Item context: "${name ?? ''}" by ${brand ?? 'unknown'}, category: ${category ?? 'unknown'}, material: ${material ?? 'unknown'}, color: ${color ?? 'unknown'}.
+Item context: "${safeName}" by ${safeBrand}, category: ${safeCategory}, material: ${safeMaterial}, color: ${safeColor}.
 
 Rules for warmthRating:
 - none: non-clothing items (shoes, bags, accessories, jewelry)
@@ -59,7 +80,7 @@ Rules for warmthRating:
     if (!response.ok) {
       const err = await response.text();
       console.error('Claude API error:', err);
-      return res.status(502).json({ error: 'Claude API error', detail: err });
+      return res.status(502).json({ error: 'AI service unavailable' });
     }
 
     const data = await response.json();
@@ -75,6 +96,6 @@ Rules for warmthRating:
     return res.status(200).json(result);
   } catch (err) {
     console.error('enrich-item error:', err);
-    return res.status(500).json({ error: 'Internal server error', detail: err.message });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }

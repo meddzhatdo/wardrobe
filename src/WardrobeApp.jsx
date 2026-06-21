@@ -6031,9 +6031,16 @@ async function enrichItem({ imageUrl, imageFile, name, brand, category, material
   const body = imageFile
     ? { imageBase64: await fileToBase64(imageFile), mediaType: imageFile.type, name, brand, category, material, color }
     : { imageUrl, name, brand, category, material, color };
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+
   const res = await fetch('/api/enrich-item', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+    },
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error('Enrichment failed');
