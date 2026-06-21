@@ -5,9 +5,9 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Sun, Shirt, Wand2, Sparkles,
+  Sun, Shirt, Wand2, Sparkles, BarChart2,
   X, Heart, Plus, Search, ChevronRight, ChevronLeft, ChevronDown, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal, SlidersHorizontal,
-  Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut, Download, Eraser, MapPin, Bookmark,
+  Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut, Download, Eraser, MapPin, Bookmark, CheckCircle2,
   Eye, EyeOff,
   Cloud, CloudSun, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, CloudFog,
 } from 'lucide-react';
@@ -753,10 +753,11 @@ const ITEMS = [
    Nav config
    ───────────────────────────────────────────────────────────────────────────── */
 const TABS = [
-  { id: 'today',    label: 'Today',      Icon: Sun      },
-  { id: 'wardrobe', label: 'Wardrobe',   Icon: Shirt    },
-  { id: 'studio',   label: 'Studio',     Icon: Wand2    },
-  { id: 'stylist',  label: 'AI Stylist', Icon: Sparkles },
+  { id: 'today',     label: 'Today',      Icon: Sun       },
+  { id: 'wardrobe',  label: 'Wardrobe',   Icon: Shirt     },
+  { id: 'studio',    label: 'Studio',     Icon: Wand2     },
+  { id: 'analytics', label: 'Analytics',  Icon: BarChart2 },
+  { id: 'stylist',   label: 'AI Stylist', Icon: Sparkles  },
 ];
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -3356,7 +3357,7 @@ const PREVIEW_CITY_OUTFITS = {
   ],
 };
 
-function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = false, userId = null, userProfile = {} }) {
+function TodayTab({ items = [], onSaveToPublished, onEditInStudio, onLogWorn, wearLogs = [], isPreview = false, userId = null, userProfile = {} }) {
   const [location,       setLocation]       = useState({ city: null, lat: null, lon: null });
   const [weatherSummary, setWeatherSummary] = useState(null);
   const [outfits,        setOutfits]        = useState([]);
@@ -3366,7 +3367,10 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
   const [retryKey,       setRetryKey]       = useState(0);
   const [saveState,      setSaveState]      = useState('idle'); // 'idle' | 'saving' | 'saved'
   const [locationMenuOpen, setLocationMenuOpen] = useState(false);
-  const locationMenuRef = useRef(null);
+  const [wornItemIds,    setWornItemIds]    = useState(() => new Set());
+  const [logState,       setLogState]       = useState('idle'); // 'idle' | 'saving' | 'saved'
+  const locationMenuRef  = useRef(null);
+  const wornSectionRef   = useRef(null);
   const collageScale     = useCollageScale();
   const outfitWeatherRef = useRef(null); // weather that generated the current outfits
   const directionRef     = useRef('right'); // tracks nav direction for slide animation
@@ -3606,6 +3610,23 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
     });
   };
 
+  const handleWoreThis = () => {
+    if (!outfitItems.length) return;
+    setWornItemIds(new Set(outfitItems.map(i => String(i.id))));
+    setTimeout(() => wornSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  };
+
+  const handleLogWornToday = async () => {
+    if (!wornItemIds.size || logState !== 'idle') return;
+    setLogState('saving');
+    await onLogWorn?.({ itemIds: [...wornItemIds], source: 'today_ai' });
+    setLogState('saved');
+    setTimeout(() => setLogState('idle'), 2800);
+  };
+
+  const today = new Date().toISOString().split('T')[0];
+  const todayLogs = wearLogs.filter(l => l.worn_date === today);
+
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-y-auto scrollbar-hide pb-28 md:pb-8">
 
@@ -3814,6 +3835,21 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
                     Edit Outfit
                   </span>
                 </div>
+
+                {/* I Wore This */}
+                {!isPreview && (
+                  <div className="relative group">
+                    <button
+                      onClick={handleWoreThis}
+                      className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                    >
+                      <CheckCircle2 size={14} strokeWidth={1.8} />
+                    </button>
+                    <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 text-[11px] font-medium text-white bg-gray-800 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                      I Wore This
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Weather Report — weatherSummary is guaranteed non-null here */}
@@ -3856,6 +3892,98 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
         )}
 
       </div>
+
+      {/* ── What I Wore Today ── */}
+      {!isPreview && (
+        <div ref={wornSectionRef} className="mt-8 px-6 md:px-8 pb-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">What I Wore Today</h2>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+              </p>
+            </div>
+            {wornItemIds.size > 0 && (
+              <button
+                onClick={handleLogWornToday}
+                disabled={logState !== 'idle'}
+                className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
+                  logState === 'saved'
+                    ? 'bg-green-50 text-green-600 border border-green-200'
+                    : 'bg-gray-900 text-white hover:bg-gray-700 disabled:opacity-50'
+                }`}
+              >
+                {logState === 'saving' ? 'Saving…' : logState === 'saved' ? 'Logged!' : 'Log Outfit'}
+              </button>
+            )}
+          </div>
+
+          {/* Previously logged today */}
+          {todayLogs.length > 0 && wornItemIds.size === 0 && (
+            <div className="mb-4 bg-green-50 border border-green-100 rounded-2xl px-4 py-3 flex items-center gap-3">
+              <CheckCircle2 size={16} className="text-green-500 flex-shrink-0" />
+              <p className="text-sm text-green-700">
+                You've logged {todayLogs.reduce((s, l) => s + (l.item_ids?.length ?? 0), 0)} items today.{' '}
+                <button onClick={() => setWornItemIds(new Set(todayLogs.flatMap(l => l.item_ids ?? [])))} className="underline">
+                  Edit selection
+                </button>
+              </p>
+            </div>
+          )}
+
+          {/* Selected items */}
+          {wornItemIds.size > 0 ? (
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-4">
+              {items.filter(i => wornItemIds.has(String(i.id))).map(item => (
+                <div key={item.id} className="flex-shrink-0 relative">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-50 border-2 border-gray-900">
+                    {item.image && <img src={item.image} alt={item.name} className="w-full h-full object-contain p-0.5" />}
+                  </div>
+                  <button
+                    onClick={() => setWornItemIds(prev => { const n = new Set(prev); n.delete(String(item.id)); return n; })}
+                    className="absolute -top-1 -right-1 w-4 h-4 bg-gray-900 rounded-full flex items-center justify-center"
+                  >
+                    <X size={8} strokeWidth={2.5} className="text-white" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-gray-50 rounded-2xl px-5 py-5 text-center mb-4">
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Tap "I Wore This" on a suggested outfit above, or pick items from your wardrobe below.
+              </p>
+            </div>
+          )}
+
+          {/* Item picker */}
+          {items.length > 0 && (
+            <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-8 gap-2">
+              {items.map(item => {
+                const selected = wornItemIds.has(String(item.id));
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setWornItemIds(prev => {
+                      const n = new Set(prev); selected ? n.delete(String(item.id)) : n.add(String(item.id)); return n;
+                    })}
+                    className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${
+                      selected ? 'border-gray-900 shadow-md' : 'border-transparent bg-gray-50 hover:border-gray-200'
+                    }`}
+                  >
+                    {item.image && <img src={item.image} alt={item.name} className="w-full h-full object-contain p-1" />}
+                    {selected && (
+                      <div className="absolute bottom-1 right-1 w-4 h-4 bg-gray-900 rounded-full flex items-center justify-center">
+                        <Check size={9} strokeWidth={3} className="text-white" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -4835,13 +4963,14 @@ function OutfitOrganizeCard({ outfit, draggedId, selected, onSelect, onDragStart
 }
 
 function OutfitCard({
-  outfit, onDelete, onEdit, onDuplicate, isDraft, liked, outfitBoards, organizeMode, dragging,
+  outfit, onDelete, onEdit, onDuplicate, onLogWorn, isDraft, liked, outfitBoards, organizeMode, dragging,
   onToggleLike, onToggleBoard, onDragStart, onDragOver, onDragEnd, isPreview = false,
 }) {
   const [menuOpen,    setMenuOpen]    = useState(false);
   const [boardMenuOpen, setBoardMenuOpen] = useState(false);
   const [boardSearch, setBoardSearch] = useState('');
   const [saving, setSaving] = useState(false);
+  const [wornState, setWornState] = useState('idle'); // 'idle' | 'saved'
   const [imgLoaded, setImgLoaded] = useState(false);
   const [exiting, setExiting] = useState(false);
 
@@ -4986,6 +5115,28 @@ function OutfitCard({
             </button>
           </div>
 
+          {/* I Wore This */}
+          {!isPreview && onLogWorn && (
+            <button
+              onClick={async e => {
+                e.stopPropagation();
+                const itemIds = items.map(i => String(i.id)).filter(Boolean);
+                if (!itemIds.length) return;
+                await onLogWorn({ itemIds, outfitId: outfit.id, source: 'studio_collage' });
+                setWornState('saved');
+                setTimeout(() => setWornState('idle'), 2000);
+              }}
+              className={`px-2.5 h-8 flex items-center justify-center rounded-lg shadow-sm transition-all opacity-0 group-hover:opacity-100 ${
+                wornState === 'saved' ? 'bg-green-50' : 'bg-white hover:bg-gray-50'
+              }`}
+            >
+              {wornState === 'saved'
+                ? <Check size={13} className="text-green-500" />
+                : <CheckCircle2 size={13} className="text-gray-700" />
+              }
+            </button>
+          )}
+
           {/* Edit */}
           <button
             onClick={e => { e.stopPropagation(); onEdit?.(); }}
@@ -5043,6 +5194,7 @@ function StudioTab({
   pendingAiCollage, onClearPendingAiCollage, items, boards,
   outfitBoards, outfitBoardMeta, likedOutfits,
   onCreateOutfitBoard, onDeleteOutfitBoard, onEditOutfitBoard, onToggleOutfitBoard, onToggleOutfitLike,
+  onLogWorn,
   isPreview = false, previewCollages = [], userId = null,
 }) {
   const [showCreate, setShowCreate]               = useState(false);
@@ -5384,6 +5536,7 @@ function StudioTab({
                           const copy = { items: outfit.items, bgColor: outfit.bgColor, canvasWidth: outfit.canvasWidth, canvasHeight: outfit.canvasHeight, name: outfit.name ? `${outfit.name} (copy)` : '', thumbnail: outfit.thumbnail || '' };
                           onSaveDraftOutfit(copy);
                         }}
+                        onLogWorn={onLogWorn}
                         onToggleLike={() => onToggleOutfitLike(outfit.id)}
                         onToggleBoard={board => onToggleOutfitBoard(outfit.id, board)}
                       />
@@ -5409,6 +5562,7 @@ function StudioTab({
                           const copy = { items: outfit.items, bgColor: outfit.bgColor, canvasWidth: outfit.canvasWidth, canvasHeight: outfit.canvasHeight, name: outfit.name ? `${outfit.name} (copy)` : '', thumbnail: outfit.thumbnail || '' };
                           onSaveOutfit(copy);
                         }}
+                        onLogWorn={onLogWorn}
                         onToggleLike={() => onToggleOutfitLike(outfit.id)}
                         onToggleBoard={board => onToggleOutfitBoard(outfit.id, board)}
                       />
@@ -7062,6 +7216,198 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   AnalyticsTab
+   ───────────────────────────────────────────────────────────────────────────── */
+function AnalyticsTab({ items = [], wearLogs = [] }) {
+  const today   = new Date().toISOString().split('T')[0];
+  const cutoff90 = new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0];
+
+  const itemMap = Object.fromEntries(items.map(i => [String(i.id), i]));
+
+  // Per-item wear counts (last 90 days)
+  const wearCounts = {};
+  for (const log of wearLogs) {
+    if (log.worn_date >= cutoff90) {
+      for (const id of (log.item_ids ?? [])) {
+        wearCounts[id] = (wearCounts[id] ?? 0) + 1;
+      }
+    }
+  }
+
+  const everWornIds = new Set(wearLogs.flatMap(l => l.item_ids ?? []));
+
+  const topItems = Object.entries(wearCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([id, count]) => ({ item: itemMap[id], count }))
+    .filter(({ item }) => !!item);
+
+  const neverWorn = items.filter(i => !everWornIds.has(String(i.id)));
+
+  // Weekly activity — last 8 weeks
+  const weeks = Array.from({ length: 8 }, (_, w) => {
+    const start = new Date(Date.now() - (8 - w) * 7 * 86400000);
+    const end   = new Date(Date.now() - (7 - w) * 7 * 86400000);
+    const label = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const count = wearLogs.filter(l => { const d = new Date(l.worn_date + 'T12:00:00'); return d >= start && d < end; }).length;
+    return { label, count };
+  });
+  const maxWeekCount = Math.max(...weeks.map(w => w.count), 1);
+
+  // Category breakdown (last 90 days)
+  const catCounts = {};
+  for (const log of wearLogs) {
+    if (log.worn_date >= cutoff90) {
+      for (const id of (log.item_ids ?? [])) {
+        const item = itemMap[id];
+        if (item?.category) catCounts[item.category] = (catCounts[item.category] ?? 0) + 1;
+      }
+    }
+  }
+  const totalCatWears = Object.values(catCounts).reduce((s, n) => s + n, 0);
+  const topCats = Object.entries(catCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+  const thisWeekDays  = new Set(wearLogs.filter(l => l.worn_date >= weekAgo).map(l => l.worn_date)).size;
+  const totalItemWears = wearLogs.reduce((s, l) => s + (l.item_ids?.length ?? 0), 0);
+
+  if (wearLogs.length === 0) {
+    return (
+      <div className="flex flex-col flex-1 min-h-0 overflow-y-auto scrollbar-hide pb-28 md:pb-8">
+        <div className="px-6 md:px-8 pt-8 mb-6">
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Analytics</h1>
+          <p className="text-sm text-gray-400 mt-0.5">Track your style habits over time</p>
+        </div>
+        <div className="flex flex-col items-center justify-center flex-1 text-center px-8 py-20">
+          <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+            <BarChart2 size={28} className="text-gray-300" />
+          </div>
+          <p className="text-base font-semibold text-gray-700">No wear data yet</p>
+          <p className="text-sm text-gray-400 mt-2 leading-relaxed max-w-xs">
+            Use "I Wore This" on the Today tab or on any saved outfit in Studio to start tracking your style habits.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0 overflow-y-auto scrollbar-hide pb-28 md:pb-8">
+      <div className="px-6 md:px-8 pt-8 mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Analytics</h1>
+        <p className="text-sm text-gray-400 mt-0.5">Your style habits</p>
+      </div>
+
+      <div className="px-6 md:px-8 flex flex-col gap-8">
+
+        {/* Summary stats */}
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { value: thisWeekDays,    label: 'days logged\nthis week' },
+            { value: wearLogs.length, label: 'total outfit\nlogs' },
+            { value: totalItemWears,  label: 'total item\nwears' },
+          ].map(({ value, label }) => (
+            <div key={label} className="bg-gray-50 rounded-2xl p-4">
+              <p className="text-2xl font-semibold text-gray-900">{value}</p>
+              <p className="text-xs text-gray-400 mt-0.5 whitespace-pre-line leading-snug">{label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Weekly activity bar chart */}
+        <div>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-[0.12em] mb-3">Weekly Activity</p>
+          <div className="bg-gray-50 rounded-2xl p-5">
+            <div className="flex items-end gap-1.5 h-20">
+              {weeks.map((w, i) => (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
+                  <div
+                    className="w-full rounded-sm bg-gray-800 transition-all duration-300"
+                    style={{ height: `${Math.max(w.count > 0 ? (w.count / maxWeekCount) * 64 : 0, w.count > 0 ? 4 : 0)}px` }}
+                  />
+                  <span className="text-[9px] text-gray-400 leading-none">{w.label.split(' ')[1]}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Most worn items */}
+        {topItems.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-[0.12em] mb-3">Most Worn · Last 90 Days</p>
+            <div className="flex flex-col gap-2">
+              {topItems.map(({ item, count }) => (
+                <div key={item.id} className="flex items-center gap-3 bg-gray-50 rounded-2xl p-3">
+                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-white flex-shrink-0 border border-gray-100">
+                    {item.image && <img src={item.image} alt={item.name} className="w-full h-full object-contain p-0.5" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">{item.name || 'Unnamed'}</p>
+                    <p className="text-xs text-gray-400">{item.category}</p>
+                  </div>
+                  <span className="flex-shrink-0 bg-gray-900 text-white text-xs font-semibold rounded-full px-2.5 py-1">
+                    {count}×
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Category breakdown */}
+        {topCats.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-[0.12em] mb-3">What You Reach For</p>
+            <div className="bg-gray-50 rounded-2xl p-5 flex flex-col gap-3.5">
+              {topCats.map(([cat, count]) => (
+                <div key={cat}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-medium text-gray-700">{cat}</span>
+                    <span className="text-xs text-gray-400">{Math.round((count / totalCatWears) * 100)}%</span>
+                  </div>
+                  <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gray-800 rounded-full transition-all duration-500"
+                      style={{ width: `${(count / totalCatWears) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Never worn */}
+        {neverWorn.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-[0.12em] mb-3">
+              Never Worn · {neverWorn.length} {neverWorn.length === 1 ? 'item' : 'items'}
+            </p>
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
+              {neverWorn.slice(0, 12).map(item => (
+                <div key={item.id} className="flex-shrink-0 w-18 flex flex-col items-center gap-1">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-50 border border-gray-100">
+                    {item.image && <img src={item.image} alt={item.name} className="w-full h-full object-contain p-1" />}
+                  </div>
+                  <p className="text-[10px] text-gray-400 text-center leading-tight w-16 truncate">{item.name || item.category}</p>
+                </div>
+              ))}
+              {neverWorn.length > 12 && (
+                <div className="flex-shrink-0 w-16 h-16 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center">
+                  <span className="text-xs text-gray-400 font-medium">+{neverWorn.length - 12}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    Root — WardrobeApp
    ───────────────────────────────────────────────────────────────────────────── */
 export default function WardrobeApp() {
@@ -7074,14 +7420,14 @@ export default function WardrobeApp() {
   const [activeTab, setActiveTab]         = useState(() => {
     try {
       const saved = localStorage.getItem('wardrobe_active_tab');
-      if (saved && ['today', 'wardrobe', 'studio', 'stylist', 'profile'].includes(saved)) return saved;
+      if (saved && ['today', 'wardrobe', 'studio', 'analytics', 'stylist', 'profile'].includes(saved)) return saved;
     } catch {}
     return 'today';
   });
   const [mountedTabs, setMountedTabs]     = useState(() => {
     try {
       const saved = localStorage.getItem('wardrobe_active_tab');
-      if (saved && ['today', 'wardrobe', 'studio', 'stylist', 'profile'].includes(saved)) {
+      if (saved && ['today', 'wardrobe', 'studio', 'analytics', 'stylist', 'profile'].includes(saved)) {
         return new Set(['today', saved]);
       }
     } catch {}
@@ -7118,6 +7464,7 @@ export default function WardrobeApp() {
     ];
   });
   const [likedItems, setLikedItems]       = useState(() => new Set());
+  const [wearLogs, setWearLogs]           = useState([]);
   const [outfitBoards, setOutfitBoards]       = useState(['All']);
   const [outfitBoardMeta, setOutfitBoardMeta] = useState({});
   const [likedOutfits, setLikedOutfits]       = useState(() => new Set());
@@ -7125,12 +7472,13 @@ export default function WardrobeApp() {
   // ── Auth + data loading ──────────────────────────────────────────────────
   const loadUserData = async (u) => {
     const uid = u.id;
-    const [profileRes, itemsRes, boardsRes, outfitsRes, outfitBoardsRes] = await Promise.all([
+    const [profileRes, itemsRes, boardsRes, outfitsRes, outfitBoardsRes, wearLogsRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', uid).single(),
       supabase.from('items').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
       supabase.from('boards').select('*').eq('user_id', uid).order('created_at'),
       supabase.from('outfits').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
       supabase.from('outfit_boards').select('*').eq('user_id', uid).order('created_at'),
+      supabase.from('wear_logs').select('*').eq('user_id', uid).order('worn_date', { ascending: false }).limit(500),
     ]);
 
     if (profileRes.data) {
@@ -7170,6 +7518,8 @@ export default function WardrobeApp() {
       outfitBoardsRes.data.forEach(b => { if (b.description) meta[b.name] = { description: b.description }; });
       setOutfitBoardMeta(meta);
     }
+
+    if (wearLogsRes.data) setWearLogs(wearLogsRes.data);
   };
 
   useEffect(() => {
@@ -7472,6 +7822,17 @@ export default function WardrobeApp() {
     if (user) await supabase.from('outfits').update({ liked: nowLiked }).eq('id', id).eq('user_id', user.id);
   };
 
+  const handleLogWorn = async ({ itemIds, outfitId = null, source = 'manual' }) => {
+    if (!user || !itemIds?.length) return;
+    const today = new Date().toISOString().split('T')[0];
+    const { data } = await supabase
+      .from('wear_logs')
+      .insert({ user_id: user.id, worn_date: today, item_ids: itemIds.map(String), outfit_id: outfitId ?? null, source })
+      .select()
+      .single();
+    if (data) setWearLogs(prev => [data, ...prev]);
+  };
+
   const handleSaveOutfit = async collage => {
     if (!collage.items.length) return;
     const { data } = await supabase.from('outfits').insert({
@@ -7632,6 +7993,8 @@ export default function WardrobeApp() {
                 ? collage => { if (collage.items?.length) setPreviewSavedOutfits(prev => [{ ...collage, id: `preview-${Date.now()}`, liked: false, boards: [] }, ...prev]); }
                 : handleSaveOutfit}
               onEditInStudio={collage => { setPendingAiCollage(collage); switchTab('studio'); }}
+              onLogWorn={handleLogWorn}
+              wearLogs={wearLogs}
               isPreview={isPreview}
               userId={user?.id}
               userProfile={profile}
@@ -7676,10 +8039,16 @@ export default function WardrobeApp() {
               onEditOutfitBoard={handleEditOutfitBoard}
               onToggleOutfitBoard={handleToggleOutfitBoard}
               onToggleOutfitLike={toggleOutfitLike}
+              onLogWorn={handleLogWorn}
               isPreview={isPreview}
               previewCollages={previewCollages}
               userId={user?.id}
             />
+          </div>
+        )}
+        {mountedTabs.has('analytics') && (
+          <div className={tab('analytics')}>
+            <AnalyticsTab items={readyItems} wearLogs={wearLogs} />
           </div>
         )}
         {mountedTabs.has('stylist') && (
@@ -7742,7 +8111,7 @@ export default function WardrobeApp() {
         {/* Navigation */}
         <nav className="flex flex-col gap-1">
           {TABS.map(({ id, label, Icon }) => {
-            if (isPreview && (id === 'profile' || id === 'stylist')) return null;
+            if (isPreview && (id === 'profile' || id === 'stylist' || id === 'analytics')) return null;
             const active = activeTab === id;
             const displayLabel = id === 'today'
               ? `Today, ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
@@ -7840,7 +8209,7 @@ export default function WardrobeApp() {
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-xl border-t border-gray-100">
         <div className="flex items-center justify-around px-2 pt-2 pb-6">
           {TABS.map(({ id, label, Icon }) => {
-            if (isPreview && (id === 'profile' || id === 'stylist')) return null;
+            if (isPreview && (id === 'profile' || id === 'stylist' || id === 'analytics')) return null;
             const active = activeTab === id;
             return (
               <button
