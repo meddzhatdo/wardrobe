@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
+import { logAuditEvent } from './_audit.js';
+import { initSentry, Sentry } from './_sentry.js';
+
+initSentry();
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://wardrobe-app.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
@@ -17,7 +21,10 @@ export default async function handler(req, res) {
     process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY,
   );
   const { data: { user }, error: authErr } = await supabaseUser.auth.getUser(token);
-  if (authErr || !user) return res.status(401).json({ error: 'Invalid token' });
+  if (authErr || !user) {
+    await logAuditEvent({ event: 'auth_failure', endpoint: '/api/delete-account', req });
+    return res.status(401).json({ error: 'Invalid token' });
+  }
 
   // Use service role key to delete the user
   const supabaseAdmin = createClient(
@@ -27,9 +34,11 @@ export default async function handler(req, res) {
 
   const { error: deleteErr } = await supabaseAdmin.auth.admin.deleteUser(user.id);
   if (deleteErr) {
+    Sentry.captureException(deleteErr);
     console.error('Delete user error:', deleteErr.message);
     return res.status(500).json({ error: 'Failed to delete account' });
   }
 
+  await logAuditEvent({ event: 'account_deleted', userId: user.id, endpoint: '/api/delete-account', req });
   return res.status(200).json({ success: true });
 }

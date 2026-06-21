@@ -1,4 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
+import { logAuditEvent } from './_audit.js';
+import { initSentry, Sentry } from './_sentry.js';
+import { checkRateLimit } from './_rateLimit.js';
+
+initSentry();
 
 const OUTFIT_GOALS = [
   { id: 'workwear', label: 'Workwear' },
@@ -23,12 +28,21 @@ export default async function handler(req, res) {
     process.env.VITE_SUPABASE_ANON_KEY,
   );
   const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-  if (authErr || !user) return res.status(401).json({ error: 'Invalid token' });
+  if (authErr || !user) {
+    await logAuditEvent({ event: 'auth_failure', endpoint: '/api/generate-outfits', req });
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+
+  const { limited } = await checkRateLimit({ userId: user.id, endpoint: '/api/generate-outfits', maxRequests: 20, windowMinutes: 60 });
+  if (limited) return res.status(429).json({ error: 'Rate limit exceeded. Try again later.' });
 
   const { weather, items, userProfile } = req.body;
   if (!weather || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'weather and items are required' });
   }
+
+  const sanitize = (val, max) =>
+    typeof val === 'string' ? val.replace(/[\r\n\t`]/g, ' ').slice(0, max).trim() : '';
 
   // Build vision content blocks server-side — key never leaves the server
   const content = [];
@@ -44,7 +58,9 @@ export default async function handler(req, res) {
         }
       } catch {}
     }
-    content.push({ type: 'text', text: `[ID:${item.id}] ${item.name} | Category: ${item.category}` });
+    const safeName     = sanitize(item.name,     80) || 'unknown';
+    const safeCategory = sanitize(item.category, 50) || 'unknown';
+    content.push({ type: 'text', text: `[ID:${item.id}] ${safeName} | Category: ${safeCategory}` });
   }
 
   const goalLabels = (userProfile?.outfitGoals || [])
@@ -98,8 +114,10 @@ export default async function handler(req, res) {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return res.status(502).json({ error: 'Invalid AI response' });
 
+    await logAuditEvent({ event: 'ai_call', userId: user.id, endpoint: '/api/generate-outfits', req, metadata: { model: 'claude-sonnet-4-6', item_count: items.length } });
     return res.status(200).json(parsed);
   } catch (err) {
+    Sentry.captureException(err);
     console.error('generate-outfits error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }

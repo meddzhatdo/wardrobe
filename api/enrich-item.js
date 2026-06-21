@@ -1,4 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
+import { logAuditEvent } from './_audit.js';
+import { initSentry, Sentry } from './_sentry.js';
+import { checkRateLimit } from './_rateLimit.js';
+
+initSentry();
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://wardrobe-app.vercel.app');
@@ -16,7 +21,13 @@ export default async function handler(req, res) {
     process.env.VITE_SUPABASE_ANON_KEY,
   );
   const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-  if (authErr || !user) return res.status(401).json({ error: 'Invalid token' });
+  if (authErr || !user) {
+    await logAuditEvent({ event: 'auth_failure', endpoint: '/api/enrich-item', req });
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+
+  const { limited } = await checkRateLimit({ userId: user.id, endpoint: '/api/enrich-item', maxRequests: 100, windowMinutes: 60 });
+  if (limited) return res.status(429).json({ error: 'Rate limit exceeded. Try again later.' });
 
   const { imageUrl, imageBase64, mediaType, name, brand, category, material, color } = req.body;
 
@@ -93,8 +104,10 @@ Rules for warmthRating:
     }
 
     const result = JSON.parse(jsonMatch[0]);
+    await logAuditEvent({ event: 'ai_call', userId: user.id, endpoint: '/api/enrich-item', req, metadata: { model: 'claude-haiku-4-5-20251001' } });
     return res.status(200).json(result);
   } catch (err) {
+    Sentry.captureException(err);
     console.error('enrich-item error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }

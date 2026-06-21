@@ -2866,6 +2866,8 @@ async function callAnthropicForOutfits(weather, allItems, userProfile = {}) {
   // Drop outfits that violate structural rules
   const itemMap = Object.fromEntries(allItems.map(i => [i.id, i]));
   const valid = parsed.filter(outfit => {
+    const missingIds = (outfit.itemIds ?? []).filter(id => !itemMap[id]);
+    if (missingIds.length > 0) console.warn(`Outfit "${outfit.outfitName}" references unknown item IDs:`, missingIds);
     const cats = (outfit.itemIds ?? []).map(id => itemMap[id]?.category).filter(Boolean);
     const hasOnePiece = cats.includes('Dresses & Jumpsuits');
     const hasTop      = cats.some(c => c === 'Tops' || c === 'Knitwear & Sweaters');
@@ -7129,8 +7131,8 @@ export default function WardrobeApp() {
     if (profileRes.data) {
       const p = profileRes.data;
       setProfile({
-        name: p.name, bio: p.bio, topSize: p.top_size, bottomSize: p.bottom_size, shoeSize: p.shoe_size,
-        avatarUrl: u.user_metadata?.avatar_url || p.avatar_url || '',
+        name: p.name ?? '', bio: p.bio ?? '', topSize: p.top_size ?? '', bottomSize: p.bottom_size ?? '', shoeSize: p.shoe_size ?? '',
+        avatarUrl: u.user_metadata?.avatar_url || '',
         country: u.user_metadata?.country || '',
         outfitGoals: u.user_metadata?.outfit_goals || [],
       });
@@ -7507,18 +7509,18 @@ export default function WardrobeApp() {
   const handleUpdateProfile = async updates => {
     setProfile(updates);
     if (user) {
-      await Promise.all([
+      const [{ error: profileErr }] = await Promise.all([
         supabase.from('profiles').upsert({
           id: user.id,
-          name: updates.name, bio: updates.bio,
+          name: updates.name, bio: updates.bio ?? '',
           top_size: updates.topSize, bottom_size: updates.bottomSize, shoe_size: updates.shoeSize,
-          avatar_url: updates.avatarUrl,
-        }),
+        }, { onConflict: 'id' }),
         supabase.auth.updateUser({ data: {
           country: updates.country,
           outfit_goals: updates.outfitGoals,
         }}),
       ]);
+      if (profileErr) console.error('Profile save failed:', profileErr.message);
     }
   };
 
