@@ -2871,16 +2871,16 @@ async function callAnthropicForOutfits(weather, allItems, userProfile = {}) {
     content.push({ type: 'text', text: `[ID:${item.id}] ${item.name} | Category: ${item.category}` });
   }
 
-  const styleContext = [];
-  if (userProfile.genderStyle?.length) styleContext.push(`Style leaning: ${userProfile.genderStyle.join(', ')}`);
-  if (userProfile.styles?.length) styleContext.push(`Preferred aesthetics: ${userProfile.styles.join(', ')}`);
+  const goalLabels = (userProfile.outfitGoals || [])
+    .map(id => OUTFIT_GOALS.find(g => g.id === id)?.label)
+    .filter(Boolean);
 
   content.push({
     type: 'text',
     text:
       `Weather: ${weather.tempF}°F now (${weather.conditionLabel}), High ${weather.highF}°F / Low ${weather.lowF}°F` +
       (weather.laterCondition ? `, with ${weather.laterCondition} expected later today` : '') + `.\n` +
-      (styleContext.length ? `\nUser style profile — ${styleContext.join('; ')}. Honour these preferences where possible.\n` : '') + `\n` +
+      (goalLabels.length ? `\nThe user wants outfits suited for: ${goalLabels.join(', ')}. Tailor the suggestions to match these contexts.\n` : '') + `\n` +
       `Using the garment images above, generate exactly 3 distinct, cohesive outfits. Hard rules:\n` +
       `1. TOPS: Every outfit must include a "Tops" or "Knitwear & Sweaters" item UNLESS it contains a "Dresses & Jumpsuits" item. Never omit a top.\n` +
       `2. BOTTOMS: Every outfit must include one "Bottoms" item UNLESS it contains a "Dresses & Jumpsuits" item. NEVER combine two bottoms (e.g., jeans + skirt is invalid — pick one).\n` +
@@ -3719,13 +3719,13 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
       <div className="flex flex-col gap-4 pl-6 md:pl-8 pr-6 md:pr-10">
 
         {items.length < 3 && (
-          <div className="ml-6 md:ml-8 flex flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-gray-200 bg-gray-50 px-6 py-12 text-center max-w-sm">
-            <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center">
-              <Shirt size={22} className="text-gray-300" />
+          <div className="flex flex-col items-center justify-center gap-4 rounded-3xl border border-dashed border-gray-200 bg-gray-50 px-8 py-20 text-center w-full">
+            <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center">
+              <Shirt size={28} className="text-gray-300" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-700">Your wardrobe needs a few more pieces</p>
-              <p className="text-xs text-gray-400 mt-1 leading-relaxed max-w-[220px]">
+              <p className="text-base font-semibold text-gray-700">Your wardrobe needs a few more pieces</p>
+              <p className="text-sm text-gray-400 mt-1.5 leading-relaxed max-w-xs mx-auto">
                 Add more items to unlock daily style inspiration tailored to the weather.
               </p>
             </div>
@@ -6413,6 +6413,7 @@ function AuthModal({ onClose }) {
   const [name, setName]         = useState('');
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
@@ -6422,6 +6423,11 @@ function AuthModal({ onClose }) {
     e.preventDefault();
     setLoading(true);
     setError('');
+    if (mode === 'signup' && password !== confirmPassword) {
+      setError('Passwords do not match.');
+      setLoading(false);
+      return;
+    }
     try {
       if (mode === 'signup') {
         const { data, error: err } = await supabase.auth.signUp({
@@ -6483,7 +6489,7 @@ function AuthModal({ onClose }) {
                 We sent a confirmation link to <span className="font-medium text-gray-700">{email}</span>. Open it to activate your account, then come back and sign in.
               </p>
               <button
-                onClick={() => { setVerified(false); setMode('signin'); setName(''); setPassword(''); setError(''); }}
+                onClick={() => { setVerified(false); setMode('signin'); setName(''); setPassword(''); setConfirmPassword(''); setError(''); }}
                 className="w-full py-3 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-700 transition-colors"
               >
                 Back to sign in
@@ -6496,7 +6502,7 @@ function AuthModal({ onClose }) {
                 {[{ key: 'signin', label: 'Sign In' }, { key: 'signup', label: 'Sign Up' }].map(({ key, label }) => (
                   <button
                     key={key}
-                    onClick={() => { setMode(key); setError(''); }}
+                    onClick={() => { setMode(key); setError(''); setConfirmPassword(''); }}
                     className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
                       mode === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
                     }`}
@@ -6553,6 +6559,24 @@ function AuthModal({ onClose }) {
                     </button>
                   </div>
                 </div>
+                {mode === 'signup' && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Retype password</label>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      minLength={6}
+                      className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-colors ${
+                        confirmPassword && confirmPassword !== password
+                          ? 'border-red-300 focus:border-red-400'
+                          : 'border-gray-200 focus:border-gray-400'
+                      }`}
+                    />
+                  </div>
+                )}
 
                 {error && <p className="text-xs text-red-500 bg-red-50 rounded-xl px-4 py-3">{error}</p>}
 
@@ -6576,46 +6600,20 @@ function AuthModal({ onClose }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    OnboardingModal — shown once after a new user verifies their email
    ───────────────────────────────────────────────────────────────────────────── */
-function OnboardingModal({ onComplete, onUpdateAvatar }) {
+function OnboardingModal({ onComplete }) {
   const [slide, setSlide]     = useState(0);
-  const [name, setName]       = useState('');
   const [bio, setBio]         = useState('');
   const [country, setCountry] = useState('');
-  const [avatarUrl, setAvatarUrl]     = useState('');
-  const [avatarFile, setAvatarFile]   = useState(null);
-  const [avatarUploading, setAvatarUploading] = useState(false);
-  const [genderStyle, setGenderStyle] = useState([]);
-  const [styles, setStyles]   = useState([]);
-  const avatarInputRef = useRef(null);
+  const [outfitGoals, setOutfitGoals] = useState([]);
 
-  const TOTAL = 4;
+  const TOTAL = 3;
 
-  const toggleGender = (val) => {
-    setGenderStyle(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]);
+  const toggleOutfitGoal = (id) => {
+    setOutfitGoals(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]);
   };
 
-  const toggleStyle = (tag) => {
-    setStyles(prev =>
-      prev.includes(tag) ? prev.filter(t => t !== tag) : prev.length < 5 ? [...prev, tag] : prev
-    );
-  };
-
-  const handleAvatarChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setAvatarFile(file);
-    setAvatarUrl(URL.createObjectURL(file));
-    e.target.value = '';
-  };
-
-  const handleFinish = async () => {
-    let finalAvatarUrl = avatarUrl;
-    if (avatarFile) {
-      setAvatarUploading(true);
-      finalAvatarUrl = await onUpdateAvatar(avatarFile) || '';
-      setAvatarUploading(false);
-    }
-    onComplete({ name: name.trim(), bio: bio.trim(), country, avatarUrl: finalAvatarUrl, genderStyle, styles });
+  const handleFinish = () => {
+    onComplete({ bio: bio.trim(), country, outfitGoals });
   };
 
   const canAdvance = slide !== 1 || country.trim();
@@ -6636,35 +6634,7 @@ function OnboardingModal({ onComplete, onUpdateAvatar }) {
     <div key="profile" className="space-y-5 py-2">
       <div>
         <h3 className="text-lg font-bold text-gray-900 mb-1">Your profile</h3>
-        <p className="text-xs text-gray-400">Everything is optional except your country.</p>
-      </div>
-
-      {/* Avatar */}
-      <div className="flex justify-center">
-        <div
-          onClick={() => avatarInputRef.current?.click()}
-          className="relative w-20 h-20 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 shadow-md flex items-center justify-center overflow-hidden cursor-pointer"
-        >
-          {avatarUrl
-            ? <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-            : <User size={28} className="text-white/80" />
-          }
-          <div className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center group">
-            <Camera size={18} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-          </div>
-        </div>
-        <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-      </div>
-
-      <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1.5">Name</label>
-        <input
-          type="text"
-          value={name}
-          onChange={e => setName(e.target.value)}
-          placeholder="Your name"
-          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-gray-400 transition-colors"
-        />
+        <p className="text-xs text-gray-400">Country is required. Bio is optional.</p>
       </div>
 
       <div>
@@ -6693,59 +6663,29 @@ function OnboardingModal({ onComplete, onUpdateAvatar }) {
       </div>
     </div>,
 
-    /* Slide 2 — Gender / style leaning */
-    <div key="gender" className="py-2">
-      <h3 className="text-lg font-bold text-gray-900 mb-1">Style leaning</h3>
-      <p className="text-xs text-gray-400 mb-5">Select any that resonate with you — or skip.</p>
-      <div className="flex gap-3">
-        {GENDER_STYLE_OPTIONS.map(opt => {
-          const icons = { Feminine: '🌸', Masculine: '🪨', Neutral: '⚡' };
-          const selected = genderStyle.includes(opt);
+    /* Slide 2 — Outfit goals */
+    <div key="goals" className="py-2">
+      <h3 className="text-lg font-bold text-gray-900 mb-1">What kind of outfits are you looking to create?</h3>
+      <p className="text-xs text-gray-400 mb-5">Select all that apply — or skip.</p>
+      <div className="grid grid-cols-2 gap-3">
+        {OUTFIT_GOALS.map(({ id, label, emoji }) => {
+          const selected = outfitGoals.includes(id);
           return (
             <button
-              key={opt}
-              onClick={() => toggleGender(opt)}
-              className={`flex-1 flex flex-col items-center gap-2 py-5 rounded-2xl border-2 transition-all ${
+              key={id}
+              onClick={() => toggleOutfitGoal(id)}
+              className={`flex flex-col items-center gap-2 py-5 rounded-2xl border-2 transition-all ${
                 selected
                   ? 'border-gray-900 bg-gray-900 text-white'
                   : 'border-gray-100 bg-gray-50 text-gray-600 hover:border-gray-300'
               }`}
             >
-              <span className="text-2xl">{icons[opt]}</span>
-              <span className="text-sm font-medium">{opt}</span>
+              <span className="text-2xl">{emoji}</span>
+              <span className="text-sm font-medium text-center leading-snug">{label}</span>
             </button>
           );
         })}
       </div>
-    </div>,
-
-    /* Slide 3 — Style tags */
-    <div key="styles" className="py-2">
-      <h3 className="text-lg font-bold text-gray-900 mb-1">Your aesthetic</h3>
-      <p className="text-xs text-gray-400 mb-4">Pick up to 5 styles that speak to you — or skip.</p>
-      <div className="flex flex-wrap gap-2">
-        {STYLE_TAGS.map(tag => {
-          const selected = styles.includes(tag);
-          return (
-            <button
-              key={tag}
-              onClick={() => toggleStyle(tag)}
-              className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
-                selected
-                  ? 'bg-gray-900 text-white'
-                  : styles.length >= 5
-                    ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {tag}
-            </button>
-          );
-        })}
-      </div>
-      {styles.length > 0 && (
-        <p className="text-xs text-gray-400 mt-3">{styles.length}/5 selected</p>
-      )}
     </div>,
   ];
 
@@ -6817,13 +6757,12 @@ function OnboardingModal({ onComplete, onUpdateAvatar }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    ProfileTab
    ───────────────────────────────────────────────────────────────────────────── */
-const STYLE_TAGS = [
-  'Minimalist', 'Classic', 'Casual', 'Streetwear', 'Formal', 'Bohemian',
-  'Athletic', 'Romantic', 'Preppy', 'Vintage', 'Business Casual',
-  'Cottagecore', 'Y2K', 'Dark Academia', 'Soft Glam', 'Grunge',
+const OUTFIT_GOALS = [
+  { id: 'workwear',  label: 'Workwear',          emoji: '💼' },
+  { id: 'casual',   label: 'Casual day-looks',   emoji: '☀️' },
+  { id: 'night',    label: 'Night looks',         emoji: '🌙' },
+  { id: 'anything', label: "I'm up for anything!", emoji: '✨' },
 ];
-
-const GENDER_STYLE_OPTIONS = ['Feminine', 'Masculine', 'Neutral'];
 
 const COUNTRIES = [
   'Afghanistan','Albania','Algeria','Argentina','Armenia','Australia','Austria','Azerbaijan',
@@ -6895,20 +6834,12 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
     { label: 'Outfits', value: savedOutfits.length },
   ];
 
-  const toggleStyle = tag => {
-    setDraft(d => {
-      const has = d.styles.includes(tag);
-      if (!has && d.styles.length >= 5) return d;
-      return { ...d, styles: has ? d.styles.filter(s => s !== tag) : [...d.styles, tag] };
-    });
-  };
-
-  const toggleGenderStyle = val => {
+  const toggleOutfitGoal = id => {
     setDraft(d => ({
       ...d,
-      genderStyle: d.genderStyle.includes(val)
-        ? d.genderStyle.filter(v => v !== val)
-        : [...d.genderStyle, val],
+      outfitGoals: d.outfitGoals.includes(id)
+        ? d.outfitGoals.filter(g => g !== id)
+        : [...d.outfitGoals, id],
     }));
   };
 
@@ -7082,66 +7013,32 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
           </div>
         </section>
 
-        {/* Gender / Style leaning */}
+        {/* Outfit goals */}
         <section className="mb-8">
-          <h4 className="text-sm font-semibold text-gray-700 mb-3">Style Leaning</h4>
-          <div className="flex gap-2">
-            {GENDER_STYLE_OPTIONS.map(opt => {
-              const selected = editing ? draft.genderStyle.includes(opt) : profile.genderStyle?.includes(opt);
+          <h4 className="text-sm font-semibold text-gray-700 mb-3">What I'm looking to create</h4>
+          <div className="grid grid-cols-2 gap-2">
+            {OUTFIT_GOALS.map(({ id, label, emoji }) => {
+              const active = editing ? draft.outfitGoals?.includes(id) : profile.outfitGoals?.includes(id);
               return (
                 <button
-                  key={opt}
-                  onClick={() => editing && toggleGenderStyle(opt)}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all border ${
-                    selected
+                  key={id}
+                  onClick={() => editing && toggleOutfitGoal(id)}
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium transition-all border ${
+                    active
                       ? 'border-gray-900 bg-gray-900 text-white'
                       : editing
                         ? 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-400'
                         : 'border-gray-100 bg-gray-50 text-gray-400 cursor-default'
                   }`}
                 >
-                  {opt}
+                  <span>{emoji}</span>
+                  <span className="leading-snug text-left">{label}</span>
                 </button>
               );
             })}
           </div>
-          {!editing && (!profile.genderStyle || profile.genderStyle.length === 0) && (
-            <p className="text-sm text-gray-300 mt-2">Tap Edit to add your style leaning</p>
-          )}
-        </section>
-
-        {/* Style preferences */}
-        <section className="mb-8">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-sm font-semibold text-gray-700">Style Preferences</h4>
-            {editing && <span className="text-xs text-gray-400">{(draft.styles || []).length}/5</span>}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {STYLE_TAGS.map(tag => {
-              const activeStyles = editing ? draft.styles : profile.styles;
-              const selected = activeStyles?.includes(tag);
-              const maxed = editing && activeStyles?.length >= 5 && !selected;
-              return (
-                <button
-                  key={tag}
-                  onClick={() => editing && toggleStyle(tag)}
-                  className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
-                    selected
-                      ? 'bg-gray-900 text-white'
-                      : maxed
-                        ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
-                        : editing
-                          ? 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                          : 'bg-gray-100 text-gray-400 cursor-default'
-                  }`}
-                >
-                  {tag}
-                </button>
-              );
-            })}
-          </div>
-          {!editing && (!profile.styles || profile.styles.length === 0) && (
-            <p className="text-sm text-gray-300 mt-2">Tap Edit to add your style preferences</p>
+          {!editing && (!profile.outfitGoals || profile.outfitGoals.length === 0) && (
+            <p className="text-sm text-gray-300 mt-2">Tap Edit to set your outfit goals</p>
           )}
         </section>
 
@@ -7243,8 +7140,8 @@ export default function WardrobeApp() {
   const [boards, setBoards]               = useState(['All']);
   const [boardMeta, setBoardMeta]         = useState({});
   const [profile, setProfile]             = useState({
-    name: '', bio: '', topSize: '', bottomSize: '', shoeSize: '', styles: [], avatarUrl: '',
-    country: '', genderStyle: [],
+    name: '', bio: '', topSize: '', bottomSize: '', shoeSize: '', avatarUrl: '',
+    country: '', outfitGoals: [],
   });
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [pendingOutfitItem, setPendingOutfitItem] = useState(null);
@@ -7285,9 +7182,9 @@ export default function WardrobeApp() {
       const p = profileRes.data;
       setProfile({
         name: p.name, bio: p.bio, topSize: p.top_size, bottomSize: p.bottom_size, shoeSize: p.shoe_size,
-        styles: p.styles || [], avatarUrl: u.user_metadata?.avatar_url || p.avatar_url || '',
+        avatarUrl: u.user_metadata?.avatar_url || p.avatar_url || '',
         country: u.user_metadata?.country || '',
-        genderStyle: u.user_metadata?.gender_style || [],
+        outfitGoals: u.user_metadata?.outfit_goals || [],
       });
     }
 
@@ -7326,7 +7223,13 @@ export default function WardrobeApp() {
       const u = session?.user ?? null;
       currentUserIdRef.current = u?.id ?? null;
       setUser(u);
-      if (u) await loadUserData(u);
+      if (u) {
+        await loadUserData(u);
+        // Handles the case where the user clicked the verification link in this tab
+        if (u.user_metadata?.onboarding_complete === false) {
+          setShowOnboarding(true);
+        }
+      }
       setAuthLoading(false);
       authInitializedRef.current = true;
     });
@@ -7342,6 +7245,7 @@ export default function WardrobeApp() {
         // Only transition when it's a genuinely new sign-in (different user ID).
         // Same-user SIGNED_IN can fire from cross-tab sync or re-auth and must not reload.
         if (authInitializedRef.current && event === 'SIGNED_IN' && u.id !== prevId) {
+          setShowAuthModal(false);
           setTransitioning(true);
           await loadUserData(u);
           setTransitioning(false);
@@ -7354,7 +7258,7 @@ export default function WardrobeApp() {
         setItems([]); setBoards(['All']); setBoardMeta({});
         setSavedOutfits([]); setDraftOutfits([]); setLikedItems(new Set());
         setOutfitBoards(['All']); setOutfitBoardMeta({}); setLikedOutfits(new Set());
-        setProfile({ name: '', bio: '', topSize: '', bottomSize: '', shoeSize: '', styles: [], avatarUrl: '', country: '', genderStyle: [] });
+        setProfile({ name: '', bio: '', topSize: '', bottomSize: '', shoeSize: '', avatarUrl: '', country: '', outfitGoals: [] });
       }
     });
     return () => subscription.unsubscribe();
@@ -7660,34 +7564,28 @@ export default function WardrobeApp() {
           id: user.id,
           name: updates.name, bio: updates.bio,
           top_size: updates.topSize, bottom_size: updates.bottomSize, shoe_size: updates.shoeSize,
-          styles: updates.styles,
           avatar_url: updates.avatarUrl,
         }),
         supabase.auth.updateUser({ data: {
           country: updates.country,
-          gender_style: updates.genderStyle,
+          outfit_goals: updates.outfitGoals,
         }}),
       ]);
     }
   };
 
-  const handleCompleteOnboarding = async ({ name, bio, country, avatarUrl, genderStyle, styles }) => {
-    const updates = {
-      name, bio, country, avatarUrl, genderStyle, styles,
-      topSize: profile.topSize, bottomSize: profile.bottomSize, shoeSize: profile.shoeSize,
-    };
-    setProfile(prev => ({ ...prev, ...updates }));
+  const handleCompleteOnboarding = async ({ bio, country, outfitGoals }) => {
+    setProfile(prev => ({ ...prev, bio, country, outfitGoals }));
     if (user) {
       await Promise.all([
         supabase.from('profiles').upsert({
           id: user.id,
-          name, bio, styles,
+          bio,
           top_size: profile.topSize, bottom_size: profile.bottomSize, shoe_size: profile.shoeSize,
-          avatar_url: avatarUrl,
         }),
         supabase.auth.updateUser({ data: {
           country,
-          gender_style: genderStyle,
+          outfit_goals: outfitGoals,
           onboarding_complete: true,
         }}),
       ]);
@@ -7706,13 +7604,14 @@ export default function WardrobeApp() {
       });
     } catch {}
     await supabase.auth.signOut();
+    switchTab('today');
   };
 
   const handleUpdateAvatar = async (file) => {
     if (!user || !file) return;
     const ext = file.name.split('.').pop() || 'jpg';
-    const path = `avatars/${user.id}/avatar.${ext}`;
-    const { error: uploadErr } = await supabase.storage.from('item-images').upload(path, file, { upsert: true });
+    const path = `${user.id}/avatar-${Date.now()}.${ext}`;
+    const { error: uploadErr } = await supabase.storage.from('item-images').upload(path, file);
     if (uploadErr) { console.error('Avatar upload failed:', uploadErr.message); return; }
     const { data: { publicUrl } } = supabase.storage.from('item-images').getPublicUrl(path);
     // Persist in auth user metadata — survives refresh without any DB schema change
@@ -7972,7 +7871,9 @@ export default function WardrobeApp() {
                     <Search size={15} className="text-gray-600" />
                   </button>
                 )}
-                <button onClick={() => handleTabSwitch('profile')} className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 shadow-sm" />
+                <button onClick={() => handleTabSwitch('profile')} className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 shadow-sm overflow-hidden flex-shrink-0">
+                  {profile.avatarUrl && <img src={profile.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />}
+                </button>
               </>
             )}
           </div>
@@ -8069,10 +7970,7 @@ export default function WardrobeApp() {
       )}
 
       {showOnboarding && user && (
-        <OnboardingModal
-          onComplete={handleCompleteOnboarding}
-          onUpdateAvatar={handleUpdateAvatar}
-        />
+        <OnboardingModal onComplete={handleCompleteOnboarding} />
       )}
     </div>
   );
