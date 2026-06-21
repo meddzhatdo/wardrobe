@@ -2839,90 +2839,31 @@ function buildWeatherPool(weather, allItems) {
   return final;
 }
 
-async function imageUrlToBase64(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`fetch ${res.status}`);
-  const blob = await res.blob();
-  const mediaType = blob.type || 'image/jpeg';
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve({ data: reader.result.split(',')[1], mediaType });
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
 
 async function callAnthropicForOutfits(weather, allItems, userProfile = {}) {
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('VITE_ANTHROPIC_API_KEY not set');
-
-  // Stage 1 — narrow to weather-appropriate pool
   const pool = buildWeatherPool(weather, allItems);
 
-  // Stage 2 — build vision content blocks (image + text label per item)
-  const content = [];
-  for (const item of pool) {
-    try {
-      const { data, mediaType } = await imageUrlToBase64(item.image);
-      content.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data } });
-    } catch {
-      // image unavailable — text label still provides context
-    }
-    content.push({ type: 'text', text: `[ID:${item.id}] ${item.name} | Category: ${item.category}` });
-  }
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
 
-  const goalLabels = (userProfile.outfitGoals || [])
-    .map(id => OUTFIT_GOALS.find(g => g.id === id)?.label)
-    .filter(Boolean);
-
-  content.push({
-    type: 'text',
-    text:
-      `Weather: ${weather.tempF}°F now (${weather.conditionLabel}), High ${weather.highF}°F / Low ${weather.lowF}°F` +
-      (weather.laterCondition ? `, with ${weather.laterCondition} expected later today` : '') + `.\n` +
-      (goalLabels.length ? `\nThe user wants outfits suited for: ${goalLabels.join(', ')}. Tailor the suggestions to match these contexts.\n` : '') + `\n` +
-      `Using the garment images above, generate exactly 3 distinct, cohesive outfits. Hard rules:\n` +
-      `1. TOPS: Every outfit must include a "Tops" or "Knitwear & Sweaters" item UNLESS it contains a "Dresses & Jumpsuits" item. Never omit a top.\n` +
-      `2. BOTTOMS: Every outfit must include one "Bottoms" item UNLESS it contains a "Dresses & Jumpsuits" item. NEVER combine two bottoms (e.g., jeans + skirt is invalid — pick one).\n` +
-      `3. SHOES: Every outfit must include exactly one "Shoes" item.\n` +
-      `4. ACCESSORIES: "Accessories & Bags" and "Jewelry" items are optional but encouraged when they complement the look visually. You may include one or two per outfit.\n` +
-      `5. LAYERING: Below 50°F, pair short-sleeve or base-layer tops with an "Outerwear" item.\n` +
-      `6. OUTERWEAR WEIGHT: Above 65°F include no outerwear or only a very light jacket. Between 50–65°F a medium jacket or blazer is appropriate — avoid heavy coats, shearling, or thick parkas. Below 50°F heavier coats are suitable. Below 32°F heavy outerwear is expected.\n` +
-      `7. DISTINCT: No two outfits may share the exact same item set.\n` +
-      `If an outfit is not fully weather-appropriate (e.g. the wardrobe lacks a heavy coat for freezing temperatures, or only light fabrics are available for rain), the "description" field may include a brief, practical recommendation for what to add or swap to make it work for the conditions.\n` +
-      `The "description" field must be no more than 200 characters.\n` +
-      `Return ONLY a raw JSON array of exactly 3 objects: ` +
-      `[{"outfitName":"...","description":"...","itemIds":["id1","id2",...]}]`,
-  });
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch('/api/generate-outfits', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
+      Authorization: `Bearer ${session.access_token}`,
     },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 900,
-      system: 'You are a professional fashion stylist with visual and cultural expertise. Visually inspect the attached garment images — study their actual colors, fabrics, textures, and silhouettes. Build outfits that are visually cohesive, respect the user\'s stated style preferences and gender leaning when provided, ensure patterns do not clash and colors harmonize. Respond with valid raw JSON only — no markdown fences, no commentary.',
-      messages: [{ role: 'user', content }],
-    }),
+    body: JSON.stringify({ weather, items: pool, userProfile }),
   });
 
   if (!res.ok) {
-    const err = await res.text().catch(() => res.status);
-    throw new Error(`Anthropic API error: ${err}`);
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Server error: ${res.status}`);
   }
 
-  const json = await res.json();
-  let raw = json.content?.[0]?.text ?? '';
-  raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-  const parsed = JSON.parse(raw);
+  const parsed = await res.json();
   if (!Array.isArray(parsed)) throw new Error('Response was not a JSON array');
 
-  // Client-side guard: drop outfits that still violate structural rules
+  // Drop outfits that violate structural rules
   const itemMap = Object.fromEntries(allItems.map(i => [i.id, i]));
   const valid = parsed.filter(outfit => {
     const cats = (outfit.itemIds ?? []).map(id => itemMap[id]?.category).filter(Boolean);
@@ -2930,10 +2871,10 @@ async function callAnthropicForOutfits(weather, allItems, userProfile = {}) {
     const hasTop      = cats.some(c => c === 'Tops' || c === 'Knitwear & Sweaters');
     const bottomCount = cats.filter(c => c === 'Bottoms').length;
     const hasShoes    = cats.includes('Shoes');
-    if (!hasOnePiece && !hasTop)    return false;
-    if (bottomCount > 1)             return false;
-    if (!hasOnePiece && bottomCount === 0) return false;
-    if (!hasShoes)                   return false;
+    if (!hasOnePiece && !hasTop)             return false;
+    if (bottomCount > 1)                     return false;
+    if (!hasOnePiece && bottomCount === 0)   return false;
+    if (!hasShoes)                           return false;
     return true;
   });
 
