@@ -1,4 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
+import { logAuditEvent } from './_audit.js';
+import { initSentry, Sentry } from './_sentry.js';
+
+initSentry();
 
 const OUTFIT_GOALS = [
   { id: 'workwear', label: 'Workwear' },
@@ -23,7 +27,10 @@ export default async function handler(req, res) {
     process.env.VITE_SUPABASE_ANON_KEY,
   );
   const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-  if (authErr || !user) return res.status(401).json({ error: 'Invalid token' });
+  if (authErr || !user) {
+    await logAuditEvent({ event: 'auth_failure', endpoint: '/api/generate-outfits', req });
+    return res.status(401).json({ error: 'Invalid token' });
+  }
 
   const { weather, items, userProfile } = req.body;
   if (!weather || !Array.isArray(items) || items.length === 0) {
@@ -98,8 +105,10 @@ export default async function handler(req, res) {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return res.status(502).json({ error: 'Invalid AI response' });
 
+    await logAuditEvent({ event: 'ai_call', userId: user.id, endpoint: '/api/generate-outfits', req, metadata: { model: 'claude-sonnet-4-6', item_count: items.length } });
     return res.status(200).json(parsed);
   } catch (err) {
+    Sentry.captureException(err);
     console.error('generate-outfits error:', err);
     return res.status(500).json({ error: 'Internal server error' });
   }
