@@ -7343,9 +7343,16 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
    AnalyticsTab
    ───────────────────────────────────────────────────────────────────────────── */
 function AnalyticsTab({ items = [], wearLogs = [], onSelectItem, onUpdateItem, currencySymbol = '$' }) {
-  const [neverWornExpanded, setNeverWornExpanded] = useState(false);
   const [cpwSort,        setCpwSort]        = useState('highest-cpw');
-  const [cpwGrouped,     setCpwGrouped]     = useState(false);
+  const [cpwCategory,    setCpwCategory]    = useState('All');
+  const [cpwCatOpen,     setCpwCatOpen]     = useState(false);
+  const cpwCatRef = useRef(null);
+  useEffect(() => {
+    if (!cpwCatOpen) return;
+    const h = e => { if (!cpwCatRef.current?.contains(e.target)) setCpwCatOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [cpwCatOpen]);
   const [mostWornPeriod, setMostWornPeriod] = useState('90d');
   const [mostWornIndex,  setMostWornIndex]  = useState(0);
   const [editingCostId,  setEditingCostId]  = useState(null);
@@ -7383,19 +7390,21 @@ function AnalyticsTab({ items = [], wearLogs = [], onSelectItem, onUpdateItem, c
 
   const parsePrice = p => { const n = parseFloat(String(p ?? '').replace(/[^0-9.]/g, '')); return isNaN(n) ? null : n; };
 
-  const cpwRows = items
-    .map(item => {
-      const cost  = parsePrice(item.price);
-      const wears = wearCounts[String(item.id)] ?? 0;
-      const cpw   = cost != null ? (wears > 0 ? cost / wears : cost) : null;
-      return { item, cost, wears, cpw };
-    })
-    .filter(({ cost }) => cost != null);
+  const cpwRows = items.map(item => {
+    const cost  = parsePrice(item.price);
+    const wears = wearCounts[String(item.id)] ?? 0;
+    const cpw   = cost != null ? (wears > 0 ? cost / wears : cost) : null;
+    return { item, cost, wears, cpw };
+  });
 
   const sortCpw = arr => [...arr].sort((a, b) => {
+    if (cpwSort === 'most-worn') return b.wears - a.wears || (a.item.name || '').localeCompare(b.item.name || '');
+    if (cpwSort === 'alpha')     return (a.item.name || '').localeCompare(b.item.name || '');
+    // price-based sorts: items with no price always go to the bottom
+    if (a.cost == null && b.cost == null) return (a.item.name || '').localeCompare(b.item.name || '');
+    if (a.cost == null) return 1;
+    if (b.cost == null) return -1;
     if (cpwSort === 'lowest-cpw')   return (a.cpw ?? 0) - (b.cpw ?? 0);
-    if (cpwSort === 'most-worn')    return b.wears - a.wears;
-    if (cpwSort === 'alpha')        return (a.item.name || '').localeCompare(b.item.name || '');
     if (cpwSort === 'highest-cost') return (b.cost ?? 0) - (a.cost ?? 0);
     return (b.cpw ?? 0) - (a.cpw ?? 0); // highest-cpw (default)
   });
@@ -7505,7 +7514,7 @@ function AnalyticsTab({ items = [], wearLogs = [], onSelectItem, onUpdateItem, c
 
         {/* Cost per wear */}
         {cpwRows.length > 0 && (() => {
-          const fmtCost = n => `${currencySymbol}${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+          const fmtCost = n => n != null ? `${currencySymbol}${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : '—';
           const fmtCpw  = n => n != null ? `${currencySymbol}${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
 
           const CpwRow = ({ item, cost, wears, cpw }) => {
@@ -7543,7 +7552,7 @@ function AnalyticsTab({ items = [], wearLogs = [], onSelectItem, onUpdateItem, c
                     {fmtCost(cost)}
                   </button>
                 )}
-                <span className={`text-sm font-semibold flex-shrink-0 w-14 text-right pl-3 ${cpw < 10 ? 'text-green-600' : cpw > 100 ? 'text-rose-500' : 'text-gray-800'}`}>
+                <span className="text-sm font-semibold flex-shrink-0 w-14 text-right pl-3 text-gray-800">
                   {fmtCpw(cpw)}
                 </span>
               </div>
@@ -7558,19 +7567,38 @@ function AnalyticsTab({ items = [], wearLogs = [], onSelectItem, onUpdateItem, c
             { value: 'alpha',        label: 'A → Z'          },
           ];
 
+          const availableCats = CATEGORIES;
+          const filteredCpwRows = cpwCategory === 'All' ? cpwRows : cpwRows.filter(r => (r.item.category || 'Other') === cpwCategory);
+
           return (
             <div>
               {/* Header */}
               <div className="flex items-center justify-between mb-3 gap-2">
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-[0.12em]">Cost per Wear</p>
-                <button
-                  onClick={() => setCpwGrouped(o => !o)}
-                  className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
-                    cpwGrouped ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                  }`}
-                >
-                  By category
-                </button>
+                <div className="relative flex-shrink-0" ref={cpwCatRef}>
+                  <button
+                    onClick={() => setCpwCatOpen(o => !o)}
+                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
+                      cpwCategory !== 'All' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    {cpwCategory === 'All' ? 'Category' : cpwCategory}
+                    <ChevronDown size={11} className={`transition-transform ${cpwCatOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {cpwCatOpen && (
+                    <div className="absolute right-0 top-9 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 w-52 z-20 max-h-56 overflow-y-auto scrollbar-hide">
+                      {['All', ...availableCats].map(cat => (
+                        <button key={cat} onClick={() => { setCpwCategory(cat); setCpwCatOpen(false); }}
+                          className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                          <span className={`text-sm ${cat === cpwCategory ? 'text-gray-900 font-medium' : 'text-gray-600'}`}>
+                            {cat === 'All' ? 'All categories' : cat}
+                          </span>
+                          {cat === cpwCategory && <Check size={14} strokeWidth={2.5} className="text-gray-900 flex-shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Sort pills */}
@@ -7598,26 +7626,7 @@ function AnalyticsTab({ items = [], wearLogs = [], onSelectItem, onUpdateItem, c
               </div>
 
               {/* Rows */}
-              {cpwGrouped ? (
-                (() => {
-                  const byCategory = {};
-                  for (const row of cpwRows) {
-                    const cat = row.item.category || 'Other';
-                    if (!byCategory[cat]) byCategory[cat] = [];
-                    byCategory[cat].push(row);
-                  }
-                  return Object.entries(byCategory)
-                    .sort(([a], [b]) => a.localeCompare(b))
-                    .map(([cat, rows]) => (
-                      <div key={cat} className="mt-4">
-                        <p className="text-xs font-semibold text-gray-400 mb-1">{cat}</p>
-                        {sortCpw(rows).map(row => <CpwRow key={row.item.id} {...row} />)}
-                      </div>
-                    ));
-                })()
-              ) : (
-                sortCpw(cpwRows).map(row => <CpwRow key={row.item.id} {...row} />)
-              )}
+              {sortCpw(filteredCpwRows).map(row => <CpwRow key={row.item.id} {...row} />)}
             </div>
           );
         })()}
@@ -7628,32 +7637,16 @@ function AnalyticsTab({ items = [], wearLogs = [], onSelectItem, onUpdateItem, c
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-[0.12em] mb-3">
               Never Worn · {neverWorn.length} {neverWorn.length === 1 ? 'item' : 'items'}
             </p>
-            <div className={`${neverWornExpanded ? 'flex flex-wrap gap-3 pb-1' : 'flex gap-3 overflow-x-auto scrollbar-hide pb-1'}`}>
-              {(neverWornExpanded ? neverWorn : neverWorn.slice(0, 12)).map(item => (
-                <button key={item.id} onClick={() => onSelectItem?.(item)} className="flex-shrink-0 w-24 flex flex-col items-center gap-1 text-left">
-                  <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-50 border border-gray-100 hover:border-gray-300 transition-colors">
+            <div className="grid gap-3 pb-1" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))' }}>
+              {neverWorn.map(item => (
+                <button key={item.id} onClick={() => onSelectItem?.(item)} className="flex flex-col items-center gap-1 text-left">
+                  <div className="w-full aspect-square rounded-xl overflow-hidden bg-gray-50 border border-gray-100 hover:border-gray-300 transition-colors">
                     {item.image && <img src={item.image} alt={item.name} className="w-full h-full object-contain p-1" />}
                   </div>
-                  <p className="text-[10px] text-gray-400 text-center leading-tight w-24 truncate">{item.name || item.category}</p>
+                  <p className="text-[10px] text-gray-400 text-center leading-tight w-full truncate">{item.name || item.category}</p>
                 </button>
               ))}
-              {!neverWornExpanded && neverWorn.length > 12 && (
-                <button
-                  onClick={() => setNeverWornExpanded(true)}
-                  className="flex-shrink-0 w-24 h-24 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center hover:bg-gray-100 transition-colors"
-                >
-                  <span className="text-xs text-gray-400 font-medium">+{neverWorn.length - 12}</span>
-                </button>
-              )}
             </div>
-            {neverWornExpanded && neverWorn.length > 12 && (
-              <button
-                onClick={() => setNeverWornExpanded(false)}
-                className="mt-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                Show less
-              </button>
-            )}
           </div>
         )}
 
