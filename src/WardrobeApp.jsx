@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Sun, Shirt, Wand2, Sparkles, BarChart2,
   X, Heart, Plus, Search, ChevronRight, ChevronLeft, ChevronDown, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal, SlidersHorizontal,
-  Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut, Download, Eraser, MapPin, Bookmark, CheckCircle2,
+  Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut, Download, Eraser, MapPin, Bookmark, CheckCircle2, Link2, ArrowLeft,
   Eye, EyeOff,
   Cloud, CloudSun, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, CloudFog,
 } from 'lucide-react';
@@ -6332,7 +6332,7 @@ async function enrichItem({ imageUrl, imageFile, name, brand, category, material
   return res.json();
 }
 
-function AddMethodModal({ onClose, onImageSelected }) {
+function AddMethodModal({ onClose, onImageSelected, onLinkSelected }) {
   const fileInputRef = useRef(null);
 
   const handleFileChange = e => {
@@ -6411,6 +6411,18 @@ function AddMethodModal({ onClose, onImageSelected }) {
 
           <div className="mx-4 border-t border-gray-100" />
 
+          <button
+            onClick={onLinkSelected}
+            className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+          >
+            <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Link2 size={18} className="text-gray-600" />
+            </div>
+            <span className="text-sm font-medium text-gray-900">Add from link</span>
+          </button>
+
+          <div className="mx-4 border-t border-gray-100" />
+
           <div className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl opacity-40 cursor-not-allowed">
             <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
               <Camera size={18} className="text-gray-600" />
@@ -6418,6 +6430,51 @@ function AddMethodModal({ onClose, onImageSelected }) {
             <span className="text-sm font-medium text-gray-900">Take a photo</span>
             <span className="ml-auto text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Soon</span>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AddFromLinkModal({ onClose, onBack }) {
+  const [url, setUrl] = useState('');
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-6">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm backdrop-fade" onClick={onClose} />
+      <div className="relative w-full md:w-[360px] bg-white rounded-t-[2rem] md:rounded-[2rem] shadow-2xl modal-animate">
+        <div className="flex justify-center pt-3 pb-1 md:hidden">
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+        </div>
+
+        <button
+          onClick={onBack}
+          className="absolute top-4 left-4 w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+        >
+          <ArrowLeft size={14} strokeWidth={2.5} className="text-gray-500" />
+        </button>
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+        >
+          <X size={14} strokeWidth={2.5} className="text-gray-500" />
+        </button>
+
+        <div className="px-6 pt-6 pb-2">
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Add item</p>
+          <h2 className="text-xl font-semibold text-gray-900 mt-1">Add from link</h2>
+          <p className="text-sm text-gray-400 mt-1">Paste a product URL and we'll pull in the details for you.</p>
+        </div>
+
+        <div className="px-6 pb-8 pt-4">
+          <input
+            type="url"
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            placeholder="https://..."
+            className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300 transition-colors"
+            autoFocus
+          />
         </div>
       </div>
     </div>
