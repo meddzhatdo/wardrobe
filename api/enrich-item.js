@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { logAuditEvent } from './_audit.js';
 import { initSentry, Sentry } from './_sentry.js';
+import { checkRateLimit } from './_rateLimit.js';
 
 initSentry();
 
@@ -24,6 +25,9 @@ export default async function handler(req, res) {
     await logAuditEvent({ event: 'auth_failure', endpoint: '/api/enrich-item', req });
     return res.status(401).json({ error: 'Invalid token' });
   }
+
+  const { limited } = await checkRateLimit({ userId: user.id, endpoint: '/api/enrich-item', maxRequests: 100, windowMinutes: 60 });
+  if (limited) return res.status(429).json({ error: 'Rate limit exceeded. Try again later.' });
 
   const { imageUrl, imageBase64, mediaType, name, brand, category, material, color } = req.body;
 
