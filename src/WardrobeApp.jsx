@@ -8,6 +8,7 @@ import {
   Sun, Shirt, Wand2, Sparkles,
   X, Heart, Plus, Search, ChevronRight, ChevronLeft, ChevronDown, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal, SlidersHorizontal,
   Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut, Download, Eraser, MapPin, Bookmark,
+  Eye, EyeOff,
   Cloud, CloudSun, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, CloudFog,
 } from 'lucide-react';
 import { supabase } from './supabase.js';
@@ -54,6 +55,12 @@ const GLOBAL_CSS = `
   .outfit-enter-right { animation: outfitSlideRight 0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
   .outfit-enter-left  { animation: outfitSlideLeft  0.32s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
   .outfit-text-fade   { animation: outfitFade       0.25s ease-out both; }
+
+  @keyframes cardExit {
+    from { opacity: 1; transform: scale(1); }
+    to   { opacity: 0; transform: scale(0.88); }
+  }
+  .card-exit { animation: cardExit 0.28s ease-in forwards; pointer-events: none; }
 `;
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -1105,7 +1112,7 @@ function BackgroundEraserModal({ image, onSave, onClose }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    ItemModal
    ───────────────────────────────────────────────────────────────────────────── */
-function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onAddToOutfit, onOpenCollage, savedOutfits, draftOutfits, boards, onToggleBoard, onUpdateImage, isPreview = false }) {
+function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onAddToOutfit, onOpenCollage, savedOutfits, draftOutfits, boards, onToggleBoard, onUpdateImage, isPreview = false, currencySymbol = '$' }) {
   const [editMode, setEditMode] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCollagePicker, setShowCollagePicker] = useState(false);
@@ -1357,14 +1364,24 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
 
             {/* Price */}
             {editMode ? (
-              <input
-                value={draft.price}
-                onChange={e => set('price', e.target.value)}
-                placeholder="Price"
-                className={`${editInput} text-3xl font-light tracking-tight text-gray-900 pb-0.5 mb-6 block`}
-              />
+              <div className="flex items-baseline gap-1 mb-6">
+                <span className="text-3xl font-light tracking-tight text-gray-400">{currencySymbol}</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={draft.price}
+                  onChange={e => set('price', e.target.value)}
+                  placeholder="0"
+                  className={`${editInput} text-3xl font-light tracking-tight text-gray-900 pb-0.5 flex-1`}
+                />
+              </div>
             ) : (
-              <p className="text-3xl font-light tracking-tight text-gray-900 mb-6">{item.price}</p>
+              <p className="text-3xl font-light tracking-tight text-gray-900 mb-6">
+                {item.price && !isNaN(parseFloat(item.price))
+                  ? `${currencySymbol}${parseFloat(item.price).toLocaleString()}`
+                  : item.price || '—'}
+              </p>
             )}
 
             {/* Detail tiles */}
@@ -2835,7 +2852,7 @@ async function imageUrlToBase64(url) {
   });
 }
 
-async function callAnthropicForOutfits(weather, allItems) {
+async function callAnthropicForOutfits(weather, allItems, userProfile = {}) {
   const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('VITE_ANTHROPIC_API_KEY not set');
 
@@ -2854,11 +2871,16 @@ async function callAnthropicForOutfits(weather, allItems) {
     content.push({ type: 'text', text: `[ID:${item.id}] ${item.name} | Category: ${item.category}` });
   }
 
+  const goalLabels = (userProfile.outfitGoals || [])
+    .map(id => OUTFIT_GOALS.find(g => g.id === id)?.label)
+    .filter(Boolean);
+
   content.push({
     type: 'text',
     text:
       `Weather: ${weather.tempF}°F now (${weather.conditionLabel}), High ${weather.highF}°F / Low ${weather.lowF}°F` +
-      (weather.laterCondition ? `, with ${weather.laterCondition} expected later today` : '') + `.\n\n` +
+      (weather.laterCondition ? `, with ${weather.laterCondition} expected later today` : '') + `.\n` +
+      (goalLabels.length ? `\nThe user wants outfits suited for: ${goalLabels.join(', ')}. Tailor the suggestions to match these contexts.\n` : '') + `\n` +
       `Using the garment images above, generate exactly 3 distinct, cohesive outfits. Hard rules:\n` +
       `1. TOPS: Every outfit must include a "Tops" or "Knitwear & Sweaters" item UNLESS it contains a "Dresses & Jumpsuits" item. Never omit a top.\n` +
       `2. BOTTOMS: Every outfit must include one "Bottoms" item UNLESS it contains a "Dresses & Jumpsuits" item. NEVER combine two bottoms (e.g., jeans + skirt is invalid — pick one).\n` +
@@ -2884,7 +2906,7 @@ async function callAnthropicForOutfits(weather, allItems) {
     body: JSON.stringify({
       model: 'claude-sonnet-4-6',
       max_tokens: 900,
-      system: 'You are a professional fashion stylist with visual expertise. You are visually inspecting the attached garment images. Look closely at their actual colors, fabrics, textures, and silhouettes. Group them into 5 outfits based on true visual compatibility, ensuring patterns do not clash and colors harmonize perfectly. Respond with valid raw JSON only — no markdown fences, no commentary.',
+      system: 'You are a professional fashion stylist with visual and cultural expertise. Visually inspect the attached garment images — study their actual colors, fabrics, textures, and silhouettes. Build outfits that are visually cohesive, respect the user\'s stated style preferences and gender leaning when provided, ensure patterns do not clash and colors harmonize. Respond with valid raw JSON only — no markdown fences, no commentary.',
       messages: [{ role: 'user', content }],
     }),
   });
@@ -3386,7 +3408,7 @@ const PREVIEW_CITY_OUTFITS = {
   ],
 };
 
-function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = false, userId = null }) {
+function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = false, userId = null, userProfile = {} }) {
   const [location,       setLocation]       = useState({ city: null, lat: null, lon: null });
   const [weatherSummary, setWeatherSummary] = useState(null);
   const [outfits,        setOutfits]        = useState([]);
@@ -3495,7 +3517,7 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
       setCurrentIdx(0);
       setGenError(null);
       setGenerating(true);
-      callAnthropicForOutfits(weatherSummary, items)
+      callAnthropicForOutfits(weatherSummary, items, userProfile)
         .then(fresh => {
           if (cancelled) return;
           const combined = [...goodOutfits, ...fresh.slice(0, needed)];
@@ -3697,13 +3719,13 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
       <div className="flex flex-col gap-4 pl-6 md:pl-8 pr-6 md:pr-10">
 
         {items.length < 3 && (
-          <div className="ml-6 md:ml-8 flex flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-gray-200 bg-gray-50 px-6 py-12 text-center max-w-sm">
-            <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center">
-              <Shirt size={22} className="text-gray-300" />
+          <div className="flex flex-col items-center justify-center gap-4 rounded-3xl border border-dashed border-gray-200 bg-gray-50 px-8 py-20 text-center w-full">
+            <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center">
+              <Shirt size={28} className="text-gray-300" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-700">Your wardrobe needs a few more pieces</p>
-              <p className="text-xs text-gray-400 mt-1 leading-relaxed max-w-[220px]">
+              <p className="text-base font-semibold text-gray-700">Your wardrobe needs a few more pieces</p>
+              <p className="text-sm text-gray-400 mt-1.5 leading-relaxed max-w-xs mx-auto">
                 Add more items to unlock daily style inspiration tailored to the weather.
               </p>
             </div>
@@ -4873,6 +4895,12 @@ function OutfitCard({
   const [boardSearch, setBoardSearch] = useState('');
   const [saving, setSaving] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [exiting, setExiting] = useState(false);
+
+  const triggerDelete = () => {
+    setExiting(true);
+    setTimeout(() => onDelete?.(), 280);
+  };
   const loadedCountRef = useRef(0);
   const dotsRef      = useRef(null);
   const dropdownRef  = useRef(null);
@@ -4906,7 +4934,7 @@ function OutfitCard({
 
   return (
     <div
-      className={`group relative cursor-pointer ${organizeMode ? 'cursor-grab active:cursor-grabbing' : ''} ${dragging ? 'opacity-40' : ''}`}
+      className={`group relative cursor-pointer ${organizeMode ? 'cursor-grab active:cursor-grabbing' : ''} ${dragging ? 'opacity-40' : ''} ${exiting ? 'card-exit' : ''}`}
       style={{ aspectRatio: '210 / 297' }}
       draggable={organizeMode}
       onDragStart={organizeMode ? onDragStart : undefined}
@@ -5045,7 +5073,7 @@ function OutfitCard({
                 )}
                 {!isPreview && (
                   <button
-                    onClick={e => { e.stopPropagation(); setMenuOpen(false); onDelete?.(); }}
+                    onClick={e => { e.stopPropagation(); setMenuOpen(false); triggerDelete(); }}
                     className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
                   >
                     Delete
@@ -5067,7 +5095,7 @@ function StudioTab({
   pendingAiCollage, onClearPendingAiCollage, items, boards,
   outfitBoards, outfitBoardMeta, likedOutfits,
   onCreateOutfitBoard, onDeleteOutfitBoard, onEditOutfitBoard, onToggleOutfitBoard, onToggleOutfitLike,
-  isPreview = false, previewCollages = [],
+  isPreview = false, previewCollages = [], userId = null,
 }) {
   const [showCreate, setShowCreate]               = useState(false);
   const [createSeed, setCreateSeed]               = useState(null);
@@ -5159,8 +5187,29 @@ function StudioTab({
     return l;
   };
 
-  const filteredDrafts = applyFilters(draftOutfits);
-  const filteredSaved  = applyFilters(isPreview ? previewCollages : savedOutfits);
+  const studioOrderKey = `studio-order-${userId || 'guest'}-${activeOutfitFilter}-${outfitFavoritesOnly ? 'fav' : 'all'}`;
+
+  const orderedCombined = (() => {
+    const combined = [
+      ...applyFilters(draftOutfits),
+      ...applyFilters(isPreview ? previewCollages : savedOutfits),
+    ];
+    try {
+      const saved = localStorage.getItem(studioOrderKey);
+      if (saved) {
+        const ids = JSON.parse(saved);
+        const idMap = new Map(combined.map(o => [o.id, o]));
+        const ordered = ids.flatMap(id => idMap.has(id) ? [idMap.get(id)] : []);
+        const seenIds = new Set(ids);
+        const newItems = combined.filter(o => !seenIds.has(o.id));
+        return [...newItems, ...ordered];
+      }
+    } catch {}
+    return combined;
+  })();
+
+  const filteredDrafts = orderedCombined.filter(o => draftIds.has(o.id));
+  const filteredSaved  = orderedCombined.filter(o => !draftIds.has(o.id));
 
   const openCollageForEditing = (outfit, type) => {
     setCreateSeed(null);
@@ -5179,6 +5228,9 @@ function StudioTab({
   };
 
   const exitOrganize = () => {
+    try {
+      localStorage.setItem(studioOrderKey, JSON.stringify(organizedList.map(o => o.id)));
+    } catch {}
     setOrganizeMode(false);
     setOrganizedList([]);
     setSelectedOutfitIds(new Set());
@@ -6139,7 +6191,7 @@ function AddMethodModal({ onClose, onImageSelected }) {
   );
 }
 
-function AddItemModal({ onClose, onAdd, initialImage, imageProcessingPromise }) {
+function AddItemModal({ onClose, onAdd, initialImage, imageProcessingPromise, currencySymbol = '$' }) {
   const [imageFile, setImageFile] = useState(initialImage ?? null);
   const [previewUrl, setPreviewUrl] = useState(() => initialImage ? URL.createObjectURL(initialImage) : null);
   const [imageProcessing, setImageProcessing] = useState(!!imageProcessingPromise);
@@ -6279,7 +6331,18 @@ function AddItemModal({ onClose, onAdd, initialImage, imageProcessingPromise }) 
               </div>
               <div>
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Price</p>
-                <input value={form.price} onChange={e => set('price', e.target.value)} placeholder="e.g. $120" className={editInput} />
+                <div className="flex items-baseline gap-1">
+                  <span className="text-sm font-medium text-gray-400">{currencySymbol}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.price}
+                    onChange={e => set('price', e.target.value)}
+                    placeholder="0"
+                    className={editInput}
+                  />
+                </div>
               </div>
             </div>
 
@@ -6346,20 +6409,32 @@ function collageToDbPayload(collage) {
    AuthModal  (replaces full-page AuthScreen — floats above the preview app)
    ───────────────────────────────────────────────────────────────────────────── */
 function AuthModal({ onClose }) {
-  const [mode, setMode]       = useState('signin');
-  const [name, setName]       = useState('');
-  const [email, setEmail]     = useState('');
+  const [mode, setMode]         = useState('signin');
+  const [name, setName]         = useState('');
+  const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
+  const [verified, setVerified] = useState(false); // shown after successful sign-up
 
   const handleSubmit = async e => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    if (mode === 'signup' && password !== confirmPassword) {
+      setError('Passwords do not match.');
+      setLoading(false);
+      return;
+    }
     try {
       if (mode === 'signup') {
-        const { data, error: err } = await supabase.auth.signUp({ email, password });
+        const { data, error: err } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { onboarding_complete: false } },
+        });
         if (err) throw err;
         if (data.user) {
           await supabase.from('profiles').insert({
@@ -6372,11 +6447,12 @@ function AuthModal({ onClose }) {
             styles: [],
           });
         }
+        setVerified(true);
       } else {
         const { error: err } = await supabase.auth.signInWithPassword({ email, password });
         if (err) throw err;
+        onClose?.();
       }
-      onClose?.();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -6401,70 +6477,277 @@ function AuthModal({ onClose }) {
               <X size={18} strokeWidth={2} />
             </button>
           )}
-          {/* Mode toggle */}
-          <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
-            {[{ key: 'signin', label: 'Sign In' }, { key: 'signup', label: 'Sign Up' }].map(({ key, label }) => (
+
+          {verified ? (
+            /* Email verification screen */
+            <div className="text-center py-4">
+              <div className="w-14 h-14 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Check size={26} className="text-emerald-500" strokeWidth={2.5} />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Check your inbox</h3>
+              <p className="text-sm text-gray-500 leading-relaxed mb-6">
+                We sent a confirmation link to <span className="font-medium text-gray-700">{email}</span>. Open it to activate your account, then come back and sign in.
+              </p>
               <button
-                key={key}
-                onClick={() => { setMode(key); setError(''); }}
-                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-                  mode === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
-                }`}
+                onClick={() => { setVerified(false); setMode('signin'); setName(''); setPassword(''); setConfirmPassword(''); setError(''); }}
+                className="w-full py-3 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-700 transition-colors"
               >
-                {label}
+                Back to sign in
               </button>
-            ))}
+            </div>
+          ) : (
+            <>
+              {/* Mode toggle */}
+              <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
+                {[{ key: 'signin', label: 'Sign In' }, { key: 'signup', label: 'Sign Up' }].map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => { setMode(key); setError(''); setConfirmPassword(''); }}
+                    className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+                      mode === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {mode === 'signup' && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Name</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      placeholder="Your name"
+                      required
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-gray-400 transition-colors"
+                    />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Email</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-gray-400 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5">Password</label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={e => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      minLength={6}
+                      className="w-full px-4 py-3 pr-11 rounded-xl border border-gray-200 text-sm outline-none focus:border-gray-400 transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+                {mode === 'signup' && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1.5">Retype password</label>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      required
+                      minLength={6}
+                      className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-colors ${
+                        confirmPassword && confirmPassword !== password
+                          ? 'border-red-300 focus:border-red-400'
+                          : 'border-gray-200 focus:border-gray-400'
+                      }`}
+                    />
+                  </div>
+                )}
+
+                {error && <p className="text-xs text-red-500 bg-red-50 rounded-xl px-4 py-3">{error}</p>}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {loading && <Loader2 size={15} className="animate-spin" />}
+                  {mode === 'signup' ? 'Create account' : 'Sign in'}
+                </button>
+              </form>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   OnboardingModal — shown once after a new user verifies their email
+   ───────────────────────────────────────────────────────────────────────────── */
+function OnboardingModal({ onComplete }) {
+  const [slide, setSlide]     = useState(0);
+  const [bio, setBio]         = useState('');
+  const [country, setCountry] = useState('');
+  const [outfitGoals, setOutfitGoals] = useState([]);
+
+  const TOTAL = 3;
+
+  const toggleOutfitGoal = (id) => {
+    setOutfitGoals(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]);
+  };
+
+  const handleFinish = () => {
+    onComplete({ bio: bio.trim(), country, outfitGoals });
+  };
+
+  const canAdvance = slide !== 1 || country.trim();
+
+  const slides = [
+    /* Slide 0 — Welcome */
+    <div key="welcome" className="flex flex-col items-center text-center px-2 py-6">
+      <div className="w-16 h-16 bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 rounded-full flex items-center justify-center mb-5 shadow-md">
+        <Sparkles size={26} className="text-white" />
+      </div>
+      <h2 className="text-2xl font-bold text-gray-900 mb-3">Welcome to Vêtu</h2>
+      <p className="text-sm text-gray-500 leading-relaxed max-w-xs">
+        Let's spend one minute personalising your experience so we can help you look your best, every day.
+      </p>
+    </div>,
+
+    /* Slide 1 — Profile info */
+    <div key="profile" className="space-y-5 py-2">
+      <div>
+        <h3 className="text-lg font-bold text-gray-900 mb-1">Your profile</h3>
+        <p className="text-xs text-gray-400">Country is required. Bio is optional.</p>
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-500 mb-1.5">Bio</label>
+        <textarea
+          value={bio}
+          onChange={e => setBio(e.target.value)}
+          placeholder="A short note about your style…"
+          rows={2}
+          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-gray-400 transition-colors resize-none"
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-500 mb-1.5">
+          Country <span className="text-rose-400">*</span>
+        </label>
+        <select
+          value={country}
+          onChange={e => setCountry(e.target.value)}
+          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-gray-400 transition-colors bg-white appearance-none cursor-pointer"
+        >
+          <option value="" disabled>Select your country…</option>
+          {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
+    </div>,
+
+    /* Slide 2 — Outfit goals */
+    <div key="goals" className="py-2">
+      <h3 className="text-lg font-bold text-gray-900 mb-1">What kind of outfits are you looking to create?</h3>
+      <p className="text-xs text-gray-400 mb-5">Select all that apply — or skip.</p>
+      <div className="grid grid-cols-2 gap-3">
+        {OUTFIT_GOALS.map(({ id, label, emoji }) => {
+          const selected = outfitGoals.includes(id);
+          return (
+            <button
+              key={id}
+              onClick={() => toggleOutfitGoal(id)}
+              className={`flex flex-col items-center gap-2 py-5 rounded-2xl border-2 transition-all ${
+                selected
+                  ? 'border-gray-900 bg-gray-900 text-white'
+                  : 'border-gray-100 bg-gray-50 text-gray-600 hover:border-gray-300'
+              }`}
+            >
+              <span className="text-2xl">{emoji}</span>
+              <span className="text-sm font-medium text-center leading-snug">{label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>,
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/50 backdrop-fade">
+      <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden modal-animate">
+        {/* Progress bar */}
+        <div className="h-1 bg-gray-100">
+          <div
+            className="h-full bg-gray-900 transition-all duration-500"
+            style={{ width: `${((slide + 1) / TOTAL) * 100}%` }}
+          />
+        </div>
+
+        <div className="px-8 pt-8 pb-6 min-h-[420px] flex flex-col">
+          <div className="flex-1">
+            {slides[slide]}
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === 'signup' && (
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5">Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="Your name"
-                  required
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-gray-400 transition-colors"
-                />
-              </div>
+          {/* Navigation */}
+          <div className="flex items-center gap-3 mt-6">
+            {slide > 0 && (
+              <button
+                onClick={() => setSlide(s => s - 1)}
+                className="flex-1 py-3 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:border-gray-400 transition-colors"
+              >
+                Back
+              </button>
             )}
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-gray-400 transition-colors"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                minLength={6}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-gray-400 transition-colors"
-              />
-            </div>
+            {slide < TOTAL - 1 ? (
+              <button
+                onClick={() => canAdvance && setSlide(s => s + 1)}
+                disabled={!canAdvance}
+                className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-colors ${
+                  canAdvance
+                    ? 'bg-gray-900 text-white hover:bg-gray-700'
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                {slide === 0 ? "Let's go" : 'Next'}
+              </button>
+            ) : (
+              <button
+                onClick={handleFinish}
+                disabled={avatarUploading}
+                className="flex-1 py-3 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {avatarUploading && <Loader2 size={14} className="animate-spin" />}
+                Done
+              </button>
+            )}
+          </div>
 
-            {error && <p className="text-xs text-red-500 bg-red-50 rounded-xl px-4 py-3">{error}</p>}
-
+          {/* Skip on non-required slides */}
+          {slide > 1 && (
             <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              onClick={() => slide === TOTAL - 1 ? handleFinish() : setSlide(s => s + 1)}
+              className="mt-3 w-full text-xs text-gray-400 hover:text-gray-600 transition-colors text-center"
             >
-              {loading && <Loader2 size={15} className="animate-spin" />}
-              {mode === 'signup' ? 'Create account' : 'Sign in'}
+              Skip
             </button>
-          </form>
+          )}
         </div>
       </div>
     </div>
@@ -6474,14 +6757,72 @@ function AuthModal({ onClose }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    ProfileTab
    ───────────────────────────────────────────────────────────────────────────── */
-const STYLE_TAGS = ['Minimalist', 'Classic', 'Casual', 'Streetwear', 'Formal', 'Bohemian', 'Athletic', 'Romantic'];
+const OUTFIT_GOALS = [
+  { id: 'workwear',  label: 'Workwear',          emoji: '💼' },
+  { id: 'casual',   label: 'Casual day-looks',   emoji: '☀️' },
+  { id: 'night',    label: 'Night looks',         emoji: '🌙' },
+  { id: 'anything', label: "I'm up for anything!", emoji: '✨' },
+];
+
+const COUNTRIES = [
+  'Afghanistan','Albania','Algeria','Argentina','Armenia','Australia','Austria','Azerbaijan',
+  'Bahrain','Bangladesh','Belarus','Belgium','Bolivia','Bosnia and Herzegovina','Brazil','Bulgaria',
+  'Cambodia','Canada','Chile','China','Colombia','Croatia','Cyprus','Czech Republic',
+  'Denmark','Dominican Republic','Ecuador','Egypt','Estonia','Ethiopia',
+  'Finland','France','Georgia','Germany','Ghana','Greece','Guatemala',
+  'Hong Kong','Hungary','India','Indonesia','Iran','Iraq','Ireland','Israel','Italy',
+  'Japan','Jordan','Kazakhstan','Kenya','Kuwait','Latvia','Lebanon','Lithuania','Luxembourg',
+  'Malaysia','Mexico','Morocco','Myanmar','Netherlands','New Zealand','Nigeria','North Korea','Norway',
+  'Oman','Pakistan','Palestine','Panama','Peru','Philippines','Poland','Portugal',
+  'Qatar','Romania','Russia','Saudi Arabia','Serbia','Singapore','Slovakia','Slovenia',
+  'South Africa','South Korea','Spain','Sri Lanka','Sweden','Switzerland','Taiwan','Thailand',
+  'Turkey','Ukraine','United Arab Emirates','United Kingdom','United States','Uzbekistan',
+  'Venezuela','Vietnam','Yemen','Zimbabwe',
+];
+
+const COUNTRY_CURRENCY = {
+  'United States': '$', 'Canada': 'CA$', 'Australia': 'A$', 'New Zealand': 'NZ$',
+  'United Kingdom': '£', 'Germany': '€', 'France': '€', 'Italy': '€', 'Spain': '€',
+  'Portugal': '€', 'Netherlands': '€', 'Belgium': '€', 'Austria': '€', 'Ireland': '€',
+  'Finland': '€', 'Greece': '€', 'Luxembourg': '€', 'Cyprus': '€', 'Slovakia': '€',
+  'Slovenia': '€', 'Estonia': '€', 'Latvia': '€', 'Lithuania': '€', 'Croatia': '€',
+  'Japan': '¥', 'China': '¥', 'South Korea': '₩',
+  'India': '₹', 'Pakistan': '₨', 'Sri Lanka': 'Rs', 'Nepal': 'Rs', 'Bangladesh': '৳',
+  'Russia': '₽', 'Ukraine': '₴', 'Belarus': 'Br',
+  'Brazil': 'R$', 'Argentina': '$', 'Mexico': '$', 'Colombia': '$', 'Chile': '$',
+  'Peru': 'S/', 'Venezuela': 'Bs', 'Dominican Republic': '$', 'Guatemala': 'Q',
+  'Panama': 'B/.', 'Ecuador': '$', 'Bolivia': 'Bs',
+  'Turkey': '₺', 'Israel': '₪', 'Saudi Arabia': '﷼', 'UAE': 'د.إ',
+  'United Arab Emirates': 'د.إ', 'Qatar': '﷼', 'Kuwait': 'KD', 'Bahrain': 'BD',
+  'Oman': '﷼', 'Jordan': 'JD', 'Lebanon': 'LL', 'Iraq': 'IQ', 'Iran': '﷼',
+  'Egypt': 'E£', 'Morocco': 'MAD', 'Nigeria': '₦', 'Ghana': '₵', 'Kenya': 'KSh',
+  'Ethiopia': 'Br', 'South Africa': 'R', 'Zimbabwe': 'Z$',
+  'Sweden': 'kr', 'Norway': 'kr', 'Denmark': 'kr',
+  'Switzerland': 'CHF', 'Poland': 'zł', 'Czech Republic': 'Kč', 'Hungary': 'Ft',
+  'Romania': 'lei', 'Bulgaria': 'лв', 'Serbia': 'din', 'Bosnia and Herzegovina': 'KM',
+  'Croatia': 'kn', 'Albania': 'L', 'North Macedonia': 'ден',
+  'Singapore': 'S$', 'Hong Kong': 'HK$', 'Taiwan': 'NT$', 'Malaysia': 'RM',
+  'Thailand': '฿', 'Vietnam': '₫', 'Indonesia': 'Rp', 'Philippines': '₱',
+  'Myanmar': 'K', 'Cambodia': '₭',
+  'Kazakhstan': '₸', 'Uzbekistan': 'so\'m', 'Azerbaijan': '₼', 'Armenia': '֏',
+  'Georgia': '₾',
+  'Afghanistan': '؋', 'Yemen': '﷼', 'Palestine': '₪',
+  'Algeria': 'DA', 'Libya': 'LD',
+  'North Korea': '₩',
+};
+
+const getCurrencySymbol = (country) => COUNTRY_CURRENCY[country] || '$';
+
 const TOP_SIZES  = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 const BOTTOM_SIZES = ['24', '25', '26', '27', '28', '29', '30', '32', 'XS', 'S', 'M', 'L', 'XL'];
 const SHOE_SIZES = ['5', '5.5', '6', '6.5', '7', '7.5', '8', '8.5', '9', '9.5', '10', '11', '12'];
 
-function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onSignOut }) {
+function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onSignOut, onUpdateAvatar, onDeleteAccount }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft]     = useState(profile);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const avatarInputRef = useRef(null);
 
   useEffect(() => {
     if (!editing) setDraft(profile);
@@ -6493,10 +6834,12 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
     { label: 'Outfits', value: savedOutfits.length },
   ];
 
-  const toggleStyle = tag => {
+  const toggleOutfitGoal = id => {
     setDraft(d => ({
       ...d,
-      styles: d.styles.includes(tag) ? d.styles.filter(s => s !== tag) : [...d.styles, tag],
+      outfitGoals: d.outfitGoals.includes(id)
+        ? d.outfitGoals.filter(g => g !== id)
+        : [...d.outfitGoals, id],
     }));
   };
 
@@ -6545,8 +6888,39 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
 
         {/* Avatar + name + bio */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 shadow-md mb-4 flex items-center justify-center">
-            {!profile.name && <User size={28} className="text-white/80" />}
+          <div className="relative mb-4">
+            <div
+              onClick={() => avatarInputRef.current?.click()}
+              className="w-20 h-20 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 shadow-md flex items-center justify-center overflow-hidden cursor-pointer relative"
+            >
+              {profile.avatarUrl ? (
+                <img src={profile.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                !profile.name && <User size={28} className="text-white/80" />
+              )}
+              {avatarUploading && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                  <Loader2 size={18} className="animate-spin text-white" />
+                </div>
+              )}
+              <div className="absolute inset-0 bg-black/0 hover:bg-black/30 transition-colors flex items-center justify-center group">
+                <Camera size={18} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </div>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={async e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setAvatarUploading(true);
+                await onUpdateAvatar(file);
+                setAvatarUploading(false);
+                e.target.value = '';
+              }}
+            />
           </div>
 
           {editing ? (
@@ -6573,6 +6947,23 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
               {profile.bio || 'Add a short bio'}
             </p>
           )}
+
+          {/* Country */}
+          {editing ? (
+            <select
+              value={draft.country}
+              onChange={e => setDraft(d => ({ ...d, country: e.target.value }))}
+              className="mt-3 px-3 py-1.5 rounded-full bg-gray-100 text-xs font-medium text-gray-600 border border-transparent focus:border-gray-300 focus:outline-none cursor-pointer"
+            >
+              <option value="">Country not set</option>
+              {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          ) : profile.country ? (
+            <div className="flex items-center gap-1 mt-2">
+              <MapPin size={11} className="text-gray-400" />
+              <span className="text-xs text-gray-400">{profile.country}</span>
+            </div>
+          ) : null}
         </div>
 
         {/* Stats */}
@@ -6622,54 +7013,55 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
           </div>
         </section>
 
-        {/* Style preferences */}
+        {/* Outfit goals */}
         <section className="mb-8">
-          <h4 className="text-sm font-semibold text-gray-700 mb-3">Style Preferences</h4>
-          <div className="flex flex-wrap gap-2">
-            {STYLE_TAGS.map(tag => {
-              const selected = editing ? draft.styles.includes(tag) : profile.styles.includes(tag);
+          <h4 className="text-sm font-semibold text-gray-700 mb-3">What I'm looking to create</h4>
+          <div className="grid grid-cols-2 gap-2">
+            {OUTFIT_GOALS.map(({ id, label, emoji }) => {
+              const active = editing ? draft.outfitGoals?.includes(id) : profile.outfitGoals?.includes(id);
               return (
                 <button
-                  key={tag}
-                  onClick={() => editing && toggleStyle(tag)}
-                  className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
-                    selected
-                      ? 'bg-gray-900 text-white'
+                  key={id}
+                  onClick={() => editing && toggleOutfitGoal(id)}
+                  className={`flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm font-medium transition-all border ${
+                    active
+                      ? 'border-gray-900 bg-gray-900 text-white'
                       : editing
-                        ? 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                        : 'bg-gray-100 text-gray-400'
-                  } ${!editing ? 'cursor-default' : ''}`}
+                        ? 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-400'
+                        : 'border-gray-100 bg-gray-50 text-gray-400 cursor-default'
+                  }`}
                 >
-                  {tag}
+                  <span>{emoji}</span>
+                  <span className="leading-snug text-left">{label}</span>
                 </button>
               );
             })}
           </div>
-          {!editing && profile.styles.length === 0 && (
-            <p className="text-sm text-gray-300 mt-2">Tap Edit to add your style preferences</p>
+          {!editing && (!profile.outfitGoals || profile.outfitGoals.length === 0) && (
+            <p className="text-sm text-gray-300 mt-2">Tap Edit to set your outfit goals</p>
           )}
         </section>
 
-        {/* Settings (placeholders) */}
+        {/* Settings */}
         <section>
           <h4 className="text-sm font-semibold text-gray-700 mb-3">Settings</h4>
           <div className="space-y-1">
-            {[
-              { label: 'Notifications', sublabel: 'Coming soon' },
-              { label: 'Privacy',       sublabel: 'Coming soon' },
-              { label: 'Appearance',    sublabel: 'Coming soon' },
-            ].map(({ label, sublabel }) => (
-              <div
-                key={label}
-                className="flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-gray-50 transition-colors"
-              >
-                <div>
-                  <p className="text-sm font-medium text-gray-700">{label}</p>
-                  <p className="text-xs text-gray-400">{sublabel}</p>
-                </div>
-                <ChevronRight size={15} className="text-gray-300" />
+            <div className="flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-gray-50 transition-colors">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Privacy</p>
+                <p className="text-xs text-gray-400">Coming soon</p>
               </div>
-            ))}
+              <ChevronRight size={15} className="text-gray-300" />
+            </div>
+
+            <div className="flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-gray-50 transition-colors">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Appearance</p>
+                <p className="text-xs text-gray-400">Coming soon</p>
+              </div>
+              <ChevronRight size={15} className="text-gray-300" />
+            </div>
+
             <button
               onClick={onSignOut}
               className="flex items-center gap-3 w-full px-4 py-3.5 rounded-xl hover:bg-red-50 transition-colors group mt-2"
@@ -6677,6 +7069,35 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
               <LogOut size={15} className="text-red-400 group-hover:text-red-500" />
               <p className="text-sm font-medium text-red-400 group-hover:text-red-500">Sign out</p>
             </button>
+
+            {!confirmDelete ? (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="flex items-center gap-3 w-full px-4 py-3.5 rounded-xl hover:bg-red-50 transition-colors group"
+              >
+                <Trash2 size={15} className="text-red-300 group-hover:text-red-400" />
+                <p className="text-sm font-medium text-red-300 group-hover:text-red-400">Delete account</p>
+              </button>
+            ) : (
+              <div className="px-4 py-4 rounded-xl bg-red-50 border border-red-100 mt-1">
+                <p className="text-sm font-medium text-red-700 mb-1">Delete your account?</p>
+                <p className="text-xs text-red-400 mb-3 leading-relaxed">This will permanently delete all your wardrobe data. This cannot be undone.</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    className="flex-1 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:border-gray-400 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={onDeleteAccount}
+                    className="flex-1 py-2 text-sm font-semibold text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
@@ -6719,8 +7140,10 @@ export default function WardrobeApp() {
   const [boards, setBoards]               = useState(['All']);
   const [boardMeta, setBoardMeta]         = useState({});
   const [profile, setProfile]             = useState({
-    name: '', bio: '', topSize: '', bottomSize: '', shoeSize: '', styles: [],
+    name: '', bio: '', topSize: '', bottomSize: '', shoeSize: '', avatarUrl: '',
+    country: '', outfitGoals: [],
   });
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [pendingOutfitItem, setPendingOutfitItem] = useState(null);
   const [pendingTargetCollage, setPendingTargetCollage] = useState(null);
   const [pendingAiCollage, setPendingAiCollage] = useState(null);
@@ -6745,7 +7168,8 @@ export default function WardrobeApp() {
   const [likedOutfits, setLikedOutfits]       = useState(() => new Set());
 
   // ── Auth + data loading ──────────────────────────────────────────────────
-  const loadUserData = async (uid) => {
+  const loadUserData = async (u) => {
+    const uid = u.id;
     const [profileRes, itemsRes, boardsRes, outfitsRes, outfitBoardsRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', uid).single(),
       supabase.from('items').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
@@ -6756,7 +7180,12 @@ export default function WardrobeApp() {
 
     if (profileRes.data) {
       const p = profileRes.data;
-      setProfile({ name: p.name, bio: p.bio, topSize: p.top_size, bottomSize: p.bottom_size, shoeSize: p.shoe_size, styles: p.styles });
+      setProfile({
+        name: p.name, bio: p.bio, topSize: p.top_size, bottomSize: p.bottom_size, shoeSize: p.shoe_size,
+        avatarUrl: u.user_metadata?.avatar_url || p.avatar_url || '',
+        country: u.user_metadata?.country || '',
+        outfitGoals: u.user_metadata?.outfit_goals || [],
+      });
     }
 
     if (itemsRes.data) {
@@ -6794,7 +7223,13 @@ export default function WardrobeApp() {
       const u = session?.user ?? null;
       currentUserIdRef.current = u?.id ?? null;
       setUser(u);
-      if (u) await loadUserData(u.id);
+      if (u) {
+        await loadUserData(u);
+        // Handles the case where the user clicked the verification link in this tab
+        if (u.user_metadata?.onboarding_complete === false) {
+          setShowOnboarding(true);
+        }
+      }
       setAuthLoading(false);
       authInitializedRef.current = true;
     });
@@ -6810,15 +7245,20 @@ export default function WardrobeApp() {
         // Only transition when it's a genuinely new sign-in (different user ID).
         // Same-user SIGNED_IN can fire from cross-tab sync or re-auth and must not reload.
         if (authInitializedRef.current && event === 'SIGNED_IN' && u.id !== prevId) {
+          setShowAuthModal(false);
           setTransitioning(true);
-          await loadUserData(u.id);
+          await loadUserData(u);
           setTransitioning(false);
+          // Show onboarding for brand-new users (flag set at sign-up time)
+          if (u.user_metadata?.onboarding_complete === false) {
+            setShowOnboarding(true);
+          }
         }
       } else {
         setItems([]); setBoards(['All']); setBoardMeta({});
         setSavedOutfits([]); setDraftOutfits([]); setLikedItems(new Set());
         setOutfitBoards(['All']); setOutfitBoardMeta({}); setLikedOutfits(new Set());
-        setProfile({ name: '', bio: '', topSize: '', bottomSize: '', shoeSize: '', styles: [] });
+        setProfile({ name: '', bio: '', topSize: '', bottomSize: '', shoeSize: '', avatarUrl: '', country: '', outfitGoals: [] });
       }
     });
     return () => subscription.unsubscribe();
@@ -7119,13 +7559,65 @@ export default function WardrobeApp() {
   const handleUpdateProfile = async updates => {
     setProfile(updates);
     if (user) {
-      await supabase.from('profiles').upsert({
-        id: user.id,
-        name: updates.name, bio: updates.bio,
-        top_size: updates.topSize, bottom_size: updates.bottomSize, shoe_size: updates.shoeSize,
-        styles: updates.styles,
-      });
+      await Promise.all([
+        supabase.from('profiles').upsert({
+          id: user.id,
+          name: updates.name, bio: updates.bio,
+          top_size: updates.topSize, bottom_size: updates.bottomSize, shoe_size: updates.shoeSize,
+          avatar_url: updates.avatarUrl,
+        }),
+        supabase.auth.updateUser({ data: {
+          country: updates.country,
+          outfit_goals: updates.outfitGoals,
+        }}),
+      ]);
     }
+  };
+
+  const handleCompleteOnboarding = async ({ bio, country, outfitGoals }) => {
+    setProfile(prev => ({ ...prev, bio, country, outfitGoals }));
+    if (user) {
+      await Promise.all([
+        supabase.from('profiles').upsert({
+          id: user.id,
+          bio,
+          top_size: profile.topSize, bottom_size: profile.bottomSize, shoe_size: profile.shoeSize,
+        }),
+        supabase.auth.updateUser({ data: {
+          country,
+          outfit_goals: outfitGoals,
+          onboarding_complete: true,
+        }}),
+      ]);
+    }
+    setShowOnboarding(false);
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    try {
+      await fetch('/api/delete-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      });
+    } catch {}
+    await supabase.auth.signOut();
+    switchTab('today');
+  };
+
+  const handleUpdateAvatar = async (file) => {
+    if (!user || !file) return;
+    const ext = file.name.split('.').pop() || 'jpg';
+    const path = `${user.id}/avatar-${Date.now()}.${ext}`;
+    const { error: uploadErr } = await supabase.storage.from('item-images').upload(path, file);
+    if (uploadErr) { console.error('Avatar upload failed:', uploadErr.message); return; }
+    const { data: { publicUrl } } = supabase.storage.from('item-images').getPublicUrl(path);
+    // Persist in auth user metadata — survives refresh without any DB schema change
+    await supabase.auth.updateUser({ data: { avatar_url: publicUrl } });
+    setProfile(prev => ({ ...prev, avatarUrl: publicUrl }));
+    return publicUrl;
   };
 
   const handleSignOut = async () => {
@@ -7187,6 +7679,7 @@ export default function WardrobeApp() {
               onEditInStudio={collage => { setPendingAiCollage(collage); switchTab('studio'); }}
               isPreview={isPreview}
               userId={user?.id}
+              userProfile={profile}
             />
           </div>
         )}
@@ -7230,6 +7723,7 @@ export default function WardrobeApp() {
               onToggleOutfitLike={toggleOutfitLike}
               isPreview={isPreview}
               previewCollages={previewCollages}
+              userId={user?.id}
             />
           </div>
         )}
@@ -7247,6 +7741,8 @@ export default function WardrobeApp() {
               profile={profile}
               onUpdateProfile={handleUpdateProfile}
               onSignOut={handleSignOut}
+              onUpdateAvatar={handleUpdateAvatar}
+              onDeleteAccount={handleDeleteAccount}
             />
           </div>
         )}
@@ -7333,7 +7829,9 @@ export default function WardrobeApp() {
                 activeTab === 'profile' ? 'bg-gray-100' : 'hover:bg-gray-100'
               }`}
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 flex-shrink-0 shadow-sm" />
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 flex-shrink-0 shadow-sm overflow-hidden">
+                {profile.avatarUrl && <img src={profile.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />}
+              </div>
               <div className="text-left min-w-0">
                 <p className="text-sm font-semibold text-gray-900">{profile.name}</p>
                 <p className="text-xs text-gray-400">View profile</p>
@@ -7373,7 +7871,9 @@ export default function WardrobeApp() {
                     <Search size={15} className="text-gray-600" />
                   </button>
                 )}
-                <button onClick={() => handleTabSwitch('profile')} className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 shadow-sm" />
+                <button onClick={() => handleTabSwitch('profile')} className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 shadow-sm overflow-hidden flex-shrink-0">
+                  {profile.avatarUrl && <img src={profile.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />}
+                </button>
               </>
             )}
           </div>
@@ -7440,6 +7940,7 @@ export default function WardrobeApp() {
           boards={boards}
           onToggleBoard={handleToggleItemBoard}
           isPreview={isPreview}
+          currencySymbol={getCurrencySymbol(profile.country)}
         />
       )}
 
@@ -7460,11 +7961,16 @@ export default function WardrobeApp() {
           onAdd={addItem}
           initialImage={addItemFile}
           imageProcessingPromise={addItemProcessing}
+          currencySymbol={getCurrencySymbol(profile.country)}
         />
       )}
 
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
+      )}
+
+      {showOnboarding && user && (
+        <OnboardingModal onComplete={handleCompleteOnboarding} />
       )}
     </div>
   );
