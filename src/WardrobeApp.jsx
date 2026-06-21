@@ -5,9 +5,9 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Sun, Shirt, Wand2, Sparkles,
+  Sun, Shirt, Wand2, Sparkles, BarChart2,
   X, Heart, Plus, Search, ChevronRight, ChevronLeft, ChevronDown, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal, SlidersHorizontal,
-  Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut, Download, Eraser, MapPin, Bookmark,
+  Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut, Download, Eraser, MapPin, Bookmark, CheckCircle2,
   Eye, EyeOff,
   Cloud, CloudSun, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, CloudFog,
 } from 'lucide-react';
@@ -753,10 +753,11 @@ const ITEMS = [
    Nav config
    ───────────────────────────────────────────────────────────────────────────── */
 const TABS = [
-  { id: 'today',    label: 'Today',      Icon: Sun      },
-  { id: 'wardrobe', label: 'Wardrobe',   Icon: Shirt    },
-  { id: 'studio',   label: 'Studio',     Icon: Wand2    },
-  { id: 'stylist',  label: 'AI Stylist', Icon: Sparkles },
+  { id: 'today',     label: 'Today',      Icon: Sun       },
+  { id: 'wardrobe',  label: 'Wardrobe',   Icon: Shirt     },
+  { id: 'studio',    label: 'Studio',     Icon: Wand2     },
+  { id: 'analytics', label: 'Analytics',  Icon: BarChart2 },
+  { id: 'stylist',   label: 'AI Stylist', Icon: Sparkles  },
 ];
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -3356,7 +3357,7 @@ const PREVIEW_CITY_OUTFITS = {
   ],
 };
 
-function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = false, userId = null, userProfile = {} }) {
+function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished, onEditInStudio, onLogWorn, wearLogs = [], isPreview = false, userId = null, userProfile = {} }) {
   const [location,       setLocation]       = useState({ city: null, lat: null, lon: null });
   const [weatherSummary, setWeatherSummary] = useState(null);
   const [outfits,        setOutfits]        = useState([]);
@@ -3366,10 +3367,32 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
   const [retryKey,       setRetryKey]       = useState(0);
   const [saveState,      setSaveState]      = useState('idle'); // 'idle' | 'saving' | 'saved'
   const [locationMenuOpen, setLocationMenuOpen] = useState(false);
-  const locationMenuRef = useRef(null);
+  const today         = new Date().toISOString().split('T')[0];
+  const wornTodayKey  = userId ? `worn_today_${userId}_${today}` : null;
+
+
+  const [wornItemIds,    setWornItemIds]    = useState(() => {
+    if (!wornTodayKey) return new Set();
+    try {
+      const saved = localStorage.getItem(wornTodayKey);
+      if (saved) return new Set(JSON.parse(saved));
+    } catch {}
+    return new Set();
+  });
+  const hasMountedRef  = useRef(false);
+  const saveTimerRef   = useRef(null);
+  const [pickerBoard,           setPickerBoard]           = useState('All');
+  const [pickerSearch,          setPickerSearch]          = useState('');
+  const [pickerFavoritesOnly,   setPickerFavoritesOnly]   = useState(false);
+  const [pickerCategoryFilter,  setPickerCategoryFilter]  = useState(new Set());
+  const [pickerFilterOpen,      setPickerFilterOpen]      = useState(false);
+  const pickerFilterRef  = useRef(null);
+  const locationMenuRef  = useRef(null);
+  const wornSectionRef   = useRef(null);
   const collageScale     = useCollageScale();
   const outfitWeatherRef = useRef(null); // weather that generated the current outfits
   const directionRef     = useRef('right'); // tracks nav direction for slide animation
+
 
   const navigate = (toIdx) => {
     directionRef.current = toIdx >= currentIdx ? 'right' : 'left';
@@ -3514,6 +3537,12 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
     return () => window.removeEventListener('keydown', handler);
   }, [outfits.length]);
 
+  // Persist wornItemIds so selection survives page refresh
+  useEffect(() => {
+    if (!wornTodayKey) return;
+    try { localStorage.setItem(wornTodayKey, JSON.stringify([...wornItemIds])); } catch {}
+  }, [wornItemIds, wornTodayKey]);
+
   const saveLocation = (loc) => {
     try { localStorage.setItem(locationKey, JSON.stringify(loc)); } catch {}
     setLocation(loc);
@@ -3606,8 +3635,35 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
     });
   };
 
+  const handleWoreThis = () => {
+    if (!outfitItems.length) return;
+    setWornItemIds(new Set(outfitItems.map(i => String(i.id))));
+    setTimeout(() => wornSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  };
+
+  const todayLogs = wearLogs.filter(l => l.worn_date === today);
+
+  // Auto-save whenever the selection changes, skipping the initial mount
+  useEffect(() => {
+    if (!hasMountedRef.current) { hasMountedRef.current = true; return; }
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      onLogWorn?.({ itemIds: [...wornItemIds], source: 'today_auto', replace: true });
+    }, 700);
+    return () => clearTimeout(saveTimerRef.current);
+  }, [wornItemIds]);
+
+  useEffect(() => {
+    if (!pickerFilterOpen) return;
+    const handler = e => { if (!pickerFilterRef.current?.contains(e.target)) setPickerFilterOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [pickerFilterOpen]);
+
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-y-auto scrollbar-hide pb-28 md:pb-8">
+
+      <div className="flex flex-col">
 
       {/* Title */}
       <div className="px-6 md:px-8 pt-8 mb-6 flex items-start justify-between gap-4">
@@ -3814,6 +3870,21 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
                     Edit Outfit
                   </span>
                 </div>
+
+                {/* I Wore This */}
+                {!isPreview && (
+                  <div className="relative group">
+                    <button
+                      onClick={handleWoreThis}
+                      className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                    >
+                      <CheckCircle2 size={14} strokeWidth={1.8} />
+                    </button>
+                    <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 text-[11px] font-medium text-white bg-gray-800 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                      I Wore This
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Weather Report — weatherSummary is guaranteed non-null here */}
@@ -3856,6 +3927,166 @@ function TodayTab({ items = [], onSaveToPublished, onEditInStudio, isPreview = f
         )}
 
       </div>
+
+      </div>{/* end min-h-full collage section */}
+
+      {/* ── What I Wore Today ── */}
+      {!isPreview && (
+        <div ref={wornSectionRef} className="mt-24 px-6 md:px-8 pb-4">
+          {/* Header row */}
+          <div className="mb-5">
+            <h2 className="text-2xl font-semibold tracking-tight text-gray-900">What I Wore Today</h2>
+            <p className="text-sm text-gray-400 mt-1">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </p>
+          </div>
+
+          {/* Selected items — pt-3 makes room for the X button so overflow-x-auto doesn't clip it */}
+          {wornItemIds.size > 0 ? (
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 pt-3 mb-5 min-h-[124px]">
+              {items.filter(i => wornItemIds.has(String(i.id))).map(item => (
+                <div key={item.id} className="flex-shrink-0 relative">
+                  <div className="w-24 h-24 rounded-2xl overflow-hidden bg-gray-50 border-2 border-gray-900">
+                    {item.image && <img src={item.image} alt={item.name} className="w-full h-full object-contain p-1" />}
+                  </div>
+                  <button
+                    onClick={() => setWornItemIds(prev => { const n = new Set(prev); n.delete(String(item.id)); return n; })}
+                    className="absolute -top-2.5 -right-2.5 w-5 h-5 bg-gray-900 rounded-full flex items-center justify-center shadow-sm"
+                  >
+                    <X size={9} strokeWidth={2.5} className="text-white" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-gray-50 rounded-2xl px-5 text-center mb-5 min-h-[124px] flex items-center justify-center">
+              <p className="text-sm text-gray-400 leading-relaxed">
+                Tap "I Wore This" on a suggested outfit above, or pick items from your wardrobe below.
+              </p>
+            </div>
+          )}
+
+          {/* Mini wardrobe picker */}
+          {items.length > 0 && (() => {
+            const availableBoards = ['All', ...new Set(items.flatMap(i => i.boards ?? []).filter(Boolean))];
+            const q = pickerSearch.toLowerCase();
+            const pickerItems = items.filter(i => {
+              if (pickerBoard !== 'All' && !(i.boards ?? []).includes(pickerBoard)) return false;
+              if (pickerFavoritesOnly && !likedItems.has(i.id)) return false;
+              if (pickerCategoryFilter.size > 0 && !pickerCategoryFilter.has(i.category)) return false;
+              if (q) return (i.name || '').toLowerCase().includes(q) || (i.category || '').toLowerCase().includes(q);
+              return true;
+            });
+            return (
+              <div>
+                {/* Board tabs */}
+                <div className="flex gap-5 overflow-x-auto scrollbar-hide pb-3">
+                  {availableBoards.map(b => {
+                    const active = pickerBoard === b;
+                    return (
+                      <button
+                        key={b}
+                        onClick={() => setPickerBoard(b)}
+                        className={`flex-shrink-0 text-base font-medium transition-colors pb-0.5 ${
+                          active
+                            ? 'text-gray-900 border-b-2 border-gray-900'
+                            : 'text-gray-400 hover:text-gray-700 border-b-2 border-transparent'
+                        }`}
+                      >
+                        {b}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Favorites + Filter + Search */}
+                <div className="flex items-center gap-2 mb-3">
+                  <button
+                    onClick={() => setPickerFavoritesOnly(o => !o)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex-shrink-0 ${
+                      pickerFavoritesOnly ? 'bg-rose-50 text-rose-500' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Heart size={13} className={pickerFavoritesOnly ? 'fill-rose-500' : ''} />
+                    Favorites
+                  </button>
+                  <div className="relative flex-shrink-0" ref={pickerFilterRef}>
+                    <button
+                      onClick={() => setPickerFilterOpen(o => !o)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        pickerCategoryFilter.size > 0 ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}
+                    >
+                      <SlidersHorizontal size={13} />
+                      Filter{pickerCategoryFilter.size > 0 ? ` · ${pickerCategoryFilter.size}` : ''}
+                    </button>
+                    {pickerFilterOpen && (
+                      <div className="absolute left-0 top-10 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 w-56 z-20 max-h-48 overflow-y-auto scrollbar-hide">
+                        {CATEGORIES.map(cat => (
+                          <button
+                            key={cat}
+                            onClick={() => setPickerCategoryFilter(prev => {
+                              const n = new Set(prev);
+                              n.has(cat) ? n.delete(cat) : n.add(cat);
+                              return n;
+                            })}
+                            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors"
+                          >
+                            <span className={pickerCategoryFilter.has(cat) ? 'text-gray-900 font-medium text-sm' : 'text-gray-600 text-sm'}>{cat}</span>
+                            {pickerCategoryFilter.has(cat) && <Check size={14} strokeWidth={2.5} className="text-gray-900 flex-shrink-0" />}
+                          </button>
+                        ))}
+                        {pickerCategoryFilter.size > 0 && (
+                          <button
+                            onClick={() => { setPickerCategoryFilter(new Set()); setPickerFilterOpen(false); }}
+                            className="w-full text-center text-xs text-gray-400 hover:text-gray-600 py-2 border-t border-gray-100 mt-1"
+                          >
+                            Clear filter
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    value={pickerSearch}
+                    onChange={e => setPickerSearch(e.target.value)}
+                    placeholder="Search…"
+                    className="flex-1 text-sm px-3 py-1.5 bg-gray-100 rounded-full border-none focus:outline-none focus:ring-1 focus:ring-gray-300 placeholder-gray-400"
+                  />
+                </div>
+
+                {/* Grid */}
+                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-5 gap-2">
+                  {pickerItems.map(item => {
+                    const selected = wornItemIds.has(String(item.id));
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setWornItemIds(prev => {
+                          const n = new Set(prev); selected ? n.delete(String(item.id)) : n.add(String(item.id)); return n;
+                        })}
+                        className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${
+                          selected ? 'border-gray-900 shadow-md' : 'border-transparent bg-gray-50 hover:border-gray-200'
+                        }`}
+                      >
+                        {item.image && <img src={item.image} alt={item.name} className="w-full h-full object-contain p-1" />}
+                        {selected && (
+                          <div className="absolute bottom-1 right-1 w-4 h-4 bg-gray-900 rounded-full flex items-center justify-center">
+                            <Check size={9} strokeWidth={3} className="text-white" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                  {pickerItems.length === 0 && (
+                    <p className="col-span-full text-sm text-gray-400 text-center py-6">No items match</p>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 }
@@ -4835,13 +5066,14 @@ function OutfitOrganizeCard({ outfit, draggedId, selected, onSelect, onDragStart
 }
 
 function OutfitCard({
-  outfit, onDelete, onEdit, onDuplicate, isDraft, liked, outfitBoards, organizeMode, dragging,
+  outfit, onDelete, onEdit, onDuplicate, onLogWorn, isDraft, liked, outfitBoards, organizeMode, dragging,
   onToggleLike, onToggleBoard, onDragStart, onDragOver, onDragEnd, isPreview = false,
 }) {
   const [menuOpen,    setMenuOpen]    = useState(false);
   const [boardMenuOpen, setBoardMenuOpen] = useState(false);
   const [boardSearch, setBoardSearch] = useState('');
   const [saving, setSaving] = useState(false);
+  const [wornState, setWornState] = useState('idle'); // 'idle' | 'saved'
   const [imgLoaded, setImgLoaded] = useState(false);
   const [exiting, setExiting] = useState(false);
 
@@ -4975,62 +5207,105 @@ function OutfitCard({
 
       {/* Bottom action buttons */}
       {!organizeMode && (
-        <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1">
-          {/* Board assignment */}
-          <div ref={boardBtnRef}>
-            <button
-              onClick={e => { e.stopPropagation(); setBoardMenuOpen(o => !o); }}
-              className="px-2.5 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-gray-50 shadow-sm transition-all opacity-0 group-hover:opacity-100"
-            >
-              <Layers size={13} className="text-gray-700" />
-            </button>
-          </div>
-
-          {/* Edit */}
-          <button
-            onClick={e => { e.stopPropagation(); onEdit?.(); }}
-            className="px-2.5 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-gray-50 shadow-sm transition-all opacity-0 group-hover:opacity-100"
-          >
-            <Pencil size={13} className="text-gray-700" />
-          </button>
-
-          {/* More (⋯) */}
-          <div ref={dotsRef} className="relative">
-            <button
-              onClick={e => { e.stopPropagation(); setMenuOpen(o => !o); }}
-              className="px-2.5 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-gray-50 shadow-sm transition-all opacity-0 group-hover:opacity-100"
-            >
-              <MoreHorizontal size={16} className="text-gray-700" />
-            </button>
-            {menuOpen && (
-              <div ref={dropdownRef} className="absolute bottom-full right-0 mb-1 bg-white rounded-xl shadow-lg border border-gray-100 p-1 w-40 z-20 overflow-hidden">
+        <>
+          {/* I Wore This — bottom left, visually separate */}
+          {!isPreview && onLogWorn && (
+            <div className="absolute bottom-2 left-2 z-10">
+              <div className="relative">
                 <button
-                  onClick={async e => { e.stopPropagation(); setMenuOpen(false); setSaving(true); try { await saveCollageAsPng(outfit); } finally { setSaving(false); } }}
-                  disabled={saving}
-                  className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50"
+                  onClick={async e => {
+                    e.stopPropagation();
+                    const itemIds = items.map(i => String(i.id)).filter(Boolean);
+                    if (!itemIds.length) return;
+                    await onLogWorn({ itemIds, outfitId: outfit.id, source: 'studio_collage' });
+                    setWornState('saved');
+                    setTimeout(() => setWornState('idle'), 2000);
+                  }}
+                  className={`peer px-2.5 h-8 flex items-center justify-center rounded-lg shadow-sm transition-all opacity-0 group-hover:opacity-100 ${
+                    wornState === 'saved' ? 'bg-green-50' : 'bg-white hover:bg-gray-50'
+                  }`}
                 >
-                  {saving ? 'Saving…' : 'Save to device'}
+                  {wornState === 'saved'
+                    ? <Check size={13} className="text-green-500" />
+                    : <CheckCircle2 size={13} className="text-gray-700" />
+                  }
                 </button>
-                {!isPreview && (
-                  <button
-                    onClick={e => { e.stopPropagation(); setMenuOpen(false); onDuplicate?.(); }}
-                    className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
-                  >
-                    Duplicate
-                  </button>
-                )}
-                {!isPreview && (
-                  <button
-                    onClick={e => { e.stopPropagation(); setMenuOpen(false); triggerDelete(); }}
-                    className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
-                  >
-                    Delete
-                  </button>
-                )}
+                <span className="pointer-events-none absolute bottom-full left-0 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-800 rounded-lg whitespace-nowrap opacity-0 peer-hover:opacity-100 transition-opacity z-30">
+                  {wornState === 'saved' ? 'Logged!' : 'I Wore This'}
+                </span>
               </div>
-            )}
+            </div>
+          )}
+
+          {/* Right buttons: Board, Edit, More */}
+          <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1">
+            {/* Board assignment */}
+            <div ref={boardBtnRef} className="relative">
+              <button
+                onClick={e => { e.stopPropagation(); setBoardMenuOpen(o => !o); }}
+                className="peer px-2.5 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-gray-50 shadow-sm transition-all opacity-0 group-hover:opacity-100"
+              >
+                <Layers size={13} className="text-gray-700" />
+              </button>
+              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-800 rounded-lg whitespace-nowrap opacity-0 peer-hover:opacity-100 transition-opacity z-30">
+                Boards
+              </span>
+            </div>
+
+            {/* Edit */}
+            <div className="relative">
+              <button
+                onClick={e => { e.stopPropagation(); onEdit?.(); }}
+                className="peer px-2.5 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-gray-50 shadow-sm transition-all opacity-0 group-hover:opacity-100"
+              >
+                <Pencil size={13} className="text-gray-700" />
+              </button>
+              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-800 rounded-lg whitespace-nowrap opacity-0 peer-hover:opacity-100 transition-opacity z-30">
+                Edit
+              </span>
+            </div>
+
+            {/* More (⋯) */}
+            <div ref={dotsRef} className="relative">
+              <button
+                onClick={e => { e.stopPropagation(); setMenuOpen(o => !o); }}
+                className="peer px-2.5 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-gray-50 shadow-sm transition-all opacity-0 group-hover:opacity-100"
+              >
+                <MoreHorizontal size={16} className="text-gray-700" />
+              </button>
+              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-800 rounded-lg whitespace-nowrap opacity-0 peer-hover:opacity-100 transition-opacity z-30">
+                More
+              </span>
+              {menuOpen && (
+                <div ref={dropdownRef} className="absolute bottom-full right-0 mb-1 bg-white rounded-xl shadow-lg border border-gray-100 p-1 w-40 z-20 overflow-hidden">
+                  <button
+                    onClick={async e => { e.stopPropagation(); setMenuOpen(false); setSaving(true); try { await saveCollageAsPng(outfit); } finally { setSaving(false); } }}
+                    disabled={saving}
+                    className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {saving ? 'Saving…' : 'Save to device'}
+                  </button>
+                  {!isPreview && (
+                    <button
+                      onClick={e => { e.stopPropagation(); setMenuOpen(false); onDuplicate?.(); }}
+                      className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
+                    >
+                      Duplicate
+                    </button>
+                  )}
+                  {!isPreview && (
+                    <button
+                      onClick={e => { e.stopPropagation(); setMenuOpen(false); triggerDelete(); }}
+                      className="w-full text-center px-3 py-1.5 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
@@ -5043,6 +5318,7 @@ function StudioTab({
   pendingAiCollage, onClearPendingAiCollage, items, boards,
   outfitBoards, outfitBoardMeta, likedOutfits,
   onCreateOutfitBoard, onDeleteOutfitBoard, onEditOutfitBoard, onToggleOutfitBoard, onToggleOutfitLike,
+  onLogWorn,
   isPreview = false, previewCollages = [], userId = null,
 }) {
   const [showCreate, setShowCreate]               = useState(false);
@@ -5384,6 +5660,7 @@ function StudioTab({
                           const copy = { items: outfit.items, bgColor: outfit.bgColor, canvasWidth: outfit.canvasWidth, canvasHeight: outfit.canvasHeight, name: outfit.name ? `${outfit.name} (copy)` : '', thumbnail: outfit.thumbnail || '' };
                           onSaveDraftOutfit(copy);
                         }}
+                        onLogWorn={onLogWorn}
                         onToggleLike={() => onToggleOutfitLike(outfit.id)}
                         onToggleBoard={board => onToggleOutfitBoard(outfit.id, board)}
                       />
@@ -5409,6 +5686,7 @@ function StudioTab({
                           const copy = { items: outfit.items, bgColor: outfit.bgColor, canvasWidth: outfit.canvasWidth, canvasHeight: outfit.canvasHeight, name: outfit.name ? `${outfit.name} (copy)` : '', thumbnail: outfit.thumbnail || '' };
                           onSaveOutfit(copy);
                         }}
+                        onLogWorn={onLogWorn}
                         onToggleLike={() => onToggleOutfitLike(outfit.id)}
                         onToggleBoard={board => onToggleOutfitBoard(outfit.id, board)}
                       />
@@ -7062,6 +7340,329 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   AnalyticsTab
+   ───────────────────────────────────────────────────────────────────────────── */
+function AnalyticsTab({ items = [], wearLogs = [], onSelectItem, onUpdateItem, currencySymbol = '$' }) {
+  const [neverWornExpanded, setNeverWornExpanded] = useState(false);
+  const [cpwSort,        setCpwSort]        = useState('highest-cpw');
+  const [cpwGrouped,     setCpwGrouped]     = useState(false);
+  const [mostWornPeriod, setMostWornPeriod] = useState('90d');
+  const [mostWornIndex,  setMostWornIndex]  = useState(0);
+  const [editingCostId,  setEditingCostId]  = useState(null);
+  const [editingCostVal, setEditingCostVal] = useState('');
+  const today   = new Date().toISOString().split('T')[0];
+  const cutoff90 = new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0];
+
+  const itemMap = Object.fromEntries(items.map(i => [String(i.id), i]));
+
+  // Per-item wear counts — capped at 1 per item per calendar day
+  const wearCounts90  = {};
+  const wearCountsAll = {};
+  const dateItemSets  = {};
+  for (const log of wearLogs) {
+    if (!dateItemSets[log.worn_date]) dateItemSets[log.worn_date] = new Set();
+    for (const id of (log.item_ids ?? [])) {
+      if (!dateItemSets[log.worn_date].has(id)) {
+        dateItemSets[log.worn_date].add(id);
+        wearCountsAll[id] = (wearCountsAll[id] ?? 0) + 1;
+        if (log.worn_date >= cutoff90) wearCounts90[id] = (wearCounts90[id] ?? 0) + 1;
+      }
+    }
+  }
+  const wearCounts = mostWornPeriod === '90d' ? wearCounts90 : wearCountsAll;
+
+  const everWornIds = new Set(wearLogs.flatMap(l => l.item_ids ?? []));
+
+  const topItems = Object.entries(wearCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([id, count]) => ({ item: itemMap[id], count }))
+    .filter(({ item }) => !!item);
+
+  const neverWorn = items.filter(i => !everWornIds.has(String(i.id)));
+
+  const parsePrice = p => { const n = parseFloat(String(p ?? '').replace(/[^0-9.]/g, '')); return isNaN(n) ? null : n; };
+
+  const cpwRows = items
+    .map(item => {
+      const cost  = parsePrice(item.price);
+      const wears = wearCounts[String(item.id)] ?? 0;
+      const cpw   = cost != null ? (wears > 0 ? cost / wears : cost) : null;
+      return { item, cost, wears, cpw };
+    })
+    .filter(({ cost }) => cost != null);
+
+  const sortCpw = arr => [...arr].sort((a, b) => {
+    if (cpwSort === 'lowest-cpw')   return (a.cpw ?? 0) - (b.cpw ?? 0);
+    if (cpwSort === 'most-worn')    return b.wears - a.wears;
+    if (cpwSort === 'alpha')        return (a.item.name || '').localeCompare(b.item.name || '');
+    if (cpwSort === 'highest-cost') return (b.cost ?? 0) - (a.cost ?? 0);
+    return (b.cpw ?? 0) - (a.cpw ?? 0); // highest-cpw (default)
+  });
+
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+  const thisWeekDays  = new Set(wearLogs.filter(l => l.worn_date >= weekAgo).map(l => l.worn_date)).size;
+  const totalItemWears = Object.values(
+    wearLogs.reduce((acc, l) => {
+      if (!acc[l.worn_date]) acc[l.worn_date] = new Set();
+      (l.item_ids ?? []).forEach(id => acc[l.worn_date].add(id));
+      return acc;
+    }, {})
+  ).reduce((s, set) => s + set.size, 0);
+
+  if (wearLogs.length === 0) {
+    return (
+      <div className="flex flex-col flex-1 min-h-0 overflow-y-auto scrollbar-hide pb-28 md:pb-8">
+        <div className="px-6 md:px-8 pt-8 mb-6">
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Analytics</h1>
+          <p className="text-sm text-gray-400 mt-0.5">Track your style habits over time</p>
+        </div>
+        <div className="flex flex-col items-center justify-center flex-1 text-center px-8 py-20">
+          <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-4">
+            <BarChart2 size={28} className="text-gray-300" />
+          </div>
+          <p className="text-base font-semibold text-gray-700">No wear data yet</p>
+          <p className="text-sm text-gray-400 mt-2 leading-relaxed max-w-xs">
+            Use "I Wore This" on the Today tab or on any saved outfit in Studio to start tracking your style habits.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0 overflow-y-auto scrollbar-hide pb-28 md:pb-8">
+      <div className="px-6 md:px-8 pt-8 mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Analytics</h1>
+        <p className="text-sm text-gray-400 mt-0.5">Your style habits</p>
+      </div>
+
+      <div className="px-6 md:px-8 flex flex-col gap-8">
+
+        {/* Summary stats */}
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { value: thisWeekDays,    label: 'days logged\nthis week' },
+            { value: wearLogs.length, label: 'total outfit\nlogs' },
+            { value: totalItemWears,  label: 'total item\nwears' },
+          ].map(({ value, label }) => (
+            <div key={label} className="bg-gray-50 rounded-2xl p-4">
+              <p className="text-2xl font-semibold text-gray-900">{value}</p>
+              <p className="text-xs text-gray-400 mt-0.5 whitespace-pre-line leading-snug">{label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Most worn items — carousel */}
+        {topItems.length > 0 && (() => {
+          const idx = Math.min(mostWornIndex, topItems.length - 1);
+          const { item, count } = topItems[idx];
+          return (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-[0.12em]">Most Worn</p>
+                <div className="flex gap-1 bg-gray-100 rounded-full p-0.5">
+                  {[{ v: '90d', label: '90 Days' }, { v: 'all', label: 'All Time' }].map(({ v, label }) => (
+                    <button key={v} onClick={() => { setMostWornPeriod(v); setMostWornIndex(0); }}
+                      className={`text-xs font-medium px-3 py-1 rounded-full transition-colors ${mostWornPeriod === v ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setMostWornIndex(i => Math.max(0, i - 1))}
+                  disabled={idx === 0}
+                  className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-25 transition-colors"
+                >
+                  <ChevronLeft size={16} className="text-gray-600" />
+                </button>
+                <div className="flex-1 flex flex-col items-center gap-2">
+                  <div className="w-36 h-36 rounded-2xl overflow-hidden bg-gray-50 border border-gray-100">
+                    {item.image && <img src={item.image} alt={item.name} className="w-full h-full object-contain p-2" />}
+                  </div>
+                  <p className="text-sm font-semibold text-gray-800 text-center truncate max-w-[180px]">{item.name || 'Unnamed'}</p>
+                  <p className="text-xs text-gray-400">Times worn: {count}</p>
+                  <div className="flex gap-1.5 mt-0.5">
+                    {topItems.map((_, i) => (
+                      <button key={i} onClick={() => setMostWornIndex(i)}
+                        className={`w-1.5 h-1.5 rounded-full transition-colors ${i === idx ? 'bg-gray-900' : 'bg-gray-300 hover:bg-gray-400'}`} />
+                    ))}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setMostWornIndex(i => Math.min(topItems.length - 1, i + 1))}
+                  disabled={idx === topItems.length - 1}
+                  className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 disabled:opacity-25 transition-colors"
+                >
+                  <ChevronRight size={16} className="text-gray-600" />
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Cost per wear */}
+        {cpwRows.length > 0 && (() => {
+          const fmtCost = n => `${currencySymbol}${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+          const fmtCpw  = n => n != null ? `${currencySymbol}${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
+
+          const CpwRow = ({ item, cost, wears, cpw }) => {
+            const handleCostSave = () => {
+              const raw = editingCostVal.trim().replace(/[^0-9.]/g, '');
+              const num = parseFloat(raw);
+              if (!isNaN(num)) onUpdateItem?.(item.id, { price: String(num) });
+              setEditingCostId(null);
+            };
+            return (
+              <div className="flex items-center py-2.5 border-b border-gray-100 last:border-0">
+                <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-50 border border-gray-100 flex-shrink-0">
+                  {item.image && <img src={item.image} alt={item.name} className="w-full h-full object-contain p-0.5" />}
+                </div>
+                <div className="flex-1 min-w-0 pl-3">
+                  {item.brand && item.brand !== '—' && <p className="text-[11px] text-gray-400 truncate leading-tight">{item.brand}</p>}
+                  <p className="text-sm font-medium text-gray-800 truncate">{item.name || 'Unnamed'}</p>
+                </div>
+                <span className="text-sm text-gray-500 flex-shrink-0 w-8 text-right pl-3">{wears}</span>
+                {editingCostId === item.id ? (
+                  <input
+                    autoFocus
+                    className="flex-shrink-0 w-14 text-sm text-right pl-3 bg-transparent focus:outline-none focus:bg-gray-50 focus:rounded"
+                    value={editingCostVal}
+                    onChange={e => setEditingCostVal(e.target.value)}
+                    onBlur={handleCostSave}
+                    onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setEditingCostId(null); }}
+                  />
+                ) : (
+                  <button
+                    onClick={() => { setEditingCostId(item.id); setEditingCostVal(String(cost ?? '')); }}
+                    title="Click to edit cost"
+                    className="flex-shrink-0 w-14 text-sm text-gray-500 text-right pl-3 hover:text-gray-900 hover:underline transition-colors"
+                  >
+                    {fmtCost(cost)}
+                  </button>
+                )}
+                <span className={`text-sm font-semibold flex-shrink-0 w-14 text-right pl-3 ${cpw < 10 ? 'text-green-600' : cpw > 100 ? 'text-rose-500' : 'text-gray-800'}`}>
+                  {fmtCpw(cpw)}
+                </span>
+              </div>
+            );
+          };
+
+          const sortOptions = [
+            { value: 'highest-cpw',  label: 'Highest $/wear' },
+            { value: 'lowest-cpw',   label: 'Lowest $/wear'  },
+            { value: 'most-worn',    label: 'Most worn'      },
+            { value: 'highest-cost', label: 'Highest cost'   },
+            { value: 'alpha',        label: 'A → Z'          },
+          ];
+
+          return (
+            <div>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-3 gap-2">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-[0.12em]">Cost per Wear</p>
+                <button
+                  onClick={() => setCpwGrouped(o => !o)}
+                  className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
+                    cpwGrouped ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  }`}
+                >
+                  By category
+                </button>
+              </div>
+
+              {/* Sort pills */}
+              <div className="flex gap-1.5 overflow-x-auto scrollbar-hide mb-3">
+                {sortOptions.map(o => (
+                  <button
+                    key={o.value}
+                    onClick={() => setCpwSort(o.value)}
+                    className={`flex-shrink-0 text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
+                      cpwSort === o.value ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Column headers */}
+              <div className="flex items-center pb-1.5 border-b border-gray-200">
+                <div className="w-10 flex-shrink-0" />
+                <p className="flex-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide pl-3">Item</p>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide w-8 text-right pl-3">Worn</p>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide w-14 text-right pl-3">Cost</p>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide w-14 text-right pl-3">Per wear</p>
+              </div>
+
+              {/* Rows */}
+              {cpwGrouped ? (
+                (() => {
+                  const byCategory = {};
+                  for (const row of cpwRows) {
+                    const cat = row.item.category || 'Other';
+                    if (!byCategory[cat]) byCategory[cat] = [];
+                    byCategory[cat].push(row);
+                  }
+                  return Object.entries(byCategory)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([cat, rows]) => (
+                      <div key={cat} className="mt-4">
+                        <p className="text-xs font-semibold text-gray-400 mb-1">{cat}</p>
+                        {sortCpw(rows).map(row => <CpwRow key={row.item.id} {...row} />)}
+                      </div>
+                    ));
+                })()
+              ) : (
+                sortCpw(cpwRows).map(row => <CpwRow key={row.item.id} {...row} />)
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Never worn */}
+        {neverWorn.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-[0.12em] mb-3">
+              Never Worn · {neverWorn.length} {neverWorn.length === 1 ? 'item' : 'items'}
+            </p>
+            <div className={`${neverWornExpanded ? 'flex flex-wrap gap-3 pb-1' : 'flex gap-3 overflow-x-auto scrollbar-hide pb-1'}`}>
+              {(neverWornExpanded ? neverWorn : neverWorn.slice(0, 12)).map(item => (
+                <button key={item.id} onClick={() => onSelectItem?.(item)} className="flex-shrink-0 w-24 flex flex-col items-center gap-1 text-left">
+                  <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-50 border border-gray-100 hover:border-gray-300 transition-colors">
+                    {item.image && <img src={item.image} alt={item.name} className="w-full h-full object-contain p-1" />}
+                  </div>
+                  <p className="text-[10px] text-gray-400 text-center leading-tight w-24 truncate">{item.name || item.category}</p>
+                </button>
+              ))}
+              {!neverWornExpanded && neverWorn.length > 12 && (
+                <button
+                  onClick={() => setNeverWornExpanded(true)}
+                  className="flex-shrink-0 w-24 h-24 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center hover:bg-gray-100 transition-colors"
+                >
+                  <span className="text-xs text-gray-400 font-medium">+{neverWorn.length - 12}</span>
+                </button>
+              )}
+            </div>
+            {neverWornExpanded && neverWorn.length > 12 && (
+              <button
+                onClick={() => setNeverWornExpanded(false)}
+                className="mt-2 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                Show less
+              </button>
+            )}
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    Root — WardrobeApp
    ───────────────────────────────────────────────────────────────────────────── */
 export default function WardrobeApp() {
@@ -7074,14 +7675,14 @@ export default function WardrobeApp() {
   const [activeTab, setActiveTab]         = useState(() => {
     try {
       const saved = localStorage.getItem('wardrobe_active_tab');
-      if (saved && ['today', 'wardrobe', 'studio', 'stylist', 'profile'].includes(saved)) return saved;
+      if (saved && ['today', 'wardrobe', 'studio', 'analytics', 'stylist', 'profile'].includes(saved)) return saved;
     } catch {}
     return 'today';
   });
   const [mountedTabs, setMountedTabs]     = useState(() => {
     try {
       const saved = localStorage.getItem('wardrobe_active_tab');
-      if (saved && ['today', 'wardrobe', 'studio', 'stylist', 'profile'].includes(saved)) {
+      if (saved && ['today', 'wardrobe', 'studio', 'analytics', 'stylist', 'profile'].includes(saved)) {
         return new Set(['today', saved]);
       }
     } catch {}
@@ -7118,6 +7719,7 @@ export default function WardrobeApp() {
     ];
   });
   const [likedItems, setLikedItems]       = useState(() => new Set());
+  const [wearLogs, setWearLogs]           = useState([]);
   const [outfitBoards, setOutfitBoards]       = useState(['All']);
   const [outfitBoardMeta, setOutfitBoardMeta] = useState({});
   const [likedOutfits, setLikedOutfits]       = useState(() => new Set());
@@ -7125,12 +7727,13 @@ export default function WardrobeApp() {
   // ── Auth + data loading ──────────────────────────────────────────────────
   const loadUserData = async (u) => {
     const uid = u.id;
-    const [profileRes, itemsRes, boardsRes, outfitsRes, outfitBoardsRes] = await Promise.all([
+    const [profileRes, itemsRes, boardsRes, outfitsRes, outfitBoardsRes, wearLogsRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', uid).single(),
       supabase.from('items').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
       supabase.from('boards').select('*').eq('user_id', uid).order('created_at'),
       supabase.from('outfits').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
       supabase.from('outfit_boards').select('*').eq('user_id', uid).order('created_at'),
+      supabase.from('wear_logs').select('*').eq('user_id', uid).order('worn_date', { ascending: false }).limit(500),
     ]);
 
     if (profileRes.data) {
@@ -7170,6 +7773,9 @@ export default function WardrobeApp() {
       outfitBoardsRes.data.forEach(b => { if (b.description) meta[b.name] = { description: b.description }; });
       setOutfitBoardMeta(meta);
     }
+
+    if (wearLogsRes.error) console.error('[wear_logs] fetch failed:', wearLogsRes.error.message, '— run supabase/migrations/20260621_wear_logs.sql in the dashboard');
+    if (wearLogsRes.data) setWearLogs(wearLogsRes.data);
   };
 
   useEffect(() => {
@@ -7472,6 +8078,28 @@ export default function WardrobeApp() {
     if (user) await supabase.from('outfits').update({ liked: nowLiked }).eq('id', id).eq('user_id', user.id);
   };
 
+  const handleLogWorn = async ({ itemIds, outfitId = null, source = 'manual', replace = false }) => {
+    if (!user) return;
+    const today = new Date().toISOString().split('T')[0];
+    if (replace) {
+      const { error: delErr } = await supabase
+        .from('wear_logs')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('worn_date', today);
+      if (delErr) console.error('[wear_logs] delete failed:', delErr.message);
+      else setWearLogs(prev => prev.filter(l => l.worn_date !== today));
+    }
+    if (!itemIds?.length) return; // delete-only (e.g. user deselected everything)
+    const { data, error } = await supabase
+      .from('wear_logs')
+      .insert({ user_id: user.id, worn_date: today, item_ids: itemIds.map(String), outfit_id: outfitId ?? null, source })
+      .select()
+      .single();
+    if (error) console.error('[wear_logs] insert failed:', error.message, '— run supabase/migrations/20260621_wear_logs.sql in the dashboard');
+    if (data) setWearLogs(prev => [data, ...prev]);
+  };
+
   const handleSaveOutfit = async collage => {
     if (!collage.items.length) return;
     const { data } = await supabase.from('outfits').insert({
@@ -7628,10 +8256,13 @@ export default function WardrobeApp() {
           <div className={tab('today')}>
             <TodayTab
               items={readyItems}
+              likedItems={likedItems}
               onSaveToPublished={isPreview
                 ? collage => { if (collage.items?.length) setPreviewSavedOutfits(prev => [{ ...collage, id: `preview-${Date.now()}`, liked: false, boards: [] }, ...prev]); }
                 : handleSaveOutfit}
               onEditInStudio={collage => { setPendingAiCollage(collage); switchTab('studio'); }}
+              onLogWorn={handleLogWorn}
+              wearLogs={wearLogs}
               isPreview={isPreview}
               userId={user?.id}
               userProfile={profile}
@@ -7676,10 +8307,16 @@ export default function WardrobeApp() {
               onEditOutfitBoard={handleEditOutfitBoard}
               onToggleOutfitBoard={handleToggleOutfitBoard}
               onToggleOutfitLike={toggleOutfitLike}
+              onLogWorn={handleLogWorn}
               isPreview={isPreview}
               previewCollages={previewCollages}
               userId={user?.id}
             />
+          </div>
+        )}
+        {mountedTabs.has('analytics') && (
+          <div className={tab('analytics')}>
+            <AnalyticsTab items={readyItems} wearLogs={wearLogs} onSelectItem={setSelectedItem} onUpdateItem={updateItem} currencySymbol={getCurrencySymbol(profile?.country)} />
           </div>
         )}
         {mountedTabs.has('stylist') && (
@@ -7742,7 +8379,7 @@ export default function WardrobeApp() {
         {/* Navigation */}
         <nav className="flex flex-col gap-1">
           {TABS.map(({ id, label, Icon }) => {
-            if (isPreview && (id === 'profile' || id === 'stylist')) return null;
+            if (isPreview && (id === 'profile' || id === 'stylist' || id === 'analytics')) return null;
             const active = activeTab === id;
             const displayLabel = id === 'today'
               ? `Today, ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
@@ -7840,7 +8477,7 @@ export default function WardrobeApp() {
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-xl border-t border-gray-100">
         <div className="flex items-center justify-around px-2 pt-2 pb-6">
           {TABS.map(({ id, label, Icon }) => {
-            if (isPreview && (id === 'profile' || id === 'stylist')) return null;
+            if (isPreview && (id === 'profile' || id === 'stylist' || id === 'analytics')) return null;
             const active = activeTab === id;
             return (
               <button
