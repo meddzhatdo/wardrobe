@@ -2797,8 +2797,13 @@ function buildWeatherPool(weather, allItems) {
   let pool = allItems.filter(i => OUTFIT_CATEGORIES.has(i.category));
 
   if (weather.tempF > 75) {
-    // Warm: no heavy items at all
+    // Hot: no heavy items at all
     pool = pool.filter(i => i.attributes?.warmthRating !== 'heavy');
+  } else if (weather.tempF > 65) {
+    // Warm: heavy non-outerwear (thick knitwear, etc.) is too warm; light outerwear ok
+    pool = pool.filter(i =>
+      i.category === 'Outerwear' || i.attributes?.warmthRating !== 'heavy'
+    );
   } else if (weather.tempF > 50) {
     // Cool/comfortable: heavy outerwear (shearling, heavy parkas) is overkill
     pool = pool.filter(i =>
@@ -7816,11 +7821,7 @@ export default function WardrobeApp() {
               </button>
             ) : (
               <>
-                {activeTab !== 'studio' && (
-                  <button className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100">
-                    <Search size={15} className="text-gray-600" />
-                  </button>
-                )}
+
                 <button onClick={() => handleTabSwitch('profile')} className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-300 via-pink-300 to-purple-400 shadow-sm overflow-hidden flex-shrink-0">
                   {profile.avatarUrl && <img src={profile.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />}
                 </button>

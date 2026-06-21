@@ -79,8 +79,9 @@ export default async function handler(req, res) {
       `3. SHOES: Every outfit must include exactly one "Shoes" item.\n` +
       `4. ACCESSORIES: "Accessories & Bags" and "Jewelry" items are optional but encouraged when they complement the look visually. You may include one or two per outfit.\n` +
       `5. LAYERING: Below 50°F, pair short-sleeve or base-layer tops with an "Outerwear" item.\n` +
-      `6. OUTERWEAR WEIGHT: Above 65°F include no outerwear or only a very light jacket. Between 50–65°F a medium jacket or blazer is appropriate — avoid heavy coats, shearling, or thick parkas. Below 50°F heavier coats are suitable. Below 32°F heavy outerwear is expected.\n` +
+      `6. OUTERWEAR WEIGHT: Above 75°F include no outerwear. Between 65–75°F a light jacket or blazer is optional but acceptable. Between 50–65°F a medium jacket or blazer is appropriate — avoid heavy coats, shearling, or thick parkas. Below 50°F heavier coats are suitable. Below 32°F heavy outerwear is expected.\n` +
       `7. DISTINCT: No two outfits may share the exact same item set.\n` +
+      `8. RAIN & STORMS: If the current condition OR the later condition includes Rain, Drizzle, Showers, or Thunderstorm: (a) prefer closed-toe shoes over open sandals or white sneakers; (b) avoid white, cream, or very light-coloured bottoms; (c) if an "Outerwear" item is available, include a water-resistant-looking jacket or coat in at least one outfit regardless of temperature.\n` +
       `If an outfit is not fully weather-appropriate, the "description" field may include a brief practical recommendation.\n` +
       `The "description" field must be no more than 200 characters.\n` +
       `Return ONLY a raw JSON array of exactly 3 objects: ` +
