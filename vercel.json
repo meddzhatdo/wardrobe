@@ -10,7 +10,7 @@
         { "key": "Strict-Transport-Security",  "value": "max-age=63072000; includeSubDomains; preload" },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://bdakzjdpqqmmthcehbvs.supabase.co https://maps.gstatic.com; connect-src 'self' https://bdakzjdpqqmmthcehbvs.supabase.co https://api.open-meteo.com https://api.anthropic.com https://nominatim.openstreetmap.org; font-src 'self' data:; frame-ancestors 'none'"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' blob: https://bdakzjdpqqmmthcehbvs.supabase.co https://api.open-meteo.com https://api.anthropic.com https://nominatim.openstreetmap.org https://staticimgly.com; worker-src 'self' blob:; font-src 'self' data:; frame-ancestors 'none'"
         }
       ]
     }

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div id="root">
+
+    <div id="state-loading" class="state">
+      <div class="spinner"></div>
+      <p class="muted center">Reading page…</p>
+    </div>
+
+    <div id="state-found" class="state hidden">
+      <p class="section-label">Photo</p>
+      <div id="image-grid" class="image-grid"></div>
+
+      <div class="fields">
+        <div class="field">
+          <label class="field-label">Name</label>
+          <input id="field-name" class="field-input" type="text" placeholder="Item name" />
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label class="field-label">Brand</label>
+            <input id="field-brand" class="field-input" type="text" placeholder="Brand" />
+          </div>
+          <div class="field">
+            <label class="field-label">Price</label>
+            <input id="field-price" class="field-input" type="text" placeholder="0.00" />
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label class="field-label">Size</label>
+            <input id="field-size" class="field-input" type="text" placeholder="S / M / L" />
+          </div>
+          <div class="field">
+            <label class="field-label">Material</label>
+            <input id="field-material" class="field-input" type="text" placeholder="e.g. Silk" />
+          </div>
+        </div>
+      </div>
+
+      <button id="btn-save" class="btn-primary">Save to Wardrobe</button>
+    </div>
+
+    <div id="state-empty" class="state hidden">
+      <p class="muted center">No product info found on this page.</p>
+      <button id="btn-save-empty" class="btn-primary">Add item manually</button>
+    </div>
+
+    <div id="state-error" class="state hidden">
+      <p id="error-msg" class="error center"></p>
+    </div>
+
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

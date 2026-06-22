@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Sun, Shirt, Wand2, Sparkles, BarChart2,
   X, Heart, Plus, Search, ChevronRight, ChevronLeft, ChevronDown, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal, SlidersHorizontal,
-  Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut, Download, Eraser, MapPin, Bookmark, CheckCircle2,
+  Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut, Download, Eraser, MapPin, Bookmark, CheckCircle2, Link2, ArrowLeft,
   Eye, EyeOff,
   Cloud, CloudSun, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, CloudFog,
 } from 'lucide-react';
@@ -6205,7 +6205,7 @@ async function hasTransparency(file) {
       const canvas = document.createElement('canvas');
       canvas.width  = Math.round(img.naturalWidth  * scale);
       canvas.height = Math.round(img.naturalHeight * scale);
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const total = data.length / 4;
@@ -6272,7 +6272,7 @@ async function trimTransparentPixels(file) {
       const { naturalWidth: w, naturalHeight: h } = img;
       const src = document.createElement('canvas');
       src.width = w; src.height = h;
-      const ctx = src.getContext('2d');
+      const ctx = src.getContext('2d', { willReadFrequently: true });
       ctx.drawImage(img, 0, 0);
       const { data } = ctx.getImageData(0, 0, w, h);
       // Sum alpha per column and per row; a column/row only counts as content
@@ -6332,45 +6332,70 @@ async function enrichItem({ imageUrl, imageFile, name, brand, category, material
   return res.json();
 }
 
-function AddMethodModal({ onClose, onImageSelected }) {
+const MAX_WORKER_PX = 1024;
+async function resizeForWorker(file) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const longest = Math.max(img.naturalWidth, img.naturalHeight);
+      if (longest <= MAX_WORKER_PX) { resolve(file); return; }
+      const scale = MAX_WORKER_PX / longest;
+      const w = Math.round(img.naturalWidth  * scale);
+      const h = Math.round(img.naturalHeight * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob(blob => {
+        resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' }));
+      }, 'image/png');
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
+// Resolves with { processedFile, bgRemoved } — bgRemoved=false means worker failed,
+// processedFile is still a usable (but un-cropped) image.
+function startBgRemoval(file) {
+  return (async () => {
+    if (await hasTransparency(file)) {
+      return { processedFile: await trimTransparentPixels(await resizeImage(file)), bgRemoved: true };
+    }
+    const workerInput = await resizeForWorker(file);
+    const buffer = await workerInput.arrayBuffer();
+    try {
+      const resultBlob = await new Promise((resolve, reject) => {
+        const worker = new Worker(
+          new URL('./bgRemovalWorker.js', import.meta.url),
+          { type: 'module' },
+        );
+        worker.onmessage = ({ data }) => {
+          worker.terminate();
+          if (data.ok) resolve(new Blob([data.buffer], { type: 'image/png' }));
+          else reject(new Error(data.message));
+        };
+        worker.onerror = (err) => { worker.terminate(); reject(err); };
+        worker.postMessage({ buffer, name: workerInput.name, type: workerInput.type }, [buffer]);
+      });
+      const processedFile = new File([resultBlob], workerInput.name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' });
+      return { processedFile: await trimTransparentPixels(await resizeImage(processedFile)), bgRemoved: true };
+    } catch (err) {
+      console.error('[bg-removal] worker failed:', err?.message ?? err);
+      const converted = await convertToPng(file);
+      return { processedFile: await trimTransparentPixels(await resizeImage(converted)), bgRemoved: false };
+    }
+  })();
+}
+
+function AddMethodModal({ onClose, onImageSelected, onLinkSelected }) {
   const fileInputRef = useRef(null);
 
   const handleFileChange = e => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Kick off bg removal in the background — don't block the UI
-    const bgPromise = (async () => {
-      // Skip the worker entirely if the image already has transparency
-      if (await hasTransparency(file)) {
-        return await trimTransparentPixels(await resizeImage(file));
-      }
-
-      const buffer = await file.arrayBuffer();
-      try {
-        const resultBlob = await new Promise((resolve, reject) => {
-          const worker = new Worker(
-            new URL('./bgRemovalWorker.js', import.meta.url),
-            { type: 'module' },
-          );
-          worker.onmessage = ({ data }) => {
-            worker.terminate();
-            if (data.ok) resolve(new Blob([data.buffer], { type: 'image/png' }));
-            else reject(new Error(data.message));
-          };
-          worker.onerror = (err) => { worker.terminate(); reject(err); };
-          worker.postMessage({ buffer, name: file.name, type: file.type }, [buffer]);
-        });
-        const processedFile = new File([resultBlob], file.name.replace(/\.[^.]+$/, '.png'), { type: 'image/png' });
-        return await trimTransparentPixels(await resizeImage(processedFile));
-      } catch {
-        const converted = await convertToPng(file);
-        return await trimTransparentPixels(await resizeImage(converted));
-      }
-    })();
-
-    // Open the form immediately with the raw file; bgPromise resolves the final image
-    onImageSelected(file, bgPromise);
+    onImageSelected(file, startBgRemoval(file));
   };
 
   return (
@@ -6411,6 +6436,18 @@ function AddMethodModal({ onClose, onImageSelected }) {
 
           <div className="mx-4 border-t border-gray-100" />
 
+          <button
+            onClick={onLinkSelected}
+            className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl hover:bg-gray-50 active:bg-gray-100 transition-colors text-left"
+          >
+            <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Link2 size={18} className="text-gray-600" />
+            </div>
+            <span className="text-sm font-medium text-gray-900">Add from link</span>
+          </button>
+
+          <div className="mx-4 border-t border-gray-100" />
+
           <div className="w-full flex items-center gap-4 px-4 py-4 rounded-2xl opacity-40 cursor-not-allowed">
             <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0">
               <Camera size={18} className="text-gray-600" />
@@ -6424,15 +6461,190 @@ function AddMethodModal({ onClose, onImageSelected }) {
   );
 }
 
-function AddItemModal({ onClose, onAdd, initialImage, imageProcessingPromise, currencySymbol = '$' }) {
+function AddFromLinkModal({ onClose, onBack, onImageSelected, onScraped, initialStep = 'url', initialScraped = null }) {
+  const [step,       setStep]       = useState(initialStep);
+  const [url,        setUrl]        = useState('');
+  const [loading,    setLoading]    = useState(false);
+  const [error,      setError]      = useState('');
+  const [scraped,    setScraped]    = useState(initialScraped);
+  const [pickingIdx, setPickingIdx] = useState(null);
+  const fileInputRef = useRef(null);
+
+  const handleNext = async () => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    setLoading(true);
+    setError('');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/scrape-item', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ url: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not fetch that page');
+      setScraped(data);
+      onScraped?.(data);
+      setStep('images');
+    } catch (err) {
+      setError(err.message || 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePickImage = async (imgUrl, idx) => {
+    if (pickingIdx != null) return;
+    setPickingIdx(idx);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch(`/api/proxy-image?url=${encodeURIComponent(imgUrl)}`, {
+        headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
+      });
+      if (!res.ok) throw new Error('Could not load image');
+      const blob = await res.blob();
+      const file = new File([blob], 'product.jpg', { type: blob.type || 'image/jpeg' });
+      onImageSelected(file, startBgRemoval(file), {
+        name: scraped?.name || '',
+        brand: scraped?.brand || '',
+        price: scraped?.price || '',
+        material: scraped?.material || '',
+        size: scraped?.size || '',
+      });
+    } catch (err) {
+      console.error('Image pick error:', err);
+      setPickingIdx(null);
+    }
+  };
+
+  const handleFileChange = e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    onImageSelected(file, startBgRemoval(file), {
+      name: scraped?.name || '',
+      brand: scraped?.brand || '',
+      price: scraped?.price || '',
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-6">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm backdrop-fade" onClick={onClose} />
+      <div className="relative w-full md:w-[360px] bg-white rounded-t-[2rem] md:rounded-[2rem] shadow-2xl modal-animate">
+        <div className="flex justify-center pt-3 pb-1 md:hidden">
+          <div className="w-10 h-1 bg-gray-200 rounded-full" />
+        </div>
+
+        <button
+          onClick={step === 'images' ? () => setStep('url') : onBack}
+          className="absolute top-4 left-4 w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+        >
+          <ArrowLeft size={14} strokeWidth={2.5} className="text-gray-500" />
+        </button>
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+        >
+          <X size={14} strokeWidth={2.5} className="text-gray-500" />
+        </button>
+
+        {step === 'url' ? (
+          <>
+            <div className="px-6 pt-16 pb-2">
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Add item</p>
+              <h2 className="text-xl font-semibold text-gray-900 mt-1">Add from link</h2>
+              <p className="text-sm text-gray-400 mt-1">Paste a product URL and we'll pull in the details for you.</p>
+            </div>
+            <div className="px-6 pb-10 pt-4 flex flex-col gap-3">
+              <input
+                type="url"
+                value={url}
+                onChange={e => setUrl(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleNext()}
+                placeholder="https://..."
+                className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300 transition-colors"
+                autoFocus
+              />
+              {error && <p className="text-xs text-red-500 -mt-1 px-1">{error}</p>}
+              <button
+                onClick={handleNext}
+                disabled={!url.trim() || loading}
+                className="w-full py-3 rounded-2xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 active:bg-gray-700 disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
+              >
+                {loading ? <Loader2 size={16} className="animate-spin" /> : 'Next'}
+              </button>
+              {/* Extension download link — uncomment once published to the Chrome Web Store
+              <a
+                href="https://chrome.google.com/webstore/detail/wardrobe"
+                target="_blank"
+                rel="noreferrer"
+                className="text-center text-xs text-gray-400 hover:text-gray-500 transition-colors"
+              >
+                Get the Chrome extension for better results ↗
+              </a>
+              */}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="px-6 pt-16 pb-4">
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Add item</p>
+              <h2 className="text-xl font-semibold text-gray-900 mt-1">Choose a photo</h2>
+              <p className="text-sm text-gray-400 mt-1">
+                {(scraped?.images?.length ?? 0) === 0
+                  ? 'This site blocked image loading. Upload your own photo below.'
+                  : 'Pick the best image, or upload your own.'}
+              </p>
+            </div>
+            <div className="px-6 pb-10">
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-24 h-24 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center hover:border-gray-400 hover:bg-gray-50 transition-colors flex-shrink-0"
+                >
+                  <ImageIcon size={24} className="text-gray-400" />
+                </button>
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+
+                {(scraped?.images ?? []).map((imgUrl, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handlePickImage(imgUrl, idx)}
+                    disabled={pickingIdx != null}
+                    className="relative w-24 h-24 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 hover:border-gray-400 transition-colors flex-shrink-0"
+                  >
+                    <img src={imgUrl} alt="" className="w-full h-full object-contain" />
+                    {pickingIdx === idx && (
+                      <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
+                        <Loader2 size={16} className="animate-spin text-gray-700" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AddItemModal({ onClose, onBack, onAdd, initialImage, imageProcessingPromise, initialForm = null, currencySymbol = '$' }) {
   const [imageFile, setImageFile] = useState(initialImage ?? null);
   const [previewUrl, setPreviewUrl] = useState(() => initialImage ? URL.createObjectURL(initialImage) : null);
   const [imageProcessing, setImageProcessing] = useState(!!imageProcessingPromise);
   const [showEraser, setShowEraser] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [bgFailed, setBgFailed] = useState(false);
   const [form, setForm] = useState({
     name: '', brand: '', price: '', size: '', material: '', color: '',
     category: CATEGORIES[0], notes: '',
+    ...(initialForm ?? {}),
   });
 
   // Resolve bg removal in background; swap preview when done
@@ -6440,11 +6652,12 @@ function AddItemModal({ onClose, onAdd, initialImage, imageProcessingPromise, cu
     if (!imageProcessingPromise) return;
     let cancelled = false;
     imageProcessingPromise
-      .then(processedFile => {
+      .then(({ processedFile, bgRemoved }) => {
         if (cancelled) return;
         setImageFile(processedFile);
         setPreviewUrl(prev => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(processedFile); });
         setImageProcessing(false);
+        if (!bgRemoved) setBgFailed(true);
       })
       .catch(() => { if (!cancelled) setImageProcessing(false); });
     return () => { cancelled = true; };
@@ -6478,6 +6691,14 @@ function AddItemModal({ onClose, onAdd, initialImage, imageProcessingPromise, cu
           <div className="w-10 h-1 bg-gray-200 rounded-full" />
         </div>
 
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="absolute top-4 left-4 z-10 w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-md hover:shadow-lg transition-shadow"
+          >
+            <ArrowLeft size={14} strokeWidth={2.5} className="text-gray-500" />
+          </button>
+        )}
         <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5">
           <button
             onClick={handleAdd}
@@ -6508,6 +6729,13 @@ function AddItemModal({ onClose, onAdd, initialImage, imageProcessingPromise, cu
                   <Loader2 size={12} className="animate-spin text-gray-400" />
                   <span className="text-xs font-medium text-gray-500">Removing background…</span>
                 </div>
+              </div>
+            ) : bgFailed ? (
+              <div className="absolute bottom-3 inset-x-3 flex items-center justify-between gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-2xl">
+                <span className="text-xs text-amber-700">Background removal failed — use the eraser to clean it up manually.</span>
+                <button onClick={() => setShowEraser(true)} className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold text-amber-800 hover:text-amber-900">
+                  <Eraser size={11} /> Edit
+                </button>
               </div>
             ) : (
               <button
@@ -7685,7 +7913,9 @@ export default function WardrobeApp() {
   const [items, setItems]                 = useState([]);
   const [addStep, setAddStep]                 = useState(null);
   const [addItemFile, setAddItemFile]         = useState(null);
-  const [addItemProcessing, setAddItemProcessing] = useState(null); // Promise for bg removal
+  const [addItemProcessing, setAddItemProcessing] = useState(null);
+  const [addItemPrefill, setAddItemPrefill]   = useState(null);
+  const [addLinkScraped, setAddLinkScraped]   = useState(null);
   const [boards, setBoards]               = useState(['All']);
   const [boardMeta, setBoardMeta]         = useState({});
   const [profile, setProfile]             = useState({
@@ -7770,6 +8000,58 @@ export default function WardrobeApp() {
     if (wearLogsRes.error) console.error('[wear_logs] fetch failed:', wearLogsRes.error.message, '— run supabase/migrations/20260621_wear_logs.sql in the dashboard');
     if (wearLogsRes.data) setWearLogs(wearLogsRes.data);
   };
+
+  // Capture extension data from URL on first load and stash in sessionStorage
+  // so it survives the auth check (user may need to log in first).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get('ext_data');
+    if (!raw) return;
+    window.history.replaceState({}, '', window.location.pathname);
+    try {
+      const data = JSON.parse(decodeURIComponent(raw));
+      sessionStorage.setItem('wardrobeExtData', JSON.stringify(data));
+    } catch {}
+  }, []);
+
+  // Once the user is confirmed logged in, open the image picker with any pending extension data.
+  // If the extension pre-selected an image, proxy it immediately and go straight to the form.
+  useEffect(() => {
+    if (!user) return;
+    const raw = sessionStorage.getItem('wardrobeExtData');
+    if (!raw) return;
+    sessionStorage.removeItem('wardrobeExtData');
+    try {
+      const data = JSON.parse(raw);
+      const prefill = {
+        name: data.name || '', brand: data.brand || '', price: data.price || '',
+        material: data.material || '', size: data.size || '',
+      };
+      if (data.selectedImage) {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          fetch(`/api/proxy-image?url=${encodeURIComponent(data.selectedImage)}`, {
+            headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
+          })
+            .then(res => res.ok ? res.blob() : Promise.reject())
+            .then(blob => {
+              const file = new File([blob], 'product.jpg', { type: blob.type || 'image/jpeg' });
+              setAddItemFile(file);
+              setAddItemProcessing(startBgRemoval(file));
+              setAddItemPrefill(prefill);
+              setAddLinkScraped(data);
+              setAddStep('form');
+            })
+            .catch(() => {
+              setAddLinkScraped(data);
+              setAddStep('link');
+            });
+        });
+      } else {
+        setAddLinkScraped(data);
+        setAddStep('link');
+      }
+    } catch {}
+  }, [user]);
 
   useEffect(() => {
     // Initial session check — await data before revealing UI to avoid flash
@@ -7934,6 +8216,25 @@ export default function WardrobeApp() {
     setItems(prev => prev.map(i => i.id === id ? { ...i, image: publicUrl } : i));
     setSelectedItem(prev => prev?.id === id ? { ...prev, image: publicUrl } : prev);
     await supabase.from('items').update({ image_url: publicUrl }).eq('id', id).eq('user_id', user.id);
+
+    // Patch any collages that contain this item so their canvas copies show the new image
+    const patchOutfits = (outfits, setOutfits) => {
+      const changed = [];
+      const next = outfits.map(o => {
+        const newItems = o.items.map(ci => ci.id === id ? { ...ci, image: publicUrl } : ci);
+        const dirty = newItems.some((ci, i) => ci !== o.items[i]);
+        if (dirty) { changed.push({ ...o, items: newItems }); return { ...o, items: newItems }; }
+        return o;
+      });
+      if (changed.length) setOutfits(next);
+      return changed;
+    };
+    const changedSaved = patchOutfits(savedOutfits, setSavedOutfits);
+    const changedDraft = patchOutfits(draftOutfits, setDraftOutfits);
+    await Promise.all([
+      ...changedSaved.map(o => supabase.from('outfits').update({ canvas_items: collageToDbPayload(o) }).eq('id', o.id)),
+      ...changedDraft.map(o => supabase.from('outfits').update({ canvas_items: collageToDbPayload(o) }).eq('id', o.id)),
+    ]);
   };
 
   const addItem = async (form, imageFile, imageProcessingPromise) => {
@@ -8533,15 +8834,43 @@ export default function WardrobeApp() {
             setAddItemProcessing(bgPromise);
             setAddStep('form');
           }}
+          onLinkSelected={() => setAddStep('link')}
+        />
+      )}
+
+      {addStep === 'link' && (
+        <AddFromLinkModal
+          onClose={() => { setAddStep(null); setAddLinkScraped(null); }}
+          onBack={() => setAddStep('picker')}
+          onScraped={setAddLinkScraped}
+          initialStep={addLinkScraped ? 'images' : 'url'}
+          initialScraped={addLinkScraped}
+          onImageSelected={(file, bgPromise, prefill) => {
+            setAddItemFile(file);
+            setAddItemProcessing(bgPromise);
+            setAddItemPrefill(prefill);
+            setAddStep('form');
+          }}
         />
       )}
 
       {addStep === 'form' && (
         <AddItemModal
-          onClose={() => { setAddStep(null); setAddItemFile(null); setAddItemProcessing(null); }}
+          onClose={() => { setAddStep(null); setAddItemFile(null); setAddItemProcessing(null); setAddItemPrefill(null); setAddLinkScraped(null); }}
+          onBack={() => {
+            if (addLinkScraped) {
+              setAddStep('link');
+            } else {
+              setAddItemFile(null);
+              setAddItemProcessing(null);
+              setAddStep('picker');
+            }
+            setAddItemPrefill(null);
+          }}
           onAdd={addItem}
           initialImage={addItemFile}
           imageProcessingPromise={addItemProcessing}
+          initialForm={addItemPrefill}
           currencySymbol={getCurrencySymbol(profile.country)}
         />
       )}
