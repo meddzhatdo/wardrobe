@@ -4,12 +4,14 @@
  * Stack: React · Tailwind CSS · Lucide React
  */
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import {
   Sun, Shirt, Wand2, Sparkles, BarChart2,
   X, Heart, Plus, Search, ChevronRight, ChevronLeft, ChevronDown, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal, SlidersHorizontal,
   Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut, Download, Eraser, MapPin, Bookmark, CheckCircle2, Link2, ArrowLeft,
   Eye, EyeOff,
   Cloud, CloudSun, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, CloudFog,
+  Send, MessageSquare, PlusCircle,
 } from 'lucide-react';
 import { supabase } from './supabase.js';
 
@@ -6121,61 +6123,353 @@ function StudioTab({
   );
 }
 
-function StylistTab() {
-  const prompts = [
-    'What should I wear to a rooftop dinner?',
-    'Build a capsule wardrobe from my basics',
+// Keywords that mean the user's wardrobe context is relevant
+const WARDROBE_AWARE_RE = /\b(my\s+(wardrobe|closet|clothes|items?|pieces?|collection)|what\s+(do\s+i\s+(have|own)|gaps?|i\s+have)|outfit\s+(for|from|with)|make\s+me\s+an\s+outfit|build\s+(me\s+)?an?\s+outfit|suggest\s+(an?\s+)?outfit|style\s+me|capsule\s+wardrobe|what\s+should\s+i\s+wear|what\s+can\s+i\s+wear|what\s+goes\s+with)\b/i;
+
+function formatConvoDate(dateStr) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffDays = Math.floor((now - d) / 86400000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return d.toLocaleDateString('en-US', { weekday: 'long' });
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function StylistTab({ items = [], userId = null, userProfile = {} }) {
+  const SUGGESTIONS = [
     "What's trending for autumn?",
+    'I\'m wearing a navy shirt and white pants — can I wear black shoes?',
+    'What outfits can I make from my wardrobe?',
+    'What gaps are there in my closet?',
   ];
 
-  return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="px-6 md:px-10 pt-8 pb-4 flex-shrink-0">
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">AI Stylist</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Your personal style advisor</p>
-      </div>
+  const [conversations, setConversations] = useState([]);
+  const [activeId, setActiveId]           = useState(null);
+  const [messages, setMessages]           = useState([]);
+  const [input, setInput]                 = useState('');
+  const [sending, setSending]             = useState(false);
+  const [error, setError]                 = useState(null);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [sidebarOpen, setSidebarOpen]     = useState(false);
+  const messagesEndRef = useRef(null);
+  const textareaRef    = useRef(null);
 
-      {/* Chat area */}
-      <div className="flex-1 overflow-y-auto scrollbar-hide px-6 md:px-10">
-        {/* AI greeting bubble */}
-        <div className="flex gap-3 mb-4">
-          <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-            <Sparkles size={14} className="text-emerald-500" />
+  // Load conversation history on mount
+  useEffect(() => {
+    if (!userId) { setLoadingHistory(false); return; }
+    supabase
+      .from('stylist_conversations')
+      .select('id, title, messages, updated_at')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(50)
+      .then(({ data }) => {
+        if (data?.length) {
+          setConversations(data);
+          setActiveId(data[0].id);
+          setMessages(data[0].messages ?? []);
+        }
+        setLoadingHistory(false);
+      });
+  }, [userId]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const startNewConversation = () => {
+    setActiveId(null);
+    setMessages([]);
+    setError(null);
+    setSidebarOpen(false);
+    textareaRef.current?.focus();
+  };
+
+  const loadConversation = (convo) => {
+    setActiveId(convo.id);
+    setMessages(convo.messages ?? []);
+    setError(null);
+    setSidebarOpen(false);
+  };
+
+  const deleteConversation = async (id, e) => {
+    e.stopPropagation();
+    await supabase.from('stylist_conversations').delete().eq('id', id);
+    setConversations(prev => prev.filter(c => c.id !== id));
+    if (activeId === id) { setActiveId(null); setMessages([]); }
+  };
+
+  const sendMessage = async (text = input.trim()) => {
+    if (!text || sending) return;
+    setInput('');
+    setError(null);
+
+    const userMsg = { role: 'user', content: text };
+    const nextMessages = [...messages, userMsg];
+    setMessages(nextMessages);
+    setSending(true);
+
+    const needsWardrobe = WARDROBE_AWARE_RE.test(text);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/ai-stylist', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          messages: nextMessages,
+          includeWardrobe: needsWardrobe,
+          items: needsWardrobe ? items.slice(0, 12) : [],
+          userProfile,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Request failed');
+
+      const assistantMsg = { role: 'assistant', content: json.reply };
+      const finalMessages = [...nextMessages, assistantMsg];
+      setMessages(finalMessages);
+
+      // Persist to Supabase
+      const title = text.slice(0, 60);
+      if (activeId) {
+        await supabase.from('stylist_conversations')
+          .update({ messages: finalMessages, updated_at: new Date().toISOString() })
+          .eq('id', activeId);
+        setConversations(prev => prev.map(c =>
+          c.id === activeId ? { ...c, messages: finalMessages, updated_at: new Date().toISOString() } : c
+        ));
+      } else {
+        const { data } = await supabase.from('stylist_conversations')
+          .insert({ user_id: userId, title, messages: finalMessages })
+          .select('id, title, messages, updated_at')
+          .single();
+        if (data) {
+          setActiveId(data.id);
+          setConversations(prev => [data, ...prev]);
+        }
+      }
+    } catch (err) {
+      setError(err.message || 'Something went wrong. Try again.');
+      setMessages(nextMessages); // keep user message visible
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  };
+
+  const isNew = messages.length === 0;
+
+  return (
+    <div className="flex h-full overflow-hidden relative">
+
+      {/* ── Sidebar overlay (mobile) ─────────────────────────────────────── */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/20 z-20 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* ── Main chat area ───────────────────────────────────────────────── */}
+      <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
+
+        {/* Header */}
+        <div className="px-6 md:px-10 pt-8 pb-4 flex-shrink-0 flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">AI Stylist</h1>
+            <p className="text-sm text-gray-400 mt-0.5">Your personal style advisor</p>
           </div>
-          <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 max-w-xs">
-            <p className="text-sm text-gray-700 leading-relaxed">
-              Hi! I've reviewed your wardrobe. Ask me anything about your style.
-            </p>
+          <div className="flex items-center gap-2 mt-1">
+            <button
+              onClick={startNewConversation}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors flex-shrink-0"
+            >
+              <PlusCircle size={13} />
+              New
+            </button>
+            <button
+              onClick={() => setSidebarOpen(o => !o)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors flex-shrink-0 md:hidden"
+            >
+              <MessageSquare size={13} />
+              History
+            </button>
           </div>
         </div>
 
-        {/* Suggestion chips */}
-        <div className="ml-11 space-y-2 mb-6">
-          {prompts.map((p, i) => (
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto scrollbar-hide px-6 md:px-10 pb-4">
+
+          {/* Greeting / empty state */}
+          {isNew && (
+            <>
+              <div className="flex gap-3 mb-4">
+                <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Sparkles size={14} className="text-emerald-500" />
+                </div>
+                <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 max-w-sm">
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    Hi! I'm your personal stylist. Ask me anything — from outfit ideas to what's trending.
+                  </p>
+                </div>
+              </div>
+              <div className="ml-11 space-y-2 mb-6">
+                {SUGGESTIONS.map((p, i) => (
+                  <button
+                    key={i}
+                    onClick={() => sendMessage(p)}
+                    className="block text-left w-full px-4 py-2.5 bg-white border border-gray-200 rounded-2xl text-sm text-gray-600 hover:border-gray-400 hover:text-gray-900 transition-colors"
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Conversation messages */}
+          {messages.map((msg, i) => {
+            const isUser = msg.role === 'user';
+            return (
+              <div key={i} className={`flex gap-3 mb-4 ${isUser ? 'justify-end' : ''}`}>
+                {!isUser && (
+                  <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Sparkles size={14} className="text-emerald-500" />
+                  </div>
+                )}
+                <div
+                  className={`px-4 py-3 rounded-2xl text-sm leading-relaxed max-w-sm ${
+                    isUser
+                      ? 'bg-gray-900 text-white rounded-tr-sm whitespace-pre-wrap'
+                      : 'bg-gray-100 text-gray-700 rounded-tl-sm'
+                  }`}
+                >
+                  {isUser ? msg.content : (
+                    <ReactMarkdown
+                      components={{
+                        p:      ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                        strong: ({ node, ...props }) => <strong className="font-semibold text-gray-900" {...props} />,
+                        ul:     ({ node, ...props }) => <ul className="list-disc pl-4 mb-2 space-y-0.5" {...props} />,
+                        ol:     ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5" {...props} />,
+                        li:     ({ node, ...props }) => <li className="leading-relaxed" {...props} />,
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Sending indicator */}
+          {sending && (
+            <div className="flex gap-3 mb-4">
+              <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Sparkles size={14} className="text-emerald-500" />
+              </div>
+              <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3">
+                <div className="flex gap-1 items-center h-4">
+                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Error */}
+          {error && (
+            <p className="text-xs text-red-400 ml-11 mb-4">{error}</p>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input bar */}
+        <div className="px-6 md:px-10 pb-28 md:pb-8 flex-shrink-0">
+          <div className="flex items-end gap-3 px-4 py-3 bg-gray-100 rounded-2xl">
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask your stylist anything…"
+              rows={1}
+              disabled={sending}
+              className="flex-1 bg-transparent text-sm text-gray-700 placeholder-gray-400 resize-none outline-none leading-relaxed max-h-32 scrollbar-hide"
+              style={{ minHeight: '20px' }}
+              onInput={e => {
+                e.target.style.height = 'auto';
+                e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
+              }}
+            />
             <button
-              key={i}
-              className="block text-left w-full px-4 py-2.5 bg-white border border-gray-200 rounded-2xl text-sm text-gray-600 hover:border-gray-400 hover:text-gray-900 transition-colors"
+              onClick={() => sendMessage()}
+              disabled={!input.trim() || sending}
+              className="w-7 h-7 bg-gray-900 rounded-full flex items-center justify-center flex-shrink-0 disabled:opacity-30 transition-opacity mb-0.5"
             >
-              {p}
+              <Send size={12} strokeWidth={2.5} className="text-white" />
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── History sidebar ──────────────────────────────────────────────── */}
+      <div className={`
+        fixed top-0 right-0 h-full w-72 bg-white border-l border-gray-100 z-30 flex flex-col
+        transition-transform duration-300
+        md:relative md:translate-x-0 md:z-auto md:w-64 md:flex-shrink-0
+        ${sidebarOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
+      `}>
+        <div className="px-4 pt-8 pb-3 flex-shrink-0 flex items-center justify-between border-b border-gray-100">
+          <span className="text-sm font-semibold text-gray-800">History</span>
+          <button onClick={() => setSidebarOpen(false)} className="md:hidden p-1 rounded-full hover:bg-gray-100">
+            <X size={15} className="text-gray-500" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto scrollbar-hide py-2">
+          {loadingHistory && (
+            <div className="flex justify-center pt-8">
+              <Loader2 size={18} className="text-gray-300 animate-spin" />
+            </div>
+          )}
+          {!loadingHistory && conversations.length === 0 && (
+            <p className="text-xs text-gray-400 text-center pt-8 px-4">No conversations yet</p>
+          )}
+          {conversations.map(convo => (
+            <div
+              key={convo.id}
+              onClick={() => loadConversation(convo)}
+              className={`group relative flex items-start gap-2 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors ${
+                activeId === convo.id ? 'bg-gray-50' : ''
+              }`}
+            >
+              <MessageSquare size={13} className="text-gray-300 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-gray-700 truncate leading-snug">{convo.title}</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">{formatConvoDate(convo.updated_at)}</p>
+              </div>
+              <button
+                onClick={(e) => deleteConversation(convo.id, e)}
+                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-gray-200 transition-all flex-shrink-0"
+              >
+                <Trash2 size={12} className="text-gray-400" />
+              </button>
+            </div>
           ))}
         </div>
-      </div>
-
-      {/* Input bar */}
-      <div className="px-6 md:px-10 pb-28 md:pb-8 flex-shrink-0">
-        <div className="flex items-center gap-3 px-4 py-3 bg-gray-100 rounded-2xl">
-          <div className="w-7 h-7 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
-            <Sparkles size={12} className="text-emerald-500" />
-          </div>
-          <p className="text-sm text-gray-400 flex-1 text-left">Ask your stylist anything…</p>
-          <div className="w-7 h-7 bg-gray-900 rounded-full flex items-center justify-center flex-shrink-0">
-            <ChevronRight size={13} strokeWidth={2.5} className="text-white" />
-          </div>
-        </div>
-        <p className="mt-4 text-center text-xs font-semibold text-gray-300 uppercase tracking-[0.18em]">
-          Coming Soon
-        </p>
       </div>
     </div>
   );
@@ -8618,7 +8912,7 @@ export default function WardrobeApp() {
         )}
         {mountedTabs.has('stylist') && (
           <div className={tab('stylist')}>
-            <StylistTab />
+            <StylistTab items={readyItems} userId={user?.id} userProfile={profile} />
           </div>
         )}
         {mountedTabs.has('profile') && !isPreview && (
