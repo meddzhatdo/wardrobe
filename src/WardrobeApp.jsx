@@ -2053,7 +2053,7 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div className="wardrobe-item-grid">
             {displayItems.map(item => (
               <GridCard key={item.id} item={item} onClick={onSelectItem} />
             ))}
@@ -2095,7 +2095,7 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
                 <p className="text-sm font-semibold text-gray-800">No items in this board</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+              <div className="wardrobe-item-grid">
                 {organizedItems.map(item => (
                   <OrganizeCard
                     key={item.id}
@@ -2271,7 +2271,7 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
                 <p className="text-sm font-semibold text-gray-800">No items in your wardrobe</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+              <div className="wardrobe-item-grid">
                 {items.map(item => {
                   const alreadyInBoard = (item.boards ?? []).includes(activeFilter);
                   const isSelected = addToBoardSelectedIds.has(item.id);
@@ -4098,7 +4098,7 @@ function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished, onEdi
                 </div>
 
                 {/* Grid */}
-                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-5 gap-2">
+                <div className="wardrobe-picker-grid">
                   {pickerItems.map(item => {
                     const selected = wornItemIds.has(String(item.id));
                     return (
@@ -6405,7 +6405,7 @@ function StylistTab({ items = [], userId = null, userProfile = {}, onSelectItem,
   const messagesEndRef = useRef(null);
   const textareaRef    = useRef(null);
 
-  // Load conversation history on mount
+  // Load conversation history on mount; restore last-active conversation
   useEffect(() => {
     if (!userId) { setLoadingHistory(false); return; }
     supabase
@@ -6415,10 +6415,29 @@ function StylistTab({ items = [], userId = null, userProfile = {}, onSelectItem,
       .order('updated_at', { ascending: false })
       .limit(50)
       .then(({ data }) => {
-        if (data?.length) setConversations(data);
+        if (data?.length) {
+          setConversations(data);
+          try {
+            const savedId = localStorage.getItem(`wardrobe_stylist_active_id_${userId}`);
+            if (savedId) {
+              const match = data.find(c => c.id === savedId);
+              if (match) { setActiveId(match.id); setMessages(match.messages ?? []); }
+            }
+          } catch {}
+        }
         setLoadingHistory(false);
       });
   }, [userId]);
+
+  // Persist active conversation id so page reload restores it
+  useEffect(() => {
+    if (!userId) return;
+    try {
+      const key = `wardrobe_stylist_active_id_${userId}`;
+      if (activeId) localStorage.setItem(key, activeId);
+      else localStorage.removeItem(key);
+    } catch {}
+  }, [activeId, userId]);
 
   // Scroll to bottom when messages change
   useEffect(() => {

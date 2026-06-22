@@ -6,3 +6,28 @@ html, body, #root {
   margin: 0;
   padding: 0;
 }
+
+/* Responsive item grids: fixed columns on mobile, auto-fill on wider screens so
+   cards shrink (more columns appear) when the user zooms out with Cmd - */
+.wardrobe-item-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 768px) {
+  .wardrobe-item-grid {
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  }
+}
+
+/* Today tab "What I Wore Today" picker — 4 fixed cols on mobile, same auto-fill above */
+.wardrobe-picker-grid {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (min-width: 768px) {
+  .wardrobe-picker-grid {
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  }
+}
