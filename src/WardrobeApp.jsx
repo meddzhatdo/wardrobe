@@ -11,7 +11,7 @@ import {
   Undo2, Redo2, Loader2, ImageIcon, Camera, User, LogOut, Download, Eraser, MapPin, Bookmark, CheckCircle2, Link2, ArrowLeft,
   Eye, EyeOff,
   Cloud, CloudSun, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, CloudFog,
-  Send, MessageSquare, PlusCircle,
+  Send, MessageSquare, PlusCircle, Copy, ImagePlus,
 } from 'lucide-react';
 import { supabase } from './supabase.js';
 
@@ -97,7 +97,7 @@ const ITEMS = [
     id: 1,
     name: 'Structured Leather Tote',
     brand: '—',
-    price: '$—',
+    price: '$280',
     material: 'Grained Leather',
     category: 'Accessories & Bags',
     boards: ['Workwear', 'Weekend'],
@@ -113,7 +113,7 @@ const ITEMS = [
     id: 2,
     name: 'CC Crystal Cuff',
     brand: 'Chanel',
-    price: '$—',
+    price: '$2,800',
     material: 'Lambskin & Crystal',
     category: 'Jewelry',
     boards: ['Evening'],
@@ -145,7 +145,7 @@ const ITEMS = [
     id: 4,
     name: 'Camellia Rain Boot',
     brand: 'Chanel',
-    price: '$—',
+    price: '$1,450',
     material: 'Rubber & Patent',
     category: 'Shoes',
     boards: ['Weekend', 'Outerwear'],
@@ -161,7 +161,7 @@ const ITEMS = [
     id: 5,
     name: 'Classic Denim Jacket',
     brand: '—',
-    price: '$—',
+    price: '$85',
     material: '100% Cotton Denim',
     category: 'Outerwear',
     boards: ['Weekend', 'Basics'],
@@ -177,7 +177,7 @@ const ITEMS = [
     id: 6,
     name: 'Fine Knit Cardigan',
     brand: 'H&M',
-    price: '$—',
+    price: '$35',
     material: 'Fine Knit Polyamide Blend',
     category: 'Knitwear & Sweaters',
     boards: ['Weekend', 'Basics'],
@@ -193,7 +193,7 @@ const ITEMS = [
     id: 7,
     name: 'Floral Pleated Charmeuse Skirt',
     brand: 'Lauren Ralph Lauren',
-    price: '$—',
+    price: '$165',
     material: '100% Polyester Charmeuse',
     category: 'Bottoms',
     boards: ['Evening', 'Weekend'],
@@ -209,7 +209,7 @@ const ITEMS = [
     id: 8,
     name: 'Lucilla Shirt Dress',
     brand: 'Cinq à Sept',
-    price: '$—',
+    price: '$395',
     material: 'Stretch Crepe',
     category: 'Dresses & Jumpsuits',
     boards: ['Workwear', 'Evening'],
@@ -225,7 +225,7 @@ const ITEMS = [
     id: 9,
     name: 'Polka Dot Midi Skirt',
     brand: 'Ralph Lauren',
-    price: '$—',
+    price: '$225',
     material: 'Silk Blend',
     category: 'Bottoms',
     boards: ['Workwear', 'Weekend'],
@@ -241,7 +241,7 @@ const ITEMS = [
     id: 10,
     name: 'Kaida Boot-Cut Jean',
     brand: 'Ralph Lauren Collection',
-    price: '$—',
+    price: '$450',
     material: 'Stretch Denim',
     category: 'Bottoms',
     boards: ['Weekend', 'Workwear'],
@@ -257,7 +257,7 @@ const ITEMS = [
     id: 11,
     name: 'Flared Sleeve Silk Top',
     brand: 'Reformation',
-    price: '$—',
+    price: '$298',
     material: '100% Silk',
     category: 'Tops',
     boards: ['Evening', 'Weekend'],
@@ -273,7 +273,7 @@ const ITEMS = [
     id: 12,
     name: 'Super Puff Long Coat',
     brand: 'Aritzia',
-    price: '$—',
+    price: '$375',
     material: 'Recycled Nylon & Down Fill',
     category: 'Outerwear',
     boards: ['Outerwear', 'Weekend'],
@@ -289,7 +289,7 @@ const ITEMS = [
     id: 13,
     name: 'The Icon Watch',
     brand: 'Hanan Maybin',
-    price: '$—',
+    price: '$475',
     material: 'Gold-Tone Steel & Leather',
     category: 'Accessories & Bags',
     boards: ['Workwear', 'Evening', 'Weekend'],
@@ -305,7 +305,7 @@ const ITEMS = [
     id: 14,
     name: 'Double T-Buckle Pump',
     brand: 'Tory Burch',
-    price: '$—',
+    price: '$358',
     material: 'Leather',
     category: 'Shoes',
     boards: ['Workwear', 'Evening'],
@@ -321,7 +321,7 @@ const ITEMS = [
     id: 15,
     name: 'Bow Mini Dress',
     brand: 'Valentino Garavani',
-    price: '$—',
+    price: '$3,200',
     material: 'Virgin Wool',
     category: 'Dresses & Jumpsuits',
     boards: ['Evening'],
@@ -337,7 +337,7 @@ const ITEMS = [
     id: 16,
     name: 'Embroidered Beaded Blouse',
     brand: 'Zara',
-    price: '$—',
+    price: '$69',
     material: 'Tulle & Silk Blend',
     category: 'Tops',
     boards: ['Evening'],
@@ -353,7 +353,7 @@ const ITEMS = [
     id: 17,
     name: 'CC Quilted Ballet Flat',
     brand: 'Chanel',
-    price: '$—',
+    price: '$1,250',
     material: 'Quilted Lambskin',
     category: 'Shoes',
     boards: ['Workwear', 'Weekend', 'Evening'],
@@ -369,7 +369,7 @@ const ITEMS = [
     id: 18,
     name: 'High-Rise Flare Pant',
     brand: '—',
-    price: '$—',
+    price: '$95',
     material: 'Stretch Denim',
     category: 'Bottoms',
     boards: ['Workwear', 'Evening', 'Weekend'],
@@ -385,7 +385,7 @@ const ITEMS = [
     id: 19,
     name: 'Wrap Tie Blouse',
     brand: '—',
-    price: '$—',
+    price: '$88',
     material: 'Cotton Poplin',
     category: 'Tops',
     boards: ['Workwear', 'Weekend'],
@@ -401,7 +401,7 @@ const ITEMS = [
     id: 20,
     name: 'Camellia Leather Jacket',
     brand: 'Chanel',
-    price: '$—',
+    price: '$8,500',
     material: 'Lambskin Leather',
     category: 'Outerwear',
     boards: ['Outerwear', 'Evening', 'Weekend'],
@@ -417,7 +417,7 @@ const ITEMS = [
     id: 21,
     name: 'Cashmere Turtleneck',
     brand: '—',
-    price: '$—',
+    price: '$420',
     material: '100% Cashmere',
     category: 'Knitwear & Sweaters',
     boards: ['Basics', 'Weekend'],
@@ -433,7 +433,7 @@ const ITEMS = [
     id: 22,
     name: 'Oversized Sunglasses',
     brand: 'Chanel',
-    price: '$—',
+    price: '$520',
     material: 'Acetate',
     category: 'Accessories & Bags',
     boards: ['Weekend', 'Evening'],
@@ -449,7 +449,7 @@ const ITEMS = [
     id: 23,
     name: 'One-Shoulder Charmeuse Top',
     brand: '—',
-    price: '$—',
+    price: '$110',
     material: 'Silk Charmeuse',
     category: 'Tops',
     boards: ['Evening', 'Weekend'],
@@ -465,7 +465,7 @@ const ITEMS = [
     id: 24,
     name: 'Dark Wash Bootcut Jean',
     brand: '—',
-    price: '$—',
+    price: '$98',
     material: 'Stretch Denim',
     category: 'Bottoms',
     boards: ['Weekend', 'Basics'],
@@ -481,7 +481,7 @@ const ITEMS = [
     id: 25,
     name: 'Crochet Knit Midi Dress',
     brand: 'Sandro',
-    price: '$—',
+    price: '$490',
     material: 'Cotton Crochet Knit',
     category: 'Dresses & Jumpsuits',
     boards: ['Weekend', 'Evening'],
@@ -497,7 +497,7 @@ const ITEMS = [
     id: 26,
     name: 'Light Wash Flare Jean',
     brand: '—',
-    price: '$—',
+    price: '$88',
     material: 'Stretch Denim',
     category: 'Bottoms',
     boards: ['Weekend', 'Basics'],
@@ -513,7 +513,7 @@ const ITEMS = [
     id: 27,
     name: 'Super-Star Sneaker',
     brand: 'Golden Goose',
-    price: '$—',
+    price: '$575',
     material: 'Leather & Glitter',
     category: 'Shoes',
     boards: ['Weekend', 'Basics'],
@@ -529,7 +529,7 @@ const ITEMS = [
     id: 28,
     name: 'Belted Knit Maxi Dress',
     brand: '—',
-    price: '$—',
+    price: '$195',
     material: 'Wool Bouclé Knit',
     category: 'Dresses & Jumpsuits',
     boards: ['Evening', 'Weekend'],
@@ -545,7 +545,7 @@ const ITEMS = [
     id: 29,
     name: 'Off-Shoulder Knit Top',
     brand: 'Michael Kors',
-    price: '$—',
+    price: '$198',
     material: 'Ribbed Knit',
     category: 'Tops',
     boards: ['Workwear', 'Evening'],
@@ -561,7 +561,7 @@ const ITEMS = [
     id: 30,
     name: 'Crystal-Heel Mary Jane',
     brand: 'Miu Miu',
-    price: '$—',
+    price: '$1,190',
     material: 'Satin & Crystal',
     category: 'Shoes',
     boards: ['Evening'],
@@ -577,7 +577,7 @@ const ITEMS = [
     id: 31,
     name: 'Ojima Ruffle Top',
     brand: 'Isabel Marant',
-    price: '$—',
+    price: '$460',
     material: 'Silk Chiffon',
     category: 'Tops',
     boards: ['Evening', 'Weekend'],
@@ -593,7 +593,7 @@ const ITEMS = [
     id: 32,
     name: 'Polka Dot Cap-Sleeve Top',
     brand: '—',
-    price: '$—',
+    price: '$55',
     material: 'Jersey',
     category: 'Tops',
     boards: ['Weekend', 'Workwear'],
@@ -609,7 +609,7 @@ const ITEMS = [
     id: 33,
     name: 'Black Ribbed Turtleneck',
     brand: 'Ralph Lauren',
-    price: '$—',
+    price: '$195',
     material: 'Merino Wool Rib Knit',
     category: 'Knitwear & Sweaters',
     boards: ['Basics', 'Workwear', 'Weekend'],
@@ -625,7 +625,7 @@ const ITEMS = [
     id: 34,
     name: 'Burgundy Ribbed Turtleneck',
     brand: 'Ralph Lauren',
-    price: '$—',
+    price: '$195',
     material: 'Merino Wool Rib Knit',
     category: 'Knitwear & Sweaters',
     boards: ['Basics', 'Weekend'],
@@ -641,7 +641,7 @@ const ITEMS = [
     id: 35,
     name: 'Shearling Wrap Coat',
     brand: '—',
-    price: '$—',
+    price: '$850',
     material: 'Shearling Lamb',
     category: 'Outerwear',
     boards: ['Outerwear', 'Weekend'],
@@ -657,7 +657,7 @@ const ITEMS = [
     id: 36,
     name: 'Draped Silk Top',
     brand: '—',
-    price: '$—',
+    price: '$130',
     material: '100% Silk',
     category: 'Tops',
     boards: ['Evening', 'Workwear'],
@@ -673,7 +673,7 @@ const ITEMS = [
     id: 37,
     name: 'Suede Flare Pant',
     brand: '—',
-    price: '$—',
+    price: '$375',
     material: 'Genuine Suede',
     category: 'Bottoms',
     boards: ['Weekend', 'Evening'],
@@ -689,7 +689,7 @@ const ITEMS = [
     id: 38,
     name: 'Ava Top-Handle Bag',
     brand: 'Teddy Blake',
-    price: '$—',
+    price: '$625',
     material: 'Pebbled Leather',
     category: 'Accessories & Bags',
     boards: ['Workwear', 'Weekend', 'Evening'],
@@ -721,7 +721,7 @@ const ITEMS = [
     id: 40,
     name: 'Cera Suede Ankle Boot',
     brand: 'Veronica Beard',
-    price: '$—',
+    price: '$495',
     material: 'Suede',
     category: 'Shoes',
     boards: ['Weekend', 'Workwear'],
@@ -737,7 +737,7 @@ const ITEMS = [
     id: 41,
     name: 'Raffia Wedge Sandal',
     brand: 'Jimmy Choo',
-    price: '$—',
+    price: '$745',
     material: 'Raffia & Metallic Leather',
     category: 'Shoes',
     boards: ['Evening', 'Weekend'],
@@ -749,6 +749,30 @@ const ITEMS = [
     attributes: { layerType: 'none', sleeveLength: 'none', warmthRating: 'none' },
     colorProfile: { primaryHex: '#C4A456', colorFamily: 'Neutral', undertone: 'Warm', vibrancy: 'Muted' },
   },
+];
+
+// Static wear logs used in demo/preview mode — realistic spread over ~90 days
+const DEMO_WEAR_LOGS = [
+  { worn_date: '2026-06-20', item_ids: ['17','18','33','39','20'] },
+  { worn_date: '2026-06-17', item_ids: ['17','26','36','27'] },
+  { worn_date: '2026-06-13', item_ids: ['14','18','29','39'] },
+  { worn_date: '2026-06-10', item_ids: ['17','37','33','20'] },
+  { worn_date: '2026-06-07', item_ids: ['17','18','36','27','3'] },
+  { worn_date: '2026-06-04', item_ids: ['14','9','19','39'] },
+  { worn_date: '2026-06-01', item_ids: ['17','18','33','20'] },
+  { worn_date: '2026-05-28', item_ids: ['27','24','36','39'] },
+  { worn_date: '2026-05-24', item_ids: ['17','18','33','27'] },
+  { worn_date: '2026-05-21', item_ids: ['14','37','16','39','3'] },
+  { worn_date: '2026-05-18', item_ids: ['17','18','36','20'] },
+  { worn_date: '2026-05-15', item_ids: ['17','26','33','27'] },
+  { worn_date: '2026-05-11', item_ids: ['14','18','29','39','3'] },
+  { worn_date: '2026-05-07', item_ids: ['17','24','36','20'] },
+  { worn_date: '2026-05-03', item_ids: ['27','18','33','39'] },
+  { worn_date: '2026-04-29', item_ids: ['17','37','19','20'] },
+  { worn_date: '2026-04-25', item_ids: ['17','18','36','27'] },
+  { worn_date: '2026-04-21', item_ids: ['14','9','33','39'] },
+  { worn_date: '2026-04-17', item_ids: ['17','18','36','20'] },
+  { worn_date: '2026-04-13', item_ids: ['27','24','33','39'] },
 ];
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -1121,7 +1145,9 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
   const [showCollagePicker, setShowCollagePicker] = useState(false);
   const [showEraser, setShowEraser] = useState(false);
   const [boardMenuOpen, setBoardMenuOpen] = useState(false);
+  const [imgUploading, setImgUploading] = useState(false);
   const boardMenuRef = useRef(null);
+  const imageInputRef = useRef(null);
 
   useEffect(() => {
     if (!boardMenuOpen) return;
@@ -1157,6 +1183,19 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
       attributes: item.attributes || { warmthRating: 'none' },
     });
     setEditMode(false);
+  };
+
+  const handleImageFile = async (file) => {
+    if (!file || !onUpdateImage) return;
+    setImgUploading(true);
+    try {
+      const { processedFile } = await startBgRemoval(file);
+      onUpdateImage(item.id, processedFile);
+    } catch {
+      onUpdateImage(item.id, file);
+    } finally {
+      setImgUploading(false);
+    }
   };
 
   const editInput = "w-full bg-transparent border-b border-gray-200 focus:border-gray-500 focus:outline-none transition-colors";
@@ -1239,17 +1278,45 @@ function ItemModal({ item, liked, onToggleLike, onClose, onUpdate, onDelete, onA
           <img
             src={item.image}
             alt={item.name}
-            className="w-full h-full object-contain"
+            className={`w-full h-full object-contain transition-opacity ${imgUploading ? 'opacity-40' : 'opacity-100'}`}
           />
-          {editMode && (
-            <button
-              onClick={() => setShowEraser(true)}
-              className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-4 py-2 bg-white/90 backdrop-blur-sm text-xs font-semibold text-gray-700 rounded-full shadow-md hover:bg-white border border-gray-200 transition-colors whitespace-nowrap"
-            >
-              <Eraser size={13} />
-              Edit background
-            </button>
+          {imgUploading && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="flex items-center gap-2 px-3 py-2 bg-white/90 backdrop-blur-sm rounded-full shadow-sm border border-gray-100">
+                <Loader2 size={13} className="animate-spin text-gray-500 flex-shrink-0" />
+                <span className="text-xs font-medium text-gray-600">Processing…</span>
+              </div>
+            </div>
           )}
+          {editMode && !imgUploading && (
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
+              <button
+                onClick={() => imageInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-4 py-2 bg-white/90 backdrop-blur-sm text-xs font-semibold text-gray-700 rounded-full shadow-md hover:bg-white border border-gray-200 transition-colors whitespace-nowrap"
+              >
+                <ImagePlus size={13} />
+                Replace image
+              </button>
+              <button
+                onClick={() => setShowEraser(true)}
+                className="flex items-center gap-1.5 px-4 py-2 bg-white/90 backdrop-blur-sm text-xs font-semibold text-gray-700 rounded-full shadow-md hover:bg-white border border-gray-200 transition-colors whitespace-nowrap"
+              >
+                <Eraser size={13} />
+                Edit background
+              </button>
+            </div>
+          )}
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={e => {
+              const f = e.target.files?.[0];
+              if (f) handleImageFile(f);
+              e.target.value = '';
+            }}
+          />
         </div>
 
         {/* Brand + name + action buttons — kept outside scroll container so tooltip renders over image */}
@@ -2100,20 +2167,22 @@ function WardrobeTab({ items, boards, boardMeta, likedItems, onSelectItem, onDel
                         </button>
                       );
                     })}
-                    <div className="border-t border-gray-100 mt-1 pt-1">
-                      <button
-                        onClick={() => {
-                          setPendingOrganizeAddItems(new Set(selectedItemIds));
-                          setOrganizeBoardPickerOpen(false);
-                          setNewBoardName('');
-                          setNewBoardDesc('');
-                          setNewBoardOpen(true);
-                        }}
-                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        New board…
-                      </button>
-                    </div>
+                    {!isPreview && (
+                      <div className="border-t border-gray-100 mt-1 pt-1">
+                        <button
+                          onClick={() => {
+                            setPendingOrganizeAddItems(new Set(selectedItemIds));
+                            setOrganizeBoardPickerOpen(false);
+                            setNewBoardName('');
+                            setNewBoardDesc('');
+                            setNewBoardOpen(true);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          New board…
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -3078,8 +3147,9 @@ function useCollageScale() {
   return scale;
 }
 
-function OutfitCollage({ items }) {
-  const scale = useCollageScale();
+function OutfitCollage({ items, fixedScale }) {
+  const dynamicScale = useCollageScale();
+  const scale = fixedScale ?? dynamicScale;
 
   const groups = {};
   for (const item of items) {
@@ -5212,17 +5282,19 @@ function OutfitCard({
           {/* Right buttons: Board, Edit, More */}
           <div className="absolute bottom-2 right-2 z-10 flex items-center gap-1">
             {/* Board assignment */}
-            <div ref={boardBtnRef} className="relative">
-              <button
-                onClick={e => { e.stopPropagation(); setBoardMenuOpen(o => !o); }}
-                className="peer px-2.5 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-gray-50 shadow-sm transition-all opacity-0 group-hover:opacity-100"
-              >
-                <Layers size={13} className="text-gray-700" />
-              </button>
-              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-800 rounded-lg whitespace-nowrap opacity-0 peer-hover:opacity-100 transition-opacity z-30">
-                Boards
-              </span>
-            </div>
+            {!isPreview && (
+              <div ref={boardBtnRef} className="relative">
+                <button
+                  onClick={e => { e.stopPropagation(); setBoardMenuOpen(o => !o); }}
+                  className="peer px-2.5 h-8 flex items-center justify-center rounded-lg bg-white hover:bg-gray-50 shadow-sm transition-all opacity-0 group-hover:opacity-100"
+                >
+                  <Layers size={13} className="text-gray-700" />
+                </button>
+                <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2 py-1 text-[10px] font-medium text-white bg-gray-800 rounded-lg whitespace-nowrap opacity-0 peer-hover:opacity-100 transition-opacity z-30">
+                  Boards
+                </span>
+              </div>
+            )}
 
             {/* Edit */}
             <div className="relative">
@@ -5501,12 +5573,6 @@ function StudioTab({
                   >
                     Outfit
                   </button>
-                  <button
-                    onClick={() => { setAddMenuOpen(false); setNewBoardName(''); setNewBoardDesc(''); setNewBoardOpen(true); }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    Board
-                  </button>
                 </div>
               )}
             </div>
@@ -5536,12 +5602,14 @@ function StudioTab({
                       >
                         Edit board
                       </button>
-                      <button
-                        onClick={() => { setBoardMenuOpen(false); enterAddToBoard(); }}
-                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        Add to board
-                      </button>
+                      {!isPreview && (
+                        <button
+                          onClick={() => { setBoardMenuOpen(false); enterAddToBoard(); }}
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Add to board
+                        </button>
+                      )}
                       <button
                         onClick={() => { setBoardMenuOpen(false); setDeleteConfirmBoard(activeOutfitFilter); }}
                         className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-gray-50 transition-colors"
@@ -5777,20 +5845,22 @@ function StudioTab({
                         </button>
                       );
                     })}
-                    <div className="border-t border-gray-100 mt-1 pt-1">
-                      <button
-                        onClick={() => {
-                          setPendingOrganizeAdd(new Set(selectedOutfitIds));
-                          setOrganizeBoardPickerOpen(false);
-                          setNewBoardName('');
-                          setNewBoardDesc('');
-                          setNewBoardOpen(true);
-                        }}
-                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        New board…
-                      </button>
-                    </div>
+                    {!isPreview && (
+                      <div className="border-t border-gray-100 mt-1 pt-1">
+                        <button
+                          onClick={() => {
+                            setPendingOrganizeAdd(new Set(selectedOutfitIds));
+                            setOrganizeBoardPickerOpen(false);
+                            setNewBoardName('');
+                            setNewBoardDesc('');
+                            setNewBoardOpen(true);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          New board…
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -6092,7 +6162,8 @@ function StudioTab({
 }
 
 // Keywords that mean the user's wardrobe context is relevant
-const WARDROBE_AWARE_RE = /\b(my\s+(wardrobe|closet|clothes|items?|pieces?|collection)|what\s+(do\s+i\s+(have|own)|gaps?|i\s+have)|outfit\s+(for|from|with)|make\s+me\s+an\s+outfit|build\s+(me\s+)?an?\s+outfit|suggest\s+(an?\s+)?outfit|style\s+me|capsule\s+wardrobe|what\s+should\s+i\s+wear|what\s+can\s+i\s+wear|what\s+goes\s+with)\b/i;
+const WARDROBE_AWARE_RE = /\b(my\s+(wardrobe|closet|clothes|items?|pieces?|collection)|what\s+(do\s+i\s+(have|own)|gaps?|i\s+have)|outfit\s+(for|from|with)|make\s+me\s+an\s+outfit|build\s+(me\s+)?an?\s+outfit|suggest\s+(an?\s+)?outfit|style\s+me|capsule\s+wardrobe|what\s+should\s+i\s+wear|what\s+can\s+i\s+wear|what\s+goes\s+with|collage)\b/i;
+const COLLAGE_REQUEST_RE = /\b(collage|make\s+(?:me\s+)?(?:an?\s+)?(?:outfit|look)|build\s+(?:me\s+)?(?:an?\s+)?(?:outfit|look)|create\s+(?:an?\s+)?(?:outfit|look|collage)|put\s+together\s+(?:an?\s+)?(?:outfit|look)|suggest\s+(?:an?\s+)?outfit|show\s+me\s+(?:an?\s+)?outfit|give\s+me\s+(?:an?\s+)?outfit|generate\s+(?:an?\s+)?outfit|style\s+(?:me\s+)?(?:an?\s+)?outfit)\b/i;
 
 function formatConvoDate(dateStr) {
   const d = new Date(dateStr);
@@ -6104,7 +6175,216 @@ function formatConvoDate(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function StylistTab({ items = [], userId = null, userProfile = {} }) {
+const DEMO_STYLIST_MESSAGES = [
+  { role: 'user',      content: 'What should I wear to a dinner date this weekend?' },
+  { role: 'assistant', content: 'For a dinner date, your **Bow Mini Dress** by Valentino Garavani is the clear choice — that vivid red makes an unforgettable entrance. Ground it with the **Crystal-Heel Mary Janes** from Miu Miu for an editorial edge that still feels wearable. Keep accessories minimal: the **Ava Top-Handle Bag** from Teddy Blake adds structure without competing with the dress. If the evening runs cool, the **Camellia Leather Jacket** draped over your shoulders adds the perfect contrast.' },
+  { role: 'user',      content: 'What about something more casual but still put-together?' },
+  { role: 'assistant', content: 'A great effortless option: your **Cashmere Turtleneck** in ivory with the **High-Rise Flare Pant** in black. The proportions are classic and the tonal contrast keeps it polished. Slip on the **Super-Star Sneakers** from Golden Goose for that nonchalant edge, then finish with the **Icon Watch** and **Chanel Sunglasses**. It reads very considered without looking like you tried.' },
+];
+
+function findReferencedItems(text, items) {
+  if (!items?.length || !text) return [];
+  const lower = text.toLowerCase();
+  return items.filter(item => item.name && item.name.length >= 3 && lower.includes(item.name.toLowerCase()));
+}
+
+function StylistItemChip({ item, onSelect }) {
+  return (
+    <button onClick={() => onSelect(item)} className="flex flex-col items-center gap-1 text-left flex-shrink-0 w-[88px]">
+      <div className="w-full aspect-square rounded-xl overflow-hidden bg-gray-50 border border-gray-100 hover:border-gray-300 transition-colors">
+        {item.image && <img src={item.image} alt={item.name} className="w-full h-full object-contain p-1" />}
+      </div>
+      <p className="text-[10px] text-gray-400 text-center leading-tight w-full truncate">{item.name || item.category}</p>
+    </button>
+  );
+}
+
+const COLLAGE_MINI_SCALE = 0.32;
+
+function StylistMiniCollage({ outfit, items, onOpenInStudio, onSaveToOutfits }) {
+  const [saveState, setSaveState] = useState('idle');
+
+  const outfitItems = (outfit.itemIds ?? [])
+    .map(id => items.find(i => String(i.id) === String(id)))
+    .filter(Boolean);
+  if (!outfitItems.length) return null;
+
+  const displayW = Math.round(Math.round(DESIGN_H * COLLAGE_MINI_SCALE) * 210 / 297);
+
+  const handleSave = async () => {
+    if (saveState !== 'idle' || !onSaveToOutfits) return;
+    setSaveState('saving');
+    await onSaveToOutfits({
+      name: outfit.outfitName,
+      items: aiOutfitToCanvasItems(outfitItems),
+      bgColor: '#FFFFFF',
+      canvasWidth: DESIGN_W,
+      canvasHeight: DESIGN_H,
+      thumbnail: '',
+    });
+    setSaveState('saved');
+    setTimeout(() => setSaveState('idle'), 2800);
+  };
+
+  return (
+    <div className="ml-11 mb-4">
+      <div className="inline-block bg-white border border-gray-100 rounded-2xl shadow-sm">
+        <OutfitCollage items={outfitItems} fixedScale={COLLAGE_MINI_SCALE} />
+        <div className="px-3 py-2.5 flex items-center justify-between" style={{ width: displayW }}>
+          <p className="text-[11px] font-semibold text-gray-800 truncate min-w-0">{outfit.outfitName}</p>
+          <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+            {onSaveToOutfits && (
+              <div className="relative group/save">
+                <button
+                  onClick={handleSave}
+                  disabled={saveState !== 'idle'}
+                  className={`w-8 h-8 flex items-center justify-center rounded-full border transition-colors
+                    ${saveState === 'saved'
+                      ? 'border-green-200 bg-green-50 text-green-500'
+                      : 'border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-gray-300 disabled:opacity-40 disabled:cursor-not-allowed'
+                    }`}
+                >
+                  {saveState === 'saved' ? <Check size={13} strokeWidth={2.5} /> : <Bookmark size={13} strokeWidth={1.8} />}
+                </button>
+                <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 text-[11px] font-medium text-white bg-gray-800 rounded-lg whitespace-nowrap opacity-0 group-hover/save:opacity-100 transition-opacity z-10">
+                  {saveState === 'saved' ? 'Saved!' : 'Save to Outfits'}
+                </span>
+              </div>
+            )}
+            {onOpenInStudio && (
+              <div className="relative group/edit">
+                <button
+                  onClick={() => onOpenInStudio(outfitItems)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                >
+                  <Pencil size={13} strokeWidth={1.8} />
+                </button>
+                <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1 text-[11px] font-medium text-white bg-gray-800 rounded-lg whitespace-nowrap opacity-0 group-hover/edit:opacity-100 transition-opacity z-10">
+                  Edit Outfit
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const DEMO_CONVERSATIONS = [
+  { id: 'demo-1', title: 'Date night outfit ideas',   updated_at: new Date(Date.now() - 1  * 86400000).toISOString() },
+  { id: 'demo-2', title: 'Spring capsule wardrobe',   updated_at: new Date(Date.now() - 4  * 86400000).toISOString() },
+  { id: 'demo-3', title: 'What to pack for Paris',    updated_at: new Date(Date.now() - 9  * 86400000).toISOString() },
+];
+
+function DemoStylistTab({ onSignIn }) {
+  return (
+    <div className="flex h-full overflow-hidden relative">
+
+      {/* ── Main chat area ─────────────────────────────────── */}
+      <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
+
+        {/* Header */}
+        <div className="px-6 md:px-10 pt-8 pb-4 flex-shrink-0 flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-gray-900">AI Stylist</h1>
+            <p className="text-sm text-gray-400 mt-0.5">Your personal style advisor</p>
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400 cursor-not-allowed select-none">
+              <PlusCircle size={13} />
+              New
+            </span>
+          </div>
+        </div>
+
+        {/* Static messages */}
+        <div className="flex-1 overflow-y-auto scrollbar-hide px-6 md:px-10 pb-4">
+          {DEMO_STYLIST_MESSAGES.map((msg, i) => {
+            const isUser = msg.role === 'user';
+            return (
+              <div key={i} className={`flex gap-3 mb-4 ${isUser ? 'justify-end' : ''}`}>
+                {!isUser && (
+                  <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Sparkles size={14} className="text-emerald-500" />
+                  </div>
+                )}
+                <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed max-w-sm ${
+                  isUser
+                    ? 'bg-gray-900 text-white rounded-tr-sm whitespace-pre-wrap'
+                    : 'bg-gray-100 text-gray-700 rounded-tl-sm'
+                }`}>
+                  {isUser ? msg.content : (
+                    <ReactMarkdown
+                      components={{
+                        p:      ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                        strong: ({ node, ...props }) => <strong className="font-semibold text-gray-900" {...props} />,
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Locked input — sign-up CTA */}
+        <div className="px-6 md:px-10 pb-28 md:pb-8 flex-shrink-0">
+          <div className="rounded-2xl bg-gray-50 border border-gray-200 px-5 py-4 flex flex-col items-center gap-3 text-center">
+            <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center">
+              <Sparkles size={16} className="text-emerald-500" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Chat with your AI Stylist</p>
+              <p className="text-xs text-gray-400 mt-0.5 leading-snug max-w-[220px] mx-auto">
+                Sign in to get personalized outfit advice based on your real wardrobe.
+              </p>
+            </div>
+            <button
+              onClick={onSignIn}
+              className="px-5 py-2 rounded-full bg-gray-900 text-white text-xs font-semibold hover:bg-gray-700 transition-colors"
+            >
+              Sign in to start chatting
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── History sidebar ─────────────────────────────────── */}
+      <div className="hidden md:flex flex-col w-64 flex-shrink-0 border-l border-gray-100 h-full">
+        <div className="px-4 pt-8 pb-3 flex-shrink-0 flex items-center border-b border-gray-100">
+          <span className="text-sm font-semibold text-gray-800">History</span>
+        </div>
+        <div className="flex-1 overflow-y-auto scrollbar-hide py-2">
+          {DEMO_CONVERSATIONS.map((convo, i) => (
+            <div
+              key={convo.id}
+              className={`flex items-start gap-2 px-4 py-3 ${i === 0 ? 'bg-gray-50' : ''}`}
+            >
+              <MessageSquare size={13} className="text-gray-300 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-gray-700 truncate leading-snug">{convo.title}</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">{formatConvoDate(convo.updated_at)}</p>
+              </div>
+            </div>
+          ))}
+          <div className="px-4 pt-4 pb-2">
+            <button
+              onClick={onSignIn}
+              className="w-full text-xs text-gray-400 hover:text-gray-700 transition-colors text-center"
+            >
+              Sign in to see your history →
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StylistTab({ items = [], userId = null, userProfile = {}, onSelectItem, onOpenInStudio, onSaveToOutfits }) {
   const SUGGESTIONS = [
     "What's trending this season?",
     'What gaps are there in my closet?',
@@ -6119,6 +6399,9 @@ function StylistTab({ items = [], userId = null, userProfile = {} }) {
   const [error, setError]                 = useState(null);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [sidebarOpen, setSidebarOpen]     = useState(false);
+  const [editingIdx, setEditingIdx]       = useState(null);
+  const [editDraft, setEditDraft]         = useState('');
+  const [copiedIdx, setCopiedIdx]         = useState(null);
   const messagesEndRef = useRef(null);
   const textareaRef    = useRef(null);
 
@@ -6164,17 +6447,18 @@ function StylistTab({ items = [], userId = null, userProfile = {} }) {
     if (activeId === id) { setActiveId(null); setMessages([]); }
   };
 
-  const sendMessage = async (text = input.trim()) => {
+  const sendMessage = async (text = input.trim(), baseMessages = messages) => {
     if (!text || sending) return;
     setInput('');
     setError(null);
 
     const userMsg = { role: 'user', content: text };
-    const nextMessages = [...messages, userMsg];
+    const nextMessages = [...baseMessages, userMsg];
     setMessages(nextMessages);
     setSending(true);
 
-    const needsWardrobe = WARDROBE_AWARE_RE.test(text);
+    const isCollageRequest = COLLAGE_REQUEST_RE.test(text);
+    const needsWardrobe = isCollageRequest || WARDROBE_AWARE_RE.test(text);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -6187,15 +6471,22 @@ function StylistTab({ items = [], userId = null, userProfile = {} }) {
         body: JSON.stringify({
           messages: nextMessages,
           includeWardrobe: needsWardrobe,
-          items: needsWardrobe ? items.slice(0, 12) : [],
+          includeCollage: isCollageRequest,
+          items: needsWardrobe ? items : [],
           userProfile,
         }),
       });
 
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Request failed');
+      let json;
+      try { json = await res.json(); } catch { throw new Error('Server error. Please try again.'); }
+      if (!res.ok) throw new Error(json.error === 'collage_limit' ? json.message : (json.error || 'Request failed'));
 
-      const assistantMsg = { role: 'assistant', content: json.reply };
+      const assistantMsg = {
+        role: 'assistant',
+        content: json.reply,
+        referencedItemIds: json.referencedItemIds ?? [],
+        outfit: json.outfit ?? null,
+      };
       const finalMessages = [...nextMessages, assistantMsg];
       setMessages(finalMessages);
 
@@ -6228,6 +6519,31 @@ function StylistTab({ items = [], userId = null, userProfile = {} }) {
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  };
+
+  const copyMessage = (idx, content) => {
+    navigator.clipboard.writeText(content).then(() => {
+      setCopiedIdx(idx);
+      setTimeout(() => setCopiedIdx(null), 1500);
+    });
+  };
+
+  const startEdit = (idx, content) => {
+    setEditingIdx(idx);
+    setEditDraft(content);
+  };
+
+  const cancelEdit = () => {
+    setEditingIdx(null);
+    setEditDraft('');
+  };
+
+  const submitEdit = (idx) => {
+    const text = editDraft.trim();
+    if (!text || sending) return;
+    setEditingIdx(null);
+    setEditDraft('');
+    sendMessage(text, messages.slice(0, idx));
   };
 
   const isNew = messages.length === 0;
@@ -6303,35 +6619,124 @@ function StylistTab({ items = [], userId = null, userProfile = {} }) {
           {/* Conversation messages */}
           {messages.map((msg, i) => {
             const isUser = msg.role === 'user';
+            const isEditing = isUser && editingIdx === i;
+            const hasCollage = !isUser && msg.outfit?.itemIds?.length > 0;
+            const referenced = !isUser && !hasCollage && onSelectItem
+              ? (Array.isArray(msg.referencedItemIds)
+                  ? items.filter(it => msg.referencedItemIds.includes(String(it.id)))
+                  : findReferencedItems(msg.content, items))
+              : [];
+            const hasBelow = hasCollage || referenced.length > 0;
             return (
-              <div key={i} className={`flex gap-3 mb-4 ${isUser ? 'justify-end' : ''}`}>
-                {!isUser && (
-                  <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Sparkles size={14} className="text-emerald-500" />
-                  </div>
-                )}
-                <div
-                  className={`px-4 py-3 rounded-2xl text-sm leading-relaxed max-w-sm ${
-                    isUser
-                      ? 'bg-gray-900 text-white rounded-tr-sm whitespace-pre-wrap'
-                      : 'bg-gray-100 text-gray-700 rounded-tl-sm'
-                  }`}
-                >
-                  {isUser ? msg.content : (
-                    <ReactMarkdown
-                      components={{
-                        p:      ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
-                        strong: ({ node, ...props }) => <strong className="font-semibold text-gray-900" {...props} />,
-                        ul:     ({ node, ...props }) => <ul className="list-disc pl-4 mb-2 space-y-0.5" {...props} />,
-                        ol:     ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5" {...props} />,
-                        li:     ({ node, ...props }) => <li className="leading-relaxed" {...props} />,
-                      }}
-                    >
-                      {msg.content}
-                    </ReactMarkdown>
+              <React.Fragment key={i}>
+                <div className={`flex gap-3 ${isUser ? 'justify-end' : ''} ${hasBelow && !isEditing ? 'mb-1.5' : 'mb-4'}`}>
+                  {!isUser && (
+                    <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Sparkles size={14} className="text-emerald-500" />
+                    </div>
+                  )}
+                  {isEditing ? (
+                    <div className="flex flex-col gap-2 max-w-sm w-full">
+                      <textarea
+                        value={editDraft}
+                        onChange={e => setEditDraft(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitEdit(i); }
+                          if (e.key === 'Escape') cancelEdit();
+                        }}
+                        onFocus={e => { const len = e.target.value.length; e.target.setSelectionRange(len, len); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px'; }}
+                        autoFocus
+                        rows={1}
+                        className="w-full px-4 py-3 rounded-2xl rounded-tr-sm text-sm leading-relaxed bg-gray-900 text-white resize-none outline-none scrollbar-hide"
+                        style={{ minHeight: '44px' }}
+                        onInput={e => { e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px'; }}
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          onClick={cancelEdit}
+                          className="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => submitEdit(i)}
+                          disabled={!editDraft.trim()}
+                          className="px-3 py-1 rounded-full text-xs font-medium bg-gray-900 text-white hover:bg-gray-700 transition-colors disabled:opacity-40"
+                        >
+                          Send
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className={`group relative ${isUser ? 'flex flex-col items-end' : ''}`}>
+                      <div
+                        className={`px-4 py-3 rounded-2xl text-sm leading-relaxed max-w-sm ${
+                          isUser
+                            ? 'bg-gray-900 text-white rounded-tr-sm whitespace-pre-wrap'
+                            : 'bg-gray-100 text-gray-700 rounded-tl-sm'
+                        }`}
+                      >
+                        {isUser ? msg.content : (
+                          <ReactMarkdown
+                            components={{
+                              p:      ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                              strong: ({ node, ...props }) => <strong className="font-semibold text-gray-900" {...props} />,
+                              ul:     ({ node, ...props }) => <ul className="list-disc pl-4 mb-2 space-y-0.5" {...props} />,
+                              ol:     ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5" {...props} />,
+                              li:     ({ node, ...props }) => <li className="leading-relaxed" {...props} />,
+                            }}
+                          >
+                            {msg.content}
+                          </ReactMarkdown>
+                        )}
+                      </div>
+                      {isUser && !sending && editingIdx === null && (
+                        <div className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                          {/* Copy */}
+                          <div className="relative group/copy">
+                            <button
+                              onClick={() => copyMessage(i, msg.content)}
+                              className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                            >
+                              {copiedIdx === i ? <Check size={18} /> : <Copy size={18} />}
+                            </button>
+                            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1.5 px-2 py-0.5 rounded-md text-[10px] font-medium bg-gray-800 text-white whitespace-nowrap opacity-0 group-hover/copy:opacity-100 transition-opacity z-10">
+                              {copiedIdx === i ? 'Copied!' : 'Copy message'}
+                            </span>
+                          </div>
+                          {/* Edit */}
+                          <div className="relative group/edit">
+                            <button
+                              onClick={() => startEdit(i, msg.content)}
+                              className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                            >
+                              <Pencil size={18} />
+                            </button>
+                            <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1.5 px-2 py-0.5 rounded-md text-[10px] font-medium bg-gray-800 text-white whitespace-nowrap opacity-0 group-hover/edit:opacity-100 transition-opacity z-10">
+                              Edit message
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
-              </div>
+                {hasCollage && (
+                  <StylistMiniCollage
+                    outfit={msg.outfit}
+                    items={items}
+                    onOpenInStudio={onOpenInStudio}
+                    onSaveToOutfits={onSaveToOutfits}
+                  />
+                )}
+                {referenced.length > 0 && (
+                  <div className="ml-11 mb-4 flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+                    {referenced.map(item => (
+                      <StylistItemChip key={item.id} item={item} onSelect={onSelectItem} />
+                    ))}
+                  </div>
+                )}
+              </React.Fragment>
             );
           })}
 
@@ -7153,20 +7558,12 @@ function AuthModal({ onClose }) {
         const { data, error: err } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { onboarding_complete: false } },
+          options: { data: { onboarding_complete: false, name: name.trim() } },
         });
         if (err) throw err;
-        if (data.user) {
-          await supabase.from('profiles').insert({
-            id: data.user.id,
-            name: name.trim(),
-            bio: '',
-            top_size: '',
-            bottom_size: '',
-            shoe_size: '',
-            styles: [],
-          });
-        }
+        // With email confirmation enabled the user has no session yet, so RLS
+        // would block a direct profiles.insert here. We store name in metadata
+        // and create the row in handleCompleteOnboarding once a session exists.
         setVerified(true);
       } else {
         const { error: err } = await supabase.auth.signInWithPassword({ email, password });
@@ -7450,10 +7847,8 @@ function OnboardingModal({ onComplete }) {
             ) : (
               <button
                 onClick={handleFinish}
-                disabled={avatarUploading}
-                className="flex-1 py-3 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 py-3 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-700 transition-colors"
               >
-                {avatarUploading && <Loader2 size={14} className="animate-spin" />}
                 Done
               </button>
             )}
@@ -7564,7 +7959,16 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
   };
 
   const handleSave = () => {
-    onUpdateProfile(draft);
+    const VALID_GOAL_IDS = new Set(OUTFIT_GOALS.map(g => g.id));
+    onUpdateProfile({
+      ...draft,
+      name: draft.name.trim().slice(0, 60),
+      bio: draft.bio.trim().slice(0, 160),
+      topSize: (draft.topSize ?? '').trim().slice(0, 20),
+      bottomSize: (draft.bottomSize ?? '').trim().slice(0, 20),
+      shoeSize: (draft.shoeSize ?? '').trim().slice(0, 20),
+      outfitGoals: (draft.outfitGoals ?? []).filter(id => VALID_GOAL_IDS.has(id)),
+    });
     setEditing(false);
   };
 
@@ -7648,6 +8052,7 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
               value={draft.name}
               onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
               placeholder="Your name"
+              maxLength={60}
               className="text-xl font-bold text-gray-900 text-center bg-transparent border-b-2 border-gray-300 focus:border-gray-900 outline-none pb-0.5 mb-2 w-48"
             />
           ) : (
@@ -7659,12 +8064,13 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
               value={draft.bio}
               onChange={e => setDraft(d => ({ ...d, bio: e.target.value }))}
               placeholder="Add a short bio…"
+              maxLength={160}
               rows={2}
               className="text-sm text-gray-500 text-center bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 outline-none focus:border-gray-400 resize-none w-full max-w-xs mt-1"
             />
           ) : (
             <p className="text-sm text-gray-400 text-center mt-0.5">
-              {profile.bio || 'Add a short bio'}
+              {profile.bio || 'Look at my outfits!'}
             </p>
           )}
 
@@ -7695,43 +8101,6 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
             </div>
           ))}
         </div>
-
-        {/* Sizes */}
-        <section className="mb-8">
-          <h4 className="text-sm font-semibold text-gray-700 mb-3">My Sizes</h4>
-          <div className="space-y-3">
-            {[
-              { key: 'topSize',    label: 'Top',    options: TOP_SIZES },
-              { key: 'bottomSize', label: 'Bottom', options: BOTTOM_SIZES },
-              { key: 'shoeSize',   label: 'Shoes',  options: SHOE_SIZES },
-            ].map(({ key, label, options }) => (
-              <div key={key} className="flex items-center gap-3">
-                <span className="text-sm text-gray-500 w-14 flex-shrink-0">{label}</span>
-                {editing ? (
-                  <div className="flex gap-1.5 flex-wrap">
-                    {options.map(opt => (
-                      <button
-                        key={opt}
-                        onClick={() => setDraft(d => ({ ...d, [key]: opt }))}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                          draft[key] === opt
-                            ? 'bg-gray-900 text-white'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}
-                      >
-                        {opt}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <span className={`text-sm font-medium px-3 py-1 rounded-lg ${profile[key] ? 'bg-gray-100 text-gray-800' : 'text-gray-300'}`}>
-                    {profile[key] || 'Not set'}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
 
         {/* Outfit goals */}
         <section className="mb-8">
@@ -7769,14 +8138,6 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
             <div className="flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-gray-50 transition-colors">
               <div>
                 <p className="text-sm font-medium text-gray-700">Privacy</p>
-                <p className="text-xs text-gray-400">Coming soon</p>
-              </div>
-              <ChevronRight size={15} className="text-gray-300" />
-            </div>
-
-            <div className="flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-gray-50 transition-colors">
-              <div>
-                <p className="text-sm font-medium text-gray-700">Appearance</p>
                 <p className="text-xs text-gray-400">Coming soon</p>
               </div>
               <ChevronRight size={15} className="text-gray-300" />
@@ -7829,7 +8190,7 @@ function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onS
 /* ─────────────────────────────────────────────────────────────────────────────
    AnalyticsTab
    ───────────────────────────────────────────────────────────────────────────── */
-function AnalyticsTab({ items = [], wearLogs = [], onSelectItem, onUpdateItem, currencySymbol = '$' }) {
+function AnalyticsTab({ items = [], wearLogs = [], onSelectItem, onUpdateItem, currencySymbol = '$', isPreview = false, onSignIn }) {
   const [cpwSort,        setCpwSort]        = useState('highest-cpw');
   const [cpwCategory,    setCpwCategory]    = useState('All');
   const [cpwCatOpen,     setCpwCatOpen]     = useState(false);
@@ -7906,7 +8267,7 @@ function AnalyticsTab({ items = [], wearLogs = [], onSelectItem, onUpdateItem, c
     }, {})
   ).reduce((s, set) => s + set.size, 0);
 
-  if (wearLogs.length === 0) {
+  if (wearLogs.length === 0 && !isPreview) {
     return (
       <div className="flex flex-col flex-1 min-h-0 overflow-y-auto scrollbar-hide pb-28 md:pb-8">
         <div className="px-6 md:px-8 pt-8 mb-6">
@@ -7932,6 +8293,17 @@ function AnalyticsTab({ items = [], wearLogs = [], onSelectItem, onUpdateItem, c
         <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Analytics</h1>
         <p className="text-sm text-gray-400 mt-0.5">Your style habits</p>
       </div>
+
+      {isPreview && (
+        <div className="mx-6 md:mx-8 mb-6 flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3">
+          <BarChart2 size={16} className="text-gray-400 flex-shrink-0" />
+          <p className="text-xs text-gray-500 flex-1 leading-snug">
+            You're viewing <span className="font-semibold text-gray-700">sample data</span>.{' '}
+            <button onClick={onSignIn} className="font-semibold text-gray-700 underline underline-offset-2 hover:text-gray-900 transition-colors">Sign in</button>
+            {' '}to track your real wardrobe.
+          </p>
+        </div>
+      )}
 
       <div className="px-6 md:px-8 flex flex-col gap-8">
 
@@ -8020,26 +8392,30 @@ function AnalyticsTab({ items = [], wearLogs = [], onSelectItem, onUpdateItem, c
                   {item.brand && item.brand !== '—' && <p className="text-[11px] text-gray-400 truncate leading-tight">{item.brand}</p>}
                   <p className="text-sm font-medium text-gray-800 truncate">{item.name || 'Unnamed'}</p>
                 </div>
-                <span className="text-sm text-gray-500 flex-shrink-0 w-8 text-right pl-3">{wears}</span>
-                {editingCostId === item.id ? (
+                <span className="text-sm text-gray-500 flex-shrink-0 w-10 text-right pl-5">{wears}</span>
+                {!isPreview && editingCostId === item.id ? (
                   <input
                     autoFocus
-                    className="flex-shrink-0 w-14 text-sm text-right pl-3 bg-transparent focus:outline-none focus:bg-gray-50 focus:rounded"
+                    className="flex-shrink-0 w-16 text-sm text-right pl-5 bg-transparent focus:outline-none focus:bg-gray-50 focus:rounded"
                     value={editingCostVal}
                     onChange={e => setEditingCostVal(e.target.value)}
                     onBlur={handleCostSave}
                     onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') setEditingCostId(null); }}
                   />
+                ) : isPreview ? (
+                  <span className="flex-shrink-0 w-16 text-sm text-gray-500 text-right pl-5">
+                    {fmtCost(cost)}
+                  </span>
                 ) : (
                   <button
                     onClick={() => { setEditingCostId(item.id); setEditingCostVal(String(cost ?? '')); }}
                     title="Click to edit cost"
-                    className="flex-shrink-0 w-14 text-sm text-gray-500 text-right pl-3 hover:text-gray-900 hover:underline transition-colors"
+                    className="flex-shrink-0 w-16 text-sm text-gray-500 text-right pl-5 hover:text-gray-900 hover:underline transition-colors"
                   >
                     {fmtCost(cost)}
                   </button>
                 )}
-                <span className="text-sm font-semibold flex-shrink-0 w-14 text-right pl-3 text-gray-800">
+                <span className={`text-sm font-semibold flex-shrink-0 w-24 text-right pl-5 ${cpw != null && cost != null && cpw < cost ? 'text-green-600' : 'text-gray-800'}`}>
                   {fmtCpw(cpw)}
                 </span>
               </div>
@@ -8107,9 +8483,9 @@ function AnalyticsTab({ items = [], wearLogs = [], onSelectItem, onUpdateItem, c
               <div className="flex items-center pb-1.5 border-b border-gray-200">
                 <div className="w-10 flex-shrink-0" />
                 <p className="flex-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide pl-3">Item</p>
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide w-8 text-right pl-3">Worn</p>
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide w-14 text-right pl-3">Cost</p>
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide w-14 text-right pl-3">Per wear</p>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide w-10 text-right pl-5">Worn</p>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide w-16 text-right pl-5">Cost</p>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide w-24 text-right pl-5">Per wear</p>
               </div>
 
               {/* Rows */}
@@ -8210,7 +8586,7 @@ export default function WardrobeApp() {
   const loadUserData = async (u) => {
     const uid = u.id;
     const [profileRes, itemsRes, boardsRes, outfitsRes, outfitBoardsRes, wearLogsRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', uid).single(),
+      supabase.from('profiles').select('*').eq('id', uid).maybeSingle(),
       supabase.from('items').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
       supabase.from('boards').select('*').eq('user_id', uid).order('created_at'),
       supabase.from('outfits').select('*').eq('user_id', uid).order('created_at', { ascending: false }),
@@ -8322,6 +8698,7 @@ export default function WardrobeApp() {
         await loadUserData(u);
         // Handles the case where the user clicked the verification link in this tab
         if (u.user_metadata?.onboarding_complete === false) {
+          switchTab('wardrobe');
           setShowOnboarding(true);
         }
       }
@@ -8330,8 +8707,11 @@ export default function WardrobeApp() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // TOKEN_REFRESHED fires on tab focus (Supabase silently rotates JWT) — nothing changed
-      if (event === 'TOKEN_REFRESHED') return;
+      // TOKEN_REFRESHED and USER_UPDATED must not alter currentUserIdRef or user state —
+      // USER_UPDATED from auth.updateUser can transiently deliver a null session, which
+      // would flip user to null, then a follow-up SIGNED_IN would re-enter the full
+      // sign-in flow and show the transitioning overlay mid-session.
+      if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') return;
       const u = session?.user ?? null;
       const prevId = currentUserIdRef.current;
       currentUserIdRef.current = u?.id ?? null;
@@ -8346,6 +8726,7 @@ export default function WardrobeApp() {
           setTransitioning(false);
           // Show onboarding for brand-new users (flag set at sign-up time)
           if (u.user_metadata?.onboarding_complete === false) {
+            switchTab('wardrobe');
             setShowOnboarding(true);
           }
         }
@@ -8511,7 +8892,8 @@ export default function WardrobeApp() {
       let finalImageFile = imageFile;
       if (imageProcessingPromise) {
         try {
-          finalImageFile = await imageProcessingPromise;
+          const { processedFile } = await imageProcessingPromise;
+          finalImageFile = processedFile;
           const processedUrl = URL.createObjectURL(finalImageFile);
           setItems(prev => prev.map(i => i.id === tempId ? { ...i, image: processedUrl, _bgRemoving: false } : i));
         } catch {
@@ -8693,17 +9075,29 @@ export default function WardrobeApp() {
 
   // ── Profile handler ──────────────────────────────────────────────────────
   const handleUpdateProfile = async updates => {
-    setProfile(updates);
+    const VALID_GOAL_IDS = new Set(OUTFIT_GOALS.map(g => g.id));
+    const safe = {
+      ...updates,
+      name: String(updates.name ?? '').trim().slice(0, 60),
+      bio: String(updates.bio ?? '').trim().slice(0, 160),
+      topSize: String(updates.topSize ?? '').trim().slice(0, 20),
+      bottomSize: String(updates.bottomSize ?? '').trim().slice(0, 20),
+      shoeSize: String(updates.shoeSize ?? '').trim().slice(0, 20),
+      outfitGoals: Array.isArray(updates.outfitGoals)
+        ? updates.outfitGoals.filter(id => VALID_GOAL_IDS.has(id))
+        : [],
+    };
+    setProfile(safe);
     if (user) {
       const [{ error: profileErr }] = await Promise.all([
         supabase.from('profiles').upsert({
           id: user.id,
-          name: updates.name, bio: updates.bio ?? '',
-          top_size: updates.topSize, bottom_size: updates.bottomSize, shoe_size: updates.shoeSize,
+          name: safe.name, bio: safe.bio,
+          top_size: safe.topSize, bottom_size: safe.bottomSize, shoe_size: safe.shoeSize,
         }, { onConflict: 'id' }),
         supabase.auth.updateUser({ data: {
           country: updates.country,
-          outfit_goals: updates.outfitGoals,
+          outfit_goals: safe.outfitGoals,
         }}),
       ]);
       if (profileErr) console.error('Profile save failed:', profileErr.message);
@@ -8711,13 +9105,16 @@ export default function WardrobeApp() {
   };
 
   const handleCompleteOnboarding = async ({ bio, country, outfitGoals }) => {
-    setProfile(prev => ({ ...prev, bio, country, outfitGoals }));
+    const nameFromMeta = user?.user_metadata?.name || '';
+    setProfile(prev => ({ ...prev, name: nameFromMeta || prev.name, bio, country, outfitGoals }));
     if (user) {
-      await Promise.all([
+      const [, { error: authErr }] = await Promise.all([
         supabase.from('profiles').upsert({
           id: user.id,
+          name: user.user_metadata?.name || profile.name || '',
           bio,
           top_size: profile.topSize, bottom_size: profile.bottomSize, shoe_size: profile.shoeSize,
+          styles: [],
         }),
         supabase.auth.updateUser({ data: {
           country,
@@ -8725,6 +9122,19 @@ export default function WardrobeApp() {
           onboarding_complete: true,
         }}),
       ]);
+      if (authErr) {
+        // Retry once — the session token may have just rotated
+        const { error: retryErr } = await supabase.auth.updateUser({ data: {
+          country,
+          outfit_goals: outfitGoals,
+          onboarding_complete: true,
+        }});
+        if (retryErr) {
+          console.error('Onboarding save failed:', retryErr.message);
+          // Still close the modal but the flag will re-show onboarding on next reload;
+          // the user can update their profile from the Profile tab in the meantime.
+        }
+      }
     }
     setShowOnboarding(false);
   };
@@ -8870,12 +9280,28 @@ export default function WardrobeApp() {
         )}
         {mountedTabs.has('analytics') && (
           <div className={tab('analytics')}>
-            <AnalyticsTab items={readyItems} wearLogs={wearLogs} onSelectItem={setSelectedItem} onUpdateItem={updateItem} currencySymbol={getCurrencySymbol(profile?.country)} />
+            {isPreview
+              ? <AnalyticsTab items={ITEMS} wearLogs={DEMO_WEAR_LOGS} onSelectItem={setSelectedItem} onUpdateItem={() => {}} currencySymbol="$" isPreview onSignIn={() => setShowAuthModal(true)} />
+              : <AnalyticsTab items={readyItems} wearLogs={wearLogs} onSelectItem={setSelectedItem} onUpdateItem={updateItem} currencySymbol={getCurrencySymbol(profile?.country)} />
+            }
           </div>
         )}
         {mountedTabs.has('stylist') && (
           <div className={tab('stylist')}>
-            <StylistTab items={readyItems} userId={user?.id} userProfile={profile} />
+            {isPreview
+              ? <DemoStylistTab onSignIn={() => setShowAuthModal(true)} />
+              : <StylistTab
+                  items={readyItems}
+                  userId={user?.id}
+                  userProfile={profile}
+                  onSelectItem={setSelectedItem}
+                  onSaveToOutfits={handleSaveOutfit}
+                  onOpenInStudio={outfitItems => {
+                    setPendingAiCollage({ items: aiOutfitToCanvasItems(outfitItems), canvasWidth: DESIGN_W, canvasHeight: DESIGN_H });
+                    switchTab('studio');
+                  }}
+                />
+            }
           </div>
         )}
         {mountedTabs.has('profile') && !isPreview && (
@@ -8933,7 +9359,7 @@ export default function WardrobeApp() {
         {/* Navigation */}
         <nav className="flex flex-col gap-1">
           {TABS.map(({ id, label, Icon }) => {
-            if (isPreview && (id === 'profile' || id === 'stylist' || id === 'analytics')) return null;
+            if (isPreview && id === 'profile') return null;
             const active = activeTab === id;
             const displayLabel = id === 'today'
               ? `Today, ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
@@ -9031,7 +9457,7 @@ export default function WardrobeApp() {
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-xl border-t border-gray-100">
         <div className="flex items-center justify-around px-2 pt-2 pb-6">
           {TABS.map(({ id, label, Icon }) => {
-            if (isPreview && (id === 'profile' || id === 'stylist' || id === 'analytics')) return null;
+            if (isPreview && id === 'profile') return null;
             const active = activeTab === id;
             return (
               <button
