@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div id="root">
+    <div id="state-loading" class="state">
+      <div class="spinner"></div>
+      <p class="muted">Reading page…</p>
+    </div>
+
+    <div id="state-found" class="state hidden">
+      <div class="product-row">
+        <img id="thumb" src="" alt="" class="thumb hidden" />
+        <div class="product-info">
+          <p id="product-name" class="product-name"></p>
+          <p id="product-price" class="product-price hidden"></p>
+          <p id="image-count" class="muted small"></p>
+        </div>
+      </div>
+      <button id="btn-save" class="btn-primary">Save to Wardrobe</button>
+    </div>
+
+    <div id="state-empty" class="state hidden">
+      <p class="muted center">No product info found on this page.</p>
+      <button id="btn-save-empty" class="btn-primary">Add item manually</button>
+    </div>
+
+    <div id="state-error" class="state hidden">
+      <p id="error-msg" class="error center"></p>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
