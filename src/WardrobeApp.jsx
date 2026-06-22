@@ -4,6 +4,7 @@
  * Stack: React · Tailwind CSS · Lucide React
  */
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import {
   Sun, Shirt, Wand2, Sparkles, BarChart2,
   X, Heart, Plus, Search, ChevronRight, ChevronLeft, ChevronDown, Pencil, Trash2, Brush, Check, Layers, Lock, GripVertical, MoreHorizontal, SlidersHorizontal,
@@ -6347,13 +6348,25 @@ function StylistTab({ items = [], userId = null, userProfile = {} }) {
                   </div>
                 )}
                 <div
-                  className={`px-4 py-3 rounded-2xl text-sm leading-relaxed max-w-sm whitespace-pre-wrap ${
+                  className={`px-4 py-3 rounded-2xl text-sm leading-relaxed max-w-sm ${
                     isUser
-                      ? 'bg-gray-900 text-white rounded-tr-sm'
+                      ? 'bg-gray-900 text-white rounded-tr-sm whitespace-pre-wrap'
                       : 'bg-gray-100 text-gray-700 rounded-tl-sm'
                   }`}
                 >
-                  {msg.content}
+                  {isUser ? msg.content : (
+                    <ReactMarkdown
+                      components={{
+                        p:      ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                        strong: ({ node, ...props }) => <strong className="font-semibold text-gray-900" {...props} />,
+                        ul:     ({ node, ...props }) => <ul className="list-disc pl-4 mb-2 space-y-0.5" {...props} />,
+                        ol:     ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 space-y-0.5" {...props} />,
+                        li:     ({ node, ...props }) => <li className="leading-relaxed" {...props} />,
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                  )}
                 </div>
               </div>
             );
