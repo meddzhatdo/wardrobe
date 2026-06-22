@@ -8,17 +8,18 @@ function serviceClient() {
 }
 
 /**
- * Returns { limited: true } if the user has exceeded maxRequests ai_call events
+ * Returns { limited: true } if the user has exceeded maxRequests events
  * for the given endpoint within the past windowMinutes. Fails open on error.
+ * `event` defaults to 'ai_call' for backwards compatibility.
  */
-export async function checkRateLimit({ userId, endpoint, maxRequests, windowMinutes }) {
+export async function checkRateLimit({ userId, endpoint, maxRequests, windowMinutes, event = 'ai_call' }) {
   try {
     const since = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString();
     const { count, error } = await serviceClient()
       .from('audit_logs')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
-      .eq('event', 'ai_call')
+      .eq('event', event)
       .eq('endpoint', endpoint)
       .gte('created_at', since);
 

@@ -3357,7 +3357,7 @@ const PREVIEW_CITY_OUTFITS = {
   ],
 };
 
-function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished, onEditInStudio, onLogWorn, wearLogs = [], isPreview = false, userId = null, userProfile = {} }) {
+function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished, onEditInStudio, onLogWorn, wearLogs = [], isPreview = false, userId = null, userProfile = {}, boards = [] }) {
   const [location,       setLocation]       = useState({ city: null, lat: null, lon: null });
   const [weatherSummary, setWeatherSummary] = useState(null);
   const [outfits,        setOutfits]        = useState([]);
@@ -3968,7 +3968,9 @@ function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished, onEdi
 
           {/* Mini wardrobe picker */}
           {items.length > 0 && (() => {
-            const availableBoards = ['All', ...new Set(items.flatMap(i => i.boards ?? []).filter(Boolean))];
+            const availableBoards = boards.length > 0
+              ? boards
+              : ['All', ...new Set(items.flatMap(i => i.boards ?? []).filter(Boolean))];
             const q = pickerSearch.toLowerCase();
             const pickerItems = items.filter(i => {
               if (pickerBoard !== 'All' && !(i.boards ?? []).includes(pickerBoard)) return false;
@@ -8551,6 +8553,7 @@ export default function WardrobeApp() {
             <TodayTab
               items={readyItems}
               likedItems={likedItems}
+              boards={isPreview ? BOARDS : boards}
               onSaveToPublished={isPreview
                 ? collage => { if (collage.items?.length) setPreviewSavedOutfits(prev => [{ ...collage, id: `preview-${Date.now()}`, liked: false, boards: [] }, ...prev]); }
                 : handleSaveOutfit}

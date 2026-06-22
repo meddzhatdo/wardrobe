@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { logAuditEvent } from './_audit.js';
 import { initSentry, Sentry } from './_sentry.js';
 import { checkRateLimit } from './_rateLimit.js';
+import { safeFetch, BLOCKED } from './_safeFetch.js';
 
 initSentry();
 
@@ -29,12 +30,13 @@ export default async function handler(req, res) {
   try {
     parsedUrl = new URL(url);
     if (!['http:', 'https:'].includes(parsedUrl.protocol)) throw new Error();
+    if (BLOCKED.test(parsedUrl.hostname)) throw new Error();
   } catch {
     return res.status(400).json({ error: 'Invalid URL' });
   }
 
   try {
-    const pageRes = await fetch(parsedUrl.href, {
+    const pageRes = await safeFetch(parsedUrl.href, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -48,7 +50,6 @@ export default async function handler(req, res) {
         'Upgrade-Insecure-Requests': '1',
       },
       signal: AbortSignal.timeout(12000),
-      redirect: 'follow',
     });
 
     const html = await pageRes.text();

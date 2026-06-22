@@ -1,9 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
+import { logAuditEvent } from './_audit.js';
 import { initSentry, Sentry } from './_sentry.js';
+import { checkRateLimit } from './_rateLimit.js';
+import { safeFetch, BLOCKED } from './_safeFetch.js';
 
 initSentry();
-
-const BLOCKED = /^(localhost|127\.|10\.|192\.168\.|169\.254\.|::1|fc00:|fe80:)/i;
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://wardrobe-app.vercel.app');
@@ -19,6 +20,9 @@ export default async function handler(req, res) {
   const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
   if (authErr || !user) return res.status(401).json({ error: 'Invalid token' });
 
+  const { limited } = await checkRateLimit({ userId: user.id, endpoint: '/api/proxy-image', maxRequests: 120, windowMinutes: 60, event: 'proxy_image' });
+  if (limited) return res.status(429).json({ error: 'Rate limit exceeded. Try again later.' });
+
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'url is required' });
 
@@ -32,13 +36,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const imgRes = await fetch(parsedUrl.href, {
+    const imgRes = await safeFetch(parsedUrl.href, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; WardrobeApp/1.0)',
         'Accept': 'image/*',
       },
       signal: AbortSignal.timeout(10000),
-      redirect: 'follow',
     });
 
     if (!imgRes.ok) return res.status(502).json({ error: 'Could not fetch image' });
@@ -49,6 +52,7 @@ export default async function handler(req, res) {
     const buffer = await imgRes.arrayBuffer();
     if (buffer.byteLength > 20 * 1024 * 1024) return res.status(413).json({ error: 'Image too large' });
 
+    await logAuditEvent({ event: 'proxy_image', userId: user.id, endpoint: '/api/proxy-image', req });
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'private, max-age=3600');
     res.send(Buffer.from(buffer));
