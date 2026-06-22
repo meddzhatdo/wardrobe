@@ -5,10 +5,22 @@ import { checkRateLimit } from './_rateLimit.js';
 
 initSentry();
 
-const SYSTEM_PROMPT = `You are a knowledgeable, friendly personal stylist. You give concise, practical style advice.
-When the user shares their wardrobe items, reference them specifically by name or description.
+const BASE_SYSTEM_PROMPT = `You are a knowledgeable, friendly personal stylist. You give concise, practical style advice.
+When the user shares their wardrobe items, reference them specifically by name. Always bold item names using markdown (e.g. **Item Name**) whenever you mention them.
 Keep responses conversational and under 300 words unless a detailed breakdown is genuinely needed.
 Do not use excessive bullet points — prefer flowing sentences. Never mention that you are an AI.`;
+
+const REFS_SYSTEM_ADDENDUM = `
+
+OUTPUT FORMAT RULE (non-negotiable): After every response where a wardrobe list was provided, your final line must be exactly:
+REFS:["id1","id2"]
+Fill the array with the [ID:xxx] values from the wardrobe list for every item you explicitly named in your response. Use REFS:[] if you named none. This line must always be present and must always be last.`;
+
+const OUTFIT_SYSTEM_ADDENDUM = `
+
+COLLAGE FORMAT RULE (non-negotiable): The user wants you to put together a specific outfit from their wardrobe. In your response, describe the outfit you are assembling and why the pieces work together. Your very last line must be exactly:
+OUTFIT:{"outfitName":"...","itemIds":["id1","id2",...]}
+Replace "..." with a short outfit name (2-4 words). Fill itemIds with the [ID:xxx] values for the 2-5 items in the outfit. Choose items that form a complete, cohesive look. Do not output a REFS line.`;
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', process.env.VITE_APP_URL || 'https://wardrobe-app.vercel.app');
@@ -30,30 +42,66 @@ export default async function handler(req, res) {
   const { limited } = await checkRateLimit({ userId: user.id, endpoint: '/api/ai-stylist', maxRequests: 40, windowMinutes: 60, event: 'stylist_call' });
   if (limited) return res.status(429).json({ error: 'Rate limit exceeded. Try again later.' });
 
-  const { messages, includeWardrobe, items = [], userProfile = {} } = req.body;
+  const { messages, includeWardrobe, includeCollage, items = [], userProfile = {} } = req.body;
+
+  if (includeCollage) {
+    const { limited: collageLimited } = await checkRateLimit({ userId: user.id, endpoint: '/api/ai-stylist', maxRequests: 2, windowMinutes: 1440, event: 'stylist_collage' });
+    if (collageLimited) return res.status(429).json({ error: 'collage_limit', message: 'You\'ve used your 2 collage generations for today. Try again tomorrow.' });
+  }
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages array is required' });
   }
+  if (messages.length > 100) {
+    return res.status(400).json({ error: 'Too many messages' });
+  }
+  if (!Array.isArray(items)) {
+    return res.status(400).json({ error: 'items must be an array' });
+  }
+  if (items.length > 300) {
+    return res.status(400).json({ error: 'Too many items' });
+  }
+  // Validate message structure before processing
+  for (const msg of messages) {
+    if (!msg || typeof msg !== 'object') return res.status(400).json({ error: 'Invalid message' });
+    if (typeof msg.role !== 'string' || typeof msg.content !== 'string') {
+      return res.status(400).json({ error: 'Invalid message structure' });
+    }
+  }
 
   const sanitize = (val, max) =>
-    typeof val === 'string' ? val.replace(/[\r\n\t`]/g, ' ').slice(0, max).trim() : '';
+    typeof val === 'string' ? val.replace(/[\r\n\t`\u2028\u2029]/g, ' ').slice(0, max).trim() : '';
 
-  // Build the content blocks for the API call
+  // SSRF guard: only fetch images from our own Supabase storage
+  const isAllowedImageUrl = (url) => {
+    try {
+      const { protocol, hostname } = new URL(url);
+      if (protocol !== 'https:') return false;
+      const supabaseHost = new URL(process.env.VITE_SUPABASE_URL).hostname;
+      return hostname === supabaseHost;
+    } catch {
+      return false;
+    }
+  };
+
   const content = [];
 
-  // If wardrobe context is requested, prepend a wardrobe summary + item images
+  // Send descriptions for all items; fetch images for only the first 12 (token budget)
+  const sentItems = [];
   if (includeWardrobe && items.length > 0) {
     const wardrobeLines = [];
 
-    for (const item of items.slice(0, 12)) {
+    for (const item of items) {
+      sentItems.push(item);
       const name     = sanitize(item.name,     80) || 'unknown item';
       const category = sanitize(item.category, 50) || 'unknown';
       const color    = sanitize(item.color,    40);
       const brand    = sanitize(item.brand,    50);
       const desc     = [name, category, color && `color: ${color}`, brand && `brand: ${brand}`].filter(Boolean).join(' | ');
-      wardrobeLines.push(`- ${desc}`);
+      wardrobeLines.push(`[ID:${item.id}] ${desc}`);
+    }
 
-      if (item.image) {
+    for (const item of items.slice(0, 12)) {
+      if (item.image && isAllowedImageUrl(item.image)) {
         try {
           const imgRes = await fetch(item.image, { signal: AbortSignal.timeout(6000) });
           if (imgRes.ok) {
@@ -67,23 +115,22 @@ export default async function handler(req, res) {
     }
 
     const country = sanitize(userProfile?.country, 30);
-    const goals   = Array.isArray(userProfile?.outfitGoals) ? userProfile.outfitGoals.join(', ') : '';
+    const goals   = Array.isArray(userProfile?.outfitGoals)
+      ? userProfile.outfitGoals.map(g => sanitize(g, 40)).filter(Boolean).join(', ')
+      : '';
     content.push({
       type: 'text',
       text:
-        `Here is the user's wardrobe (${items.length} items total, showing up to 12):\n${wardrobeLines.join('\n')}` +
+        `Here is the user's wardrobe (${items.length} items):\n${wardrobeLines.join('\n')}` +
         (country ? `\nUser is based in: ${country}` : '') +
         (goals   ? `\nStyle goals: ${goals}`         : '') +
         '\n\nPlease use this wardrobe context to answer their question.',
     });
   }
 
-  // Append full conversation history as a single user block + prior assistant replies
-  // Anthropic expects alternating user/assistant messages
   const anthropicMessages = [];
 
   if (content.length > 0) {
-    // Wardrobe context goes in as the first user message
     anthropicMessages.push({ role: 'user', content });
     anthropicMessages.push({ role: 'assistant', content: "Got it — I've reviewed your wardrobe. What would you like to know?" });
   }
@@ -105,11 +152,16 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 600,
-        system: SYSTEM_PROMPT,
+        max_tokens: 900,
+        system: (() => {
+          const date = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+          const dateCtx = `\n\nToday's date is ${date}. Use this to correctly interpret relative time references like "next week" or "this weekend", and to infer the current season when giving weather or packing advice.`;
+          const base = BASE_SYSTEM_PROMPT + dateCtx;
+          return sentItems.length > 0 ? base + (includeCollage ? OUTFIT_SYSTEM_ADDENDUM : REFS_SYSTEM_ADDENDUM) : base;
+        })(),
         messages: anthropicMessages,
       }),
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(25000),
     });
 
     if (!anthropicRes.ok) {
@@ -117,12 +169,52 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: 'AI service unavailable' });
     }
 
-    const data  = await anthropicRes.json();
-    const reply = data.content?.[0]?.text ?? '';
-    if (!reply) return res.status(502).json({ error: 'Empty response from AI' });
+    const data = await anthropicRes.json();
+    let raw = data.content?.[0]?.text ?? '';
+    if (!raw) return res.status(502).json({ error: 'Empty response from AI' });
 
-    await logAuditEvent({ event: 'stylist_call', userId: user.id, endpoint: '/api/ai-stylist', req, metadata: { includeWardrobe, messageCount: messages.length } });
-    return res.status(200).json({ reply });
+    // Parse and strip the REFS or OUTFIT line
+    let referencedItemIds = [];
+    let outfit = undefined;
+
+    if (sentItems.length > 0) {
+      const validIds = new Set(sentItems.map(i => String(i.id)));
+
+      if (includeCollage) {
+        const outfitMatch = raw.match(/\n?OUTFIT\s*:\s*(\{[^}]*\})\s*$/);
+        if (outfitMatch) {
+          try {
+            const parsed = JSON.parse(outfitMatch[1]);
+            if (parsed.itemIds && Array.isArray(parsed.itemIds)) {
+              const ids = parsed.itemIds.map(String).filter(id => validIds.has(id));
+              outfit = { outfitName: (parsed.outfitName || 'AI Outfit').slice(0, 40), itemIds: ids };
+            }
+          } catch {}
+          raw = raw.slice(0, raw.length - outfitMatch[0].length).trimEnd();
+        }
+      } else {
+        const refsMatch = raw.match(/\n?REFS\s*:\s*(\[[^\]]*\])\s*$/);
+        if (refsMatch) {
+          try {
+            const ids = JSON.parse(refsMatch[1]);
+            if (Array.isArray(ids)) {
+              referencedItemIds = ids.map(String).filter(id => validIds.has(id));
+            }
+          } catch {}
+          raw = raw.slice(0, raw.length - refsMatch[0].length).trimEnd();
+        }
+      }
+    }
+
+    await logAuditEvent({ event: 'stylist_call', userId: user.id, endpoint: '/api/ai-stylist', req, metadata: { includeWardrobe, includeCollage, messageCount: messages.length } });
+    if (outfit) {
+      await logAuditEvent({ event: 'stylist_collage', userId: user.id, endpoint: '/api/ai-stylist', req });
+    }
+    return res.status(200).json({
+      reply: raw,
+      referencedItemIds: sentItems.length > 0 ? referencedItemIds : undefined,
+      outfit,
+    });
   } catch (err) {
     Sentry.captureException(err);
     console.error('ai-stylist error:', err);
