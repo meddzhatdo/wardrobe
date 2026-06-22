@@ -141,6 +141,11 @@ export default async function handler(req, res) {
       name = cleaned;
     }
 
+    // If the page returned an error/block page, discard the name so fields stay empty
+    if (/access.?denied|forbidden|blocked|bot.?detect|are you a human|captcha|verify.?you.?are|page.?not.?found|404|error\s*[-–]\s*\d{3}/i.test(name)) {
+      name = '';
+    }
+
     // Material: prefer percentage composition ("100% silk") over bare fabric words
     if (!material) {
       const desc = getMeta('og:description') || getMeta('description') || '';

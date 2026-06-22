@@ -6577,6 +6577,16 @@ function AddFromLinkModal({ onClose, onBack, onImageSelected, onScraped, initial
               >
                 {loading ? <Loader2 size={16} className="animate-spin" /> : 'Next'}
               </button>
+              {/* Extension download link — uncomment once published to the Chrome Web Store
+              <a
+                href="https://chrome.google.com/webstore/detail/wardrobe"
+                target="_blank"
+                rel="noreferrer"
+                className="text-center text-xs text-gray-400 hover:text-gray-500 transition-colors"
+              >
+                Get the Chrome extension for better results ↗
+              </a>
+              */}
             </div>
           </>
         ) : (
@@ -8005,6 +8015,7 @@ export default function WardrobeApp() {
   }, []);
 
   // Once the user is confirmed logged in, open the image picker with any pending extension data.
+  // If the extension pre-selected an image, proxy it immediately and go straight to the form.
   useEffect(() => {
     if (!user) return;
     const raw = sessionStorage.getItem('wardrobeExtData');
@@ -8012,8 +8023,33 @@ export default function WardrobeApp() {
     sessionStorage.removeItem('wardrobeExtData');
     try {
       const data = JSON.parse(raw);
-      setAddLinkScraped(data);
-      setAddStep('link');
+      const prefill = {
+        name: data.name || '', brand: data.brand || '', price: data.price || '',
+        material: data.material || '', size: data.size || '',
+      };
+      if (data.selectedImage) {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          fetch(`/api/proxy-image?url=${encodeURIComponent(data.selectedImage)}`, {
+            headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
+          })
+            .then(res => res.ok ? res.blob() : Promise.reject())
+            .then(blob => {
+              const file = new File([blob], 'product.jpg', { type: blob.type || 'image/jpeg' });
+              setAddItemFile(file);
+              setAddItemProcessing(startBgRemoval(file));
+              setAddItemPrefill(prefill);
+              setAddLinkScraped(data);
+              setAddStep('form');
+            })
+            .catch(() => {
+              setAddLinkScraped(data);
+              setAddStep('link');
+            });
+        });
+      } else {
+        setAddLinkScraped(data);
+        setAddStep('link');
+      }
     } catch {}
   }, [user]);
 
@@ -8180,6 +8216,25 @@ export default function WardrobeApp() {
     setItems(prev => prev.map(i => i.id === id ? { ...i, image: publicUrl } : i));
     setSelectedItem(prev => prev?.id === id ? { ...prev, image: publicUrl } : prev);
     await supabase.from('items').update({ image_url: publicUrl }).eq('id', id).eq('user_id', user.id);
+
+    // Patch any collages that contain this item so their canvas copies show the new image
+    const patchOutfits = (outfits, setOutfits) => {
+      const changed = [];
+      const next = outfits.map(o => {
+        const newItems = o.items.map(ci => ci.id === id ? { ...ci, image: publicUrl } : ci);
+        const dirty = newItems.some((ci, i) => ci !== o.items[i]);
+        if (dirty) { changed.push({ ...o, items: newItems }); return { ...o, items: newItems }; }
+        return o;
+      });
+      if (changed.length) setOutfits(next);
+      return changed;
+    };
+    const changedSaved = patchOutfits(savedOutfits, setSavedOutfits);
+    const changedDraft = patchOutfits(draftOutfits, setDraftOutfits);
+    await Promise.all([
+      ...changedSaved.map(o => supabase.from('outfits').update({ canvas_items: collageToDbPayload(o) }).eq('id', o.id)),
+      ...changedDraft.map(o => supabase.from('outfits').update({ canvas_items: collageToDbPayload(o) }).eq('id', o.id)),
+    ]);
   };
 
   const addItem = async (form, imageFile, imageProcessingPromise) => {

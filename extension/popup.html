@@ -7,20 +7,43 @@
 </head>
 <body>
   <div id="root">
+
     <div id="state-loading" class="state">
       <div class="spinner"></div>
-      <p class="muted">Reading page…</p>
+      <p class="muted center">Reading page…</p>
     </div>
 
     <div id="state-found" class="state hidden">
-      <div class="product-row">
-        <img id="thumb" src="" alt="" class="thumb hidden" />
-        <div class="product-info">
-          <p id="product-name" class="product-name"></p>
-          <p id="product-price" class="product-price hidden"></p>
-          <p id="image-count" class="muted small"></p>
+      <p class="section-label">Photo</p>
+      <div id="image-grid" class="image-grid"></div>
+
+      <div class="fields">
+        <div class="field">
+          <label class="field-label">Name</label>
+          <input id="field-name" class="field-input" type="text" placeholder="Item name" />
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label class="field-label">Brand</label>
+            <input id="field-brand" class="field-input" type="text" placeholder="Brand" />
+          </div>
+          <div class="field">
+            <label class="field-label">Price</label>
+            <input id="field-price" class="field-input" type="text" placeholder="0.00" />
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label class="field-label">Size</label>
+            <input id="field-size" class="field-input" type="text" placeholder="S / M / L" />
+          </div>
+          <div class="field">
+            <label class="field-label">Material</label>
+            <input id="field-material" class="field-input" type="text" placeholder="e.g. Silk" />
+          </div>
         </div>
       </div>
+
       <button id="btn-save" class="btn-primary">Save to Wardrobe</button>
     </div>
 
@@ -32,6 +55,7 @@
     <div id="state-error" class="state hidden">
       <p id="error-msg" class="error center"></p>
     </div>
+
   </div>
   <script src="popup.js"></script>
 </body>

@@ -185,7 +185,9 @@ function openApp(data) {
     return;
   }
 
-  if (!result) {
+  const hasData = result && (result.name || result.images.length > 0);
+
+  if (!hasData) {
     show('empty');
     document.getElementById('btn-save-empty').addEventListener('click', () =>
       openApp({ name: '', brand: '', price: '', material: '', images: [], pageUrl: tab.url })
@@ -193,35 +195,54 @@ function openApp(data) {
     return;
   }
 
-  const hasData = result.name || result.images.length > 0;
+  // ── Image grid ──────────────────────────────────────────────────────────────
+  const grid = document.getElementById('image-grid');
+  let selectedIdx = result.images.length > 0 ? 0 : -1;
 
-  if (!hasData) {
-    show('empty');
-    document.getElementById('btn-save-empty').addEventListener('click', () => openApp(result));
-    return;
+  if (result.images.length === 0) {
+    const msg = document.createElement('p');
+    msg.className = 'no-images';
+    msg.textContent = 'No images found on this page.';
+    grid.appendChild(msg);
+  } else {
+    result.images.forEach((url, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'img-cell' + (i === 0 ? ' selected' : '');
+      cell.innerHTML = `
+        <img src="${url}" alt="" loading="lazy" />
+        <div class="check">
+          <svg viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3" /></svg>
+        </div>
+      `;
+      cell.addEventListener('click', () => {
+        document.querySelectorAll('.img-cell').forEach(c => c.classList.remove('selected'));
+        cell.classList.add('selected');
+        selectedIdx = i;
+      });
+      grid.appendChild(cell);
+    });
   }
 
-  // Populate found state
-  if (result.images[0]) {
-    const thumb = document.getElementById('thumb');
-    thumb.src = result.images[0];
-    thumb.classList.remove('hidden');
-  }
+  // ── Form fields ─────────────────────────────────────────────────────────────
+  document.getElementById('field-name').value     = result.name     || '';
+  document.getElementById('field-brand').value    = result.brand    || '';
+  document.getElementById('field-price').value    = result.price    || '';
+  document.getElementById('field-material').value = result.material || '';
 
-  document.getElementById('product-name').textContent = result.name || 'Unknown product';
+  // ── Save button ─────────────────────────────────────────────────────────────
+  document.getElementById('btn-save').addEventListener('click', () => {
+    const data = {
+      name:          document.getElementById('field-name').value.trim(),
+      brand:         document.getElementById('field-brand').value.trim(),
+      price:         document.getElementById('field-price').value.trim(),
+      size:          document.getElementById('field-size').value.trim(),
+      material:      document.getElementById('field-material').value.trim(),
+      images:        result.images,
+      selectedImage: selectedIdx >= 0 ? result.images[selectedIdx] : null,
+      pageUrl:       result.pageUrl,
+    };
+    openApp(data);
+  });
 
-  if (result.price) {
-    const priceEl = document.getElementById('product-price');
-    priceEl.textContent = `$${result.price}`;
-    priceEl.classList.remove('hidden');
-  }
-
-  const count = result.images.length;
-  document.getElementById('image-count').textContent =
-    count === 0 ? 'No images found'
-    : count === 1 ? '1 image found'
-    : `${count} images found`;
-
-  document.getElementById('btn-save').addEventListener('click', () => openApp(result));
   show('found');
 })();
