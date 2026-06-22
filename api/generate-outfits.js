@@ -73,7 +73,7 @@ export default async function handler(req, res) {
       `Weather: ${weather.tempF}°F now (${weather.conditionLabel}), High ${weather.highF}°F / Low ${weather.lowF}°F` +
       (weather.laterCondition ? `, with ${weather.laterCondition} expected later today` : '') + `.\n` +
       (goalLabels.length ? `\nThe user wants outfits suited for: ${goalLabels.join(', ')}. Tailor the suggestions to match these contexts.\n` : '') + `\n` +
-      `Using the garment images above, generate exactly 3 distinct, cohesive outfits. Hard rules:\n` +
+      `Using the garment images above, generate exactly 5 distinct, cohesive outfits. Hard rules:\n` +
       `1. TOPS: Every outfit must include a "Tops" or "Knitwear & Sweaters" item UNLESS it contains a "Dresses & Jumpsuits" item. Never omit a top.\n` +
       `2. BOTTOMS: Every outfit must include one "Bottoms" item UNLESS it contains a "Dresses & Jumpsuits" item. NEVER combine two bottoms (e.g., jeans + skirt is invalid — pick one).\n` +
       `3. SHOES: Every outfit must include exactly one "Shoes" item.\n` +
@@ -81,10 +81,10 @@ export default async function handler(req, res) {
       `5. LAYERING: Below 50°F, pair short-sleeve or base-layer tops with an "Outerwear" item.\n` +
       `6. OUTERWEAR WEIGHT: Above 75°F include no outerwear. Between 65–75°F a light jacket or blazer is optional but acceptable. Between 50–65°F a medium jacket or blazer is appropriate — avoid heavy coats, shearling, or thick parkas. Below 50°F heavier coats are suitable. Below 32°F heavy outerwear is expected.\n` +
       `7. DISTINCT: No two outfits may share the exact same item set.\n` +
-      `8. RAIN & STORMS: If the current condition OR the later condition includes Rain, Drizzle, Showers, or Thunderstorm: (a) prefer closed-toe shoes over open sandals or white sneakers; (b) avoid white, cream, or very light-coloured bottoms; (c) if an "Outerwear" item is available, include a water-resistant-looking jacket or coat in at least one outfit regardless of temperature.\n` +
+      `8. RAIN & STORMS: If the current condition OR the later condition includes Rain, Drizzle, Showers, or Thunderstorm: (a) prefer closed-toe shoes over open sandals or white sneakers; (b) if an "Outerwear" item is available, include a water-resistant-looking jacket or coat in at least one outfit regardless of temperature.\n` +
       `If an outfit is not fully weather-appropriate, the "description" field may include a brief practical recommendation.\n` +
       `The "description" field must be no more than 200 characters.\n` +
-      `Return ONLY a raw JSON array of exactly 3 objects: ` +
+      `Return ONLY a raw JSON array of exactly 5 objects: ` +
       `[{"outfitName":"...","description":"...","itemIds":["id1","id2",...]}]`,
   });
 
@@ -98,7 +98,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 900,
+        max_tokens: 1500,
         system: "You are a professional fashion stylist with visual and cultural expertise. Visually inspect the attached garment images — study their actual colors, fabrics, textures, and silhouettes. Build outfits that are visually cohesive, ensure patterns do not clash and colors harmonize. Respond with valid raw JSON only — no markdown fences, no commentary.",
         messages: [{ role: 'user', content }],
       }),

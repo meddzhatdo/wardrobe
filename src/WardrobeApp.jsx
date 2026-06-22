@@ -2889,7 +2889,7 @@ async function callAnthropicForOutfits(weather, allItems, userProfile = {}) {
   });
 
   if (valid.length === 0) throw new Error('No valid outfits could be generated with your current wardrobe items.');
-  return valid.slice(0, 3);
+  return valid;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -3151,65 +3151,40 @@ function OutfitCollage({ items }) {
   );
 }
 
-// v2: array of { date, sig, outfits } — keyed by weather signature, not city
-const OUTFITS_CACHE_KEY = 'wardrobe_daily_outfits_v2';
+// v3: array of { date, city, outfits } — keyed by city + date so forecast drift never triggers regen
+const OUTFITS_CACHE_KEY = 'wardrobe_daily_outfits_v3';
 
 function todayDateKey() {
   const d = new Date();
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-// Encodes what actually drives outfit choice: temp band + precipitation now + precipitation later
-function weatherSig(weather) {
-  return `${tempBand(weather.highF)}-${hasPrecip(weather.conditionLabel) ? 'p' : 'd'}-${hasPrecip(weather.laterCondition) ? 'p' : 'd'}`;
-}
-
-function loadCachedOutfits(weather) {
+function loadCachedOutfits(city) {
   try {
     const raw = localStorage.getItem(OUTFITS_CACHE_KEY);
     if (!raw) return null;
     const entries = JSON.parse(raw);
     if (!Array.isArray(entries)) return null;
-    const entry = entries.find(e => e.date === todayDateKey() && e.sig === weatherSig(weather));
+    const entry = entries.find(e => e.date === todayDateKey() && e.city === city);
     return entry?.outfits ?? null;
   } catch { return null; }
 }
 
-function saveCachedOutfits(outfits, weather) {
+function saveCachedOutfits(outfits, city) {
   try {
     const raw = localStorage.getItem(OUTFITS_CACHE_KEY);
     let entries = [];
     try { const p = JSON.parse(raw); if (Array.isArray(p)) entries = p; } catch {}
     const today = todayDateKey();
-    const sig = weatherSig(weather);
-    // Replace existing entry for same sig, drop stale dates
-    entries = entries.filter(e => e.date === today && e.sig !== sig);
-    entries.push({ date: today, sig, outfits });
+    // Replace existing entry for same city, drop stale dates
+    entries = entries.filter(e => e.date === today && e.city !== city);
+    entries.push({ date: today, city, outfits });
     localStorage.setItem(OUTFITS_CACHE_KEY, JSON.stringify(entries));
   } catch {}
 }
 
-// Temperature bands (°F) that define meaningfully different clothing needs
-const TEMP_BAND_THRESHOLDS = [32, 50, 65, 75, 85];
-function tempBand(t) {
-  for (let i = 0; i < TEMP_BAND_THRESHOLDS.length; i++) if (t < TEMP_BAND_THRESHOLDS[i]) return i;
-  return TEMP_BAND_THRESHOLDS.length;
-}
-
 const PRECIP_LABELS = new Set(['Drizzle', 'Rain', 'Snow', 'Showers', 'Snow Showers', 'Thunderstorm']);
 function hasPrecip(label) { return PRECIP_LABELS.has(label); }
-
-function weatherNeedsRegen(prev, next) {
-  if (!prev) return true;
-  // Different clothing-band for the day's high
-  if (tempBand(prev.highF) !== tempBand(next.highF)) return true;
-  // Precipitation status changed (current or expected later)
-  if (hasPrecip(prev.conditionLabel) !== hasPrecip(next.conditionLabel)) return true;
-  if (hasPrecip(prev.laterCondition) !== hasPrecip(next.laterCondition)) return true;
-  // High or low shifted by more than 10°F within the same band
-  if (Math.abs(prev.highF - next.highF) > 10 || Math.abs(prev.lowF - next.lowF) > 10) return true;
-  return false;
-}
 
 function LocationBar({ city, onCommit, onSelectLocation }) {
   const [editing,  setEditing]  = useState(false);
@@ -3392,7 +3367,6 @@ function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished, onEdi
   const locationMenuRef  = useRef(null);
   const wornSectionRef   = useRef(null);
   const collageScale     = useCollageScale();
-  const outfitWeatherRef = useRef(null); // weather that generated the current outfits
   const directionRef     = useRef('right'); // tracks nav direction for slide animation
 
 
@@ -3461,18 +3435,15 @@ function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished, onEdi
       setOutfits(cityOutfits);
       setGenError(null);
       setCurrentIdx(0);
-      outfitWeatherRef.current = weatherSummary;
     }
   }, [isPreview, location.city]);
 
-  // Load cache or generate outfits — keyed by date + city
+  // Load cache or generate outfits — keyed by city + date
   useEffect(() => {
     if (isPreview) return; // preview uses static PREVIEW_CITY_OUTFITS above
     if (!weatherSummary || items.length === 0 || !location.city) return;
-    // Skip regen if weather hasn't changed meaningfully since last generation
-    if (!weatherNeedsRegen(outfitWeatherRef.current, weatherSummary)) return;
 
-    const cached = loadCachedOutfits(weatherSummary);
+    const cached = loadCachedOutfits(location.city);
     if (cached) {
       const existingIds = new Set(items.map(i => String(i.id)));
       const goodOutfits = cached.filter(o => (o.itemIds ?? []).every(id => existingIds.has(String(id))));
@@ -3480,11 +3451,10 @@ function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished, onEdi
       if (goodOutfits.length === cached.length) {
         setOutfits(cached);
         setGenError(null);
-        outfitWeatherRef.current = weatherSummary;
-        return;
+          return;
       }
       // Some outfits reference deleted items — keep the good ones, generate only what's needed
-      const needed = 3 - goodOutfits.length;
+      const needed = 5 - goodOutfits.length;
       if (goodOutfits.length > 0) setOutfits(goodOutfits);
       let cancelled = false;
       setCurrentIdx(0);
@@ -3495,9 +3465,8 @@ function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished, onEdi
           if (cancelled) return;
           const combined = [...goodOutfits, ...fresh.slice(0, needed)];
           setOutfits(combined);
-          saveCachedOutfits(combined, weatherSummary);
-          outfitWeatherRef.current = weatherSummary;
-        })
+          saveCachedOutfits(combined, location.city);
+            })
         .catch(e => { if (!cancelled) setGenError(e.message); })
         .finally(() => { if (!cancelled) setGenerating(false); });
       return () => { cancelled = true; };
@@ -3508,13 +3477,12 @@ function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished, onEdi
     setCurrentIdx(0);
     setGenError(null);
     setGenerating(true);
-    callAnthropicForOutfits(weatherSummary, items)
+    callAnthropicForOutfits(weatherSummary, items, userProfile)
       .then(results => {
         if (!cancelled) {
           setOutfits(results);
-          saveCachedOutfits(results, weatherSummary);
-          outfitWeatherRef.current = weatherSummary;
-        }
+          saveCachedOutfits(results, location.city);
+            }
       })
       .catch(e       => { if (!cancelled) setGenError(e.message); })
       .finally(()    => { if (!cancelled) setGenerating(false); });
@@ -6138,10 +6106,9 @@ function formatConvoDate(dateStr) {
 
 function StylistTab({ items = [], userId = null, userProfile = {} }) {
   const SUGGESTIONS = [
-    "What's trending for autumn?",
-    'I\'m wearing a navy shirt and white pants — can I wear black shoes?',
-    'What outfits can I make from my wardrobe?',
+    "What's trending this season?",
     'What gaps are there in my closet?',
+    'How do I develop my personal style?',
   ];
 
   const [conversations, setConversations] = useState([]);
@@ -6165,11 +6132,7 @@ function StylistTab({ items = [], userId = null, userProfile = {} }) {
       .order('updated_at', { ascending: false })
       .limit(50)
       .then(({ data }) => {
-        if (data?.length) {
-          setConversations(data);
-          setActiveId(data[0].id);
-          setMessages(data[0].messages ?? []);
-        }
+        if (data?.length) setConversations(data);
         setLoadingHistory(false);
       });
   }, [userId]);
