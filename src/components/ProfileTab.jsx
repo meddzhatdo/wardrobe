@@ -15,23 +15,27 @@ export function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfi
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showPrivacy, setShowPrivacy]     = useState(false);
-  const [pwForm, setPwForm]               = useState({ newPassword: '', confirmPassword: '' });
-  const [pwShow, setPwShow]               = useState({ new: false, confirm: false });
+  const [pwForm, setPwForm]               = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [pwShow, setPwShow]               = useState({ current: false, new: false, confirm: false });
   const [pwSaving, setPwSaving]           = useState(false);
   const [pwError, setPwError]             = useState('');
   const [pwSuccess, setPwSuccess]         = useState(false);
   const avatarInputRef = useRef(null);
 
   const handleChangePassword = async () => {
-    if (pwForm.newPassword.length < 8) { setPwError('Password must be at least 8 characters.'); return; }
+    if (!pwForm.currentPassword) { setPwError('Enter your current password.'); return; }
+    if (pwForm.newPassword.length < 8) { setPwError('New password must be at least 8 characters.'); return; }
     if (pwForm.newPassword !== pwForm.confirmPassword) { setPwError('Passwords do not match.'); return; }
     setPwSaving(true);
     setPwError('');
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error: signInErr } = await supabase.auth.signInWithPassword({ email: user.email, password: pwForm.currentPassword });
+    if (signInErr) { setPwSaving(false); setPwError('Current password is incorrect.'); return; }
     const { error } = await supabase.auth.updateUser({ password: pwForm.newPassword });
     setPwSaving(false);
     if (error) { setPwError(error.message); return; }
     setPwSuccess(true);
-    setPwForm({ newPassword: '', confirmPassword: '' });
+    setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
     setTimeout(() => setPwSuccess(false), 3000);
   };
 
@@ -266,7 +270,7 @@ export function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfi
           <h4 className="text-sm font-semibold text-gray-700 mb-3">Settings</h4>
           <div className="space-y-1">
             <button
-              onClick={() => { setShowPrivacy(v => !v); setPwError(''); setPwSuccess(false); setPwForm({ newPassword: '', confirmPassword: '' }); }}
+              onClick={() => { setShowPrivacy(v => !v); setPwError(''); setPwSuccess(false); setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' }); }}
               className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl hover:bg-gray-50 transition-colors"
             >
               <div className="flex items-center gap-3">
@@ -279,6 +283,19 @@ export function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfi
             {showPrivacy && (
               <div className="mx-1 px-4 py-4 rounded-xl bg-gray-50 border border-gray-100 space-y-3">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Change password</p>
+
+                <div className="relative">
+                  <input
+                    type={pwShow.current ? 'text' : 'password'}
+                    placeholder="Current password"
+                    value={pwForm.currentPassword}
+                    onChange={e => { setPwForm(f => ({ ...f, currentPassword: e.target.value })); setPwError(''); setPwSuccess(false); }}
+                    className="w-full px-3 py-2.5 pr-10 text-sm bg-white border border-gray-200 rounded-lg focus:border-gray-400 focus:outline-none"
+                  />
+                  <button type="button" onClick={() => setPwShow(s => ({ ...s, current: !s.current }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                    {pwShow.current ? <EyeOff size={14} /> : <Eye size={14} />}
+                  </button>
+                </div>
 
                 <div className="relative">
                   <input
@@ -315,7 +332,7 @@ export function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfi
 
                 <button
                   onClick={handleChangePassword}
-                  disabled={pwSaving || !pwForm.newPassword || !pwForm.confirmPassword}
+                  disabled={pwSaving || !pwForm.currentPassword || !pwForm.newPassword || !pwForm.confirmPassword}
                   className="w-full py-2.5 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 >
                   {pwSaving && <Loader2 size={13} className="animate-spin" />}
