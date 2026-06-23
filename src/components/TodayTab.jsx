@@ -652,7 +652,7 @@ export function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished
         setGenError(null);
           return;
       }
-      const needed = 5 - goodOutfits.length;
+      const needed = 3 - goodOutfits.length;
       if (goodOutfits.length > 0) setOutfits(goodOutfits);
       let cancelled = false;
       setCurrentIdx(0);
