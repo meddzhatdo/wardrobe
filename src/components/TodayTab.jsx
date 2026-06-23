@@ -9,7 +9,7 @@ import { DEFAULT_CITY, DEFAULT_LAT, DEFAULT_LON, wmoCondition, CONDITION_LABEL_M
 import {
   buildWeatherPool, DESIGN_W, DESIGN_H, COLLAGE_HEADER_OFFSET,
   aiOutfitToCanvasItems, FadeIn, GeneratingSkeleton, OutfitCollage,
-  OUTFITS_CACHE_KEY, todayDateKey, loadCachedOutfits, saveCachedOutfits, useCollageScale,
+  OUTFITS_CACHE_KEY, todayDateKey, loadCachedOutfits, saveCachedOutfits, weatherFingerprint, useCollageScale,
 } from '../lib/collage.jsx';
 import { CATEGORIES, PRESET_LOCATIONS } from '../lib/constants.js';
 import { supabase } from '../supabase.js';
@@ -642,7 +642,8 @@ export function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished
     if (isPreview) return;
     if (!weatherSummary || items.length === 0 || !location.city) return;
 
-    const cached = loadCachedOutfits(location.city);
+    const fp = weatherFingerprint(weatherSummary);
+    const cached = loadCachedOutfits(fp);
     if (cached) {
       const existingIds = new Set(items.map(i => String(i.id)));
       const goodOutfits = cached.filter(o => (o.itemIds ?? []).every(id => existingIds.has(String(id))));
@@ -662,7 +663,7 @@ export function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished
           if (cancelled) return;
           const combined = [...goodOutfits, ...fresh.slice(0, needed)];
           setOutfits(combined);
-          saveCachedOutfits(combined, location.city);
+          saveCachedOutfits(combined, fp);
             })
         .catch(e => { if (!cancelled) setGenError(e.message); })
         .finally(() => { if (!cancelled) setGenerating(false); });
@@ -677,7 +678,7 @@ export function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished
       .then(results => {
         if (!cancelled) {
           setOutfits(results);
-          saveCachedOutfits(results, location.city);
+          saveCachedOutfits(results, fp);
             }
       })
       .catch(e       => { if (!cancelled) setGenError(e.message); })

@@ -319,36 +319,48 @@ export function OutfitCollage({ items, fixedScale }) {
 }
 
 // v3: array of { date, city, outfits } — keyed by city + date so forecast drift never triggers regen
-export const OUTFITS_CACHE_KEY = 'wardrobe_daily_outfits_v3';
+export const OUTFITS_CACHE_KEY = 'wardrobe_daily_outfits_v4';
 
 export function todayDateKey() {
   const d = new Date();
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-export function loadCachedOutfits(city) {
+export const PRECIP_LABELS = new Set(['Drizzle', 'Rain', 'Snow', 'Showers', 'Snow Showers', 'Thunderstorm']);
+export function hasPrecip(label) { return PRECIP_LABELS.has(label); }
+
+// Collapses exact weather values into a coarse fingerprint so nearby towns
+// with similar conditions share a cache entry and don't burn an extra API call.
+export function weatherFingerprint({ tempF, conditionLabel, laterCondition }) {
+  let band;
+  if (tempF < 32)      band = 'freezing';
+  else if (tempF < 50) band = 'cold';
+  else if (tempF < 65) band = 'cool';
+  else if (tempF < 75) band = 'mild';
+  else                 band = 'warm';
+  const wet = hasPrecip(conditionLabel) || hasPrecip(laterCondition);
+  return `${band}-${wet ? 'wet' : 'dry'}`;
+}
+
+export function loadCachedOutfits(fingerprint) {
   try {
     const raw = localStorage.getItem(OUTFITS_CACHE_KEY);
     if (!raw) return null;
     const entries = JSON.parse(raw);
     if (!Array.isArray(entries)) return null;
-    const entry = entries.find(e => e.date === todayDateKey() && e.city === city);
+    const entry = entries.find(e => e.date === todayDateKey() && e.fingerprint === fingerprint);
     return entry?.outfits ?? null;
   } catch { return null; }
 }
 
-export function saveCachedOutfits(outfits, city) {
+export function saveCachedOutfits(outfits, fingerprint) {
   try {
     const raw = localStorage.getItem(OUTFITS_CACHE_KEY);
     let entries = [];
     try { const p = JSON.parse(raw); if (Array.isArray(p)) entries = p; } catch {}
     const today = todayDateKey();
-    // Replace existing entry for same city, drop stale dates
-    entries = entries.filter(e => e.date === today && e.city !== city);
-    entries.push({ date: today, city, outfits });
+    entries = entries.filter(e => e.date === today && e.fingerprint !== fingerprint);
+    entries.push({ date: today, fingerprint, outfits });
     localStorage.setItem(OUTFITS_CACHE_KEY, JSON.stringify(entries));
   } catch {}
 }
-
-export const PRECIP_LABELS = new Set(['Drizzle', 'Rain', 'Snow', 'Showers', 'Snow Showers', 'Thunderstorm']);
-export function hasPrecip(label) { return PRECIP_LABELS.has(label); }
