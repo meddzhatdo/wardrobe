@@ -535,17 +535,31 @@ export function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished
   const [retryKey,       setRetryKey]       = useState(0);
   const [saveState,      setSaveState]      = useState('idle');
   const [locationMenuOpen, setLocationMenuOpen] = useState(false);
-  const today         = new Date().toISOString().split('T')[0];
+  const [today, setToday] = useState(() => new Date().toISOString().split('T')[0]);
   const wornTodayKey  = userId ? `worn_today_${userId}_${today}` : null;
 
   const [wornItemIds,    setWornItemIds]    = useState(() => {
-    if (!wornTodayKey) return new Set();
+    if (!userId) return new Set();
+    const key = `worn_today_${userId}_${new Date().toISOString().split('T')[0]}`;
     try {
-      const saved = localStorage.getItem(wornTodayKey);
+      const saved = localStorage.getItem(key);
       if (saved) return new Set(JSON.parse(saved));
     } catch {}
     return new Set();
   });
+
+  // Roll over at midnight without requiring a page reload
+  useEffect(() => {
+    const midnight = new Date();
+    midnight.setHours(24, 0, 0, 0);
+    const ms = midnight.getTime() - Date.now();
+    const t = setTimeout(() => {
+      const newDay = new Date().toISOString().split('T')[0];
+      setToday(newDay);
+      setWornItemIds(new Set());
+    }, ms);
+    return () => clearTimeout(t);
+  }, [today]);
   const hasMountedRef  = useRef(false);
   const saveTimerRef   = useRef(null);
   const [pickerBoard,           setPickerBoard]           = useState('All');
