@@ -24,7 +24,8 @@ export default function WardrobeApp() {
   const [transitioning, setTransitioning] = useState(false);
   const authInitializedRef                = useRef(false);
   const currentUserIdRef                  = useRef(null);
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showAuthModal, setShowAuthModal]         = useState(false);
+  const [showPasswordRecovery, setShowPasswordRecovery] = useState(false);
   const [activeTab, setActiveTab]         = useState(() => {
     try {
       const saved = localStorage.getItem('wardrobe_active_tab');
@@ -201,6 +202,7 @@ export default function WardrobeApp() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'PASSWORD_RECOVERY') { setShowPasswordRecovery(true); return; }
       if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') return;
       const u = session?.user ?? null;
       const prevId = currentUserIdRef.current;
@@ -1011,6 +1013,10 @@ export default function WardrobeApp() {
 
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
+      )}
+
+      {showPasswordRecovery && (
+        <AuthModal recoveryMode onClose={() => setShowPasswordRecovery(false)} />
       )}
 
       {showOnboarding && user && (
