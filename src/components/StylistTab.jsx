@@ -226,7 +226,7 @@ export function DemoStylistTab({ onSignIn }) {
   );
 }
 
-export function StylistTab({ items = [], userId = null, userProfile = {}, onSelectItem, onOpenInStudio, onSaveToOutfits }) {
+export function StylistTab({ items = [], userId = null, userProfile = {}, wearLogs = [], onSelectItem, onOpenInStudio, onSaveToOutfits }) {
   const SUGGESTIONS = [
     "What's trending this season?",
     'What gaps are there in my closet?',
@@ -318,6 +318,14 @@ export function StylistTab({ items = [], userId = null, userProfile = {}, onSele
     const isCollageRequest = COLLAGE_REQUEST_RE.test(text);
     const needsWardrobe = isCollageRequest || WARDROBE_AWARE_RE.test(text);
 
+    const wornCounts = {};
+    for (const log of wearLogs) {
+      for (const id of (log.item_ids ?? [])) {
+        wornCounts[String(id)] = (wornCounts[String(id)] || 0) + 1;
+      }
+    }
+    const itemsWithWorn = items.map(item => ({ ...item, timesWorn: wornCounts[String(item.id)] ?? 0 }));
+
     try {
       let { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
@@ -335,7 +343,7 @@ export function StylistTab({ items = [], userId = null, userProfile = {}, onSele
           messages: nextMessages,
           includeWardrobe: needsWardrobe,
           includeCollage: isCollageRequest,
-          items: needsWardrobe ? items : [],
+          items: needsWardrobe ? itemsWithWorn : [],
           userProfile,
         }),
       });
@@ -570,6 +578,21 @@ export function StylistTab({ items = [], userId = null, userProfile = {}, onSele
                             </button>
                             <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-1.5 px-2 py-0.5 rounded-md text-[10px] font-medium bg-gray-800 text-white whitespace-nowrap opacity-0 group-hover/edit:opacity-100 transition-opacity z-10">
                               Edit message
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {!isUser && !sending && (
+                        <div className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                          <div className="relative group/copy">
+                            <button
+                              onClick={() => copyMessage(i, msg.content)}
+                              className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                            >
+                              {copiedIdx === i ? <Check size={18} /> : <Copy size={18} />}
+                            </button>
+                            <span className="pointer-events-none absolute top-full left-0 mt-1.5 px-2 py-0.5 rounded-md text-[10px] font-medium bg-gray-800 text-white whitespace-nowrap opacity-0 group-hover/copy:opacity-100 transition-opacity z-10">
+                              {copiedIdx === i ? 'Copied!' : 'Copy message'}
                             </span>
                           </div>
                         </div>

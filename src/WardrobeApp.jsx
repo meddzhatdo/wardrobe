@@ -778,6 +778,7 @@ export default function WardrobeApp() {
                     items={readyItems}
                     userId={user?.id}
                     userProfile={profile}
+                    wearLogs={wearLogs}
                     onSelectItem={setSelectedItem}
                     onSaveToOutfits={handleSaveOutfit}
                     onOpenInStudio={outfitItems => {

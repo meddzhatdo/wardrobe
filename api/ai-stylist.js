@@ -13,13 +13,13 @@ Always tailor your suggestions to the user's stated style direction and outfit g
 
 const REFS_SYSTEM_ADDENDUM = `
 
-OUTPUT FORMAT RULE (non-negotiable): After every response where a wardrobe list was provided, your final line must be exactly:
+OUTPUT FORMAT RULE (non-negotiable): Never include [ID:xxx] tags in your response text — they are for internal tracking only and must never appear in the message the user sees. After every response where a wardrobe list was provided, your final line must be exactly:
 REFS:["id1","id2"]
 Fill the array with the [ID:xxx] values from the wardrobe list for every item you explicitly named in your response. Use REFS:[] if you named none. This line must always be present and must always be last.`;
 
 const OUTFIT_SYSTEM_ADDENDUM = `
 
-COLLAGE FORMAT RULE (non-negotiable): The user wants you to put together a specific outfit from their wardrobe. In your response, describe the outfit you are assembling and why the pieces work together. Your very last line must be exactly:
+COLLAGE FORMAT RULE (non-negotiable): Never include [ID:xxx] tags in your response text — they are for internal tracking only. The user wants you to put together a specific outfit from their wardrobe. In your response, describe the outfit you are assembling and why the pieces work together. Your very last line must be exactly:
 OUTFIT:{"outfitName":"...","itemIds":["id1","id2",...]}
 Replace "..." with a short outfit name (2-4 words). Fill itemIds with the [ID:xxx] values for the 2-5 items in the outfit. Choose items that form a complete, cohesive look. Do not output a REFS line.`;
 
@@ -93,11 +93,20 @@ export default async function handler(req, res) {
 
     for (const item of items) {
       sentItems.push(item);
-      const name     = sanitize(item.name,     80) || 'unknown item';
-      const category = sanitize(item.category, 50) || 'unknown';
-      const color    = sanitize(item.color,    40);
-      const brand    = sanitize(item.brand,    50);
-      const desc     = [name, category, color && `color: ${color}`, brand && `brand: ${brand}`].filter(Boolean).join(' | ');
+      const name      = sanitize(item.name,     80) || 'unknown item';
+      const category  = sanitize(item.category, 50) || 'unknown';
+      const color     = sanitize(item.color,    40);
+      const brand     = sanitize(item.brand,    50);
+      const warmth    = sanitize(item.attributes?.warmthRating || '', 20);
+      const timesWorn = typeof item.timesWorn === 'number' ? item.timesWorn : null;
+      const wornLabel = timesWorn === 0 ? 'never worn' : (timesWorn != null ? `worn ${timesWorn}×` : null);
+      const desc = [
+        name, category,
+        color   && `color: ${color}`,
+        brand   && `brand: ${brand}`,
+        warmth && warmth !== 'none' && `warmth: ${warmth}`,
+        wornLabel,
+      ].filter(Boolean).join(' | ');
       wardrobeLines.push(`[ID:${item.id}] ${desc}`);
     }
 
@@ -160,7 +169,9 @@ export default async function handler(req, res) {
         max_tokens: 900,
         system: (() => {
           const date = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-          const dateCtx = `\n\nToday's date is ${date}. Use this to correctly interpret relative time references like "next week" or "this weekend", and to infer the current season when giving weather or packing advice.`;
+          const month = new Date().getMonth();
+          const season = month >= 2 && month <= 4 ? 'spring' : month >= 5 && month <= 7 ? 'summer' : month >= 8 && month <= 10 ? 'autumn' : 'winter';
+          const dateCtx = `\n\nToday's date is ${date} — currently ${season} in the northern hemisphere (adjust if the user is in the southern hemisphere). When recommending pieces, respect the current season: avoid items with warmth: high or very_high in summer, and avoid warmth: low items as standalone outfits in winter. The wardrobe list also includes wear history — if the user asks for never-worn or unworn pieces, only choose items marked "never worn".`;
           const stylePrefs = Array.isArray(userProfile?.stylePreferences)
             ? userProfile.stylePreferences.map(s => sanitize(s, 20)).filter(Boolean)
             : [];
@@ -215,7 +226,18 @@ export default async function handler(req, res) {
           raw = raw.slice(0, raw.length - refsMatch[0].length).trimEnd();
         }
       }
+
+      // Fallback: extract inline [ID:xxx] when model didn't output REFS/OUTFIT line
+      if (referencedItemIds.length === 0 && !outfit) {
+        const inlineIds = [...new Set(
+          [...raw.matchAll(/\[ID:([^\]]+)\]/g)].map(m => String(m[1])).filter(id => validIds.has(id))
+        )];
+        if (inlineIds.length) referencedItemIds = inlineIds;
+      }
     }
+
+    // Strip [ID:xxx] tags from response text — they are internal and must not reach the user
+    raw = raw.replace(/\s*\[ID:[^\]]+\]/g, '');
 
     await logAuditEvent({ event: 'stylist_call', userId: user.id, endpoint: '/api/ai-stylist', req, metadata: { includeWardrobe, includeCollage, messageCount: messages.length } });
     if (outfit) {
