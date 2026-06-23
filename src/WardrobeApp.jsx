@@ -52,7 +52,7 @@ export default function WardrobeApp() {
   const [boardMeta, setBoardMeta]         = useState({});
   const [profile, setProfile]             = useState({
     name: '', bio: '', topSize: '', bottomSize: '', shoeSize: '', avatarUrl: '',
-    country: '', outfitGoals: [], stylePreference: '',
+    country: '', outfitGoals: [], stylePreferences: [],
   });
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [pendingOutfitItem, setPendingOutfitItem] = useState(null);
@@ -98,7 +98,7 @@ export default function WardrobeApp() {
         avatarUrl: u.user_metadata?.avatar_url || '',
         country: u.user_metadata?.country || '',
         outfitGoals: u.user_metadata?.outfit_goals || [],
-        stylePreference: u.user_metadata?.style_preference || '',
+        stylePreferences: u.user_metadata?.style_preferences || [],
       });
     }
 
@@ -571,7 +571,9 @@ export default function WardrobeApp() {
       outfitGoals: Array.isArray(updates.outfitGoals)
         ? updates.outfitGoals.filter(id => VALID_GOAL_IDS.has(id))
         : [],
-      stylePreference: VALID_STYLE_IDS.has(updates.stylePreference) ? updates.stylePreference : '',
+      stylePreferences: Array.isArray(updates.stylePreferences)
+        ? updates.stylePreferences.filter(id => VALID_STYLE_IDS.has(id))
+        : [],
     };
     setProfile(safe);
     if (user) {
@@ -584,16 +586,16 @@ export default function WardrobeApp() {
         supabase.auth.updateUser({ data: {
           country: updates.country,
           outfit_goals: safe.outfitGoals,
-          style_preference: safe.stylePreference,
+          style_preferences: safe.stylePreferences,
         }}),
       ]);
       if (profileErr) console.error('Profile save failed:', profileErr.message);
     }
   };
 
-  const handleCompleteOnboarding = async ({ bio, country, stylePreference, outfitGoals }) => {
+  const handleCompleteOnboarding = async ({ bio, country, stylePreferences, outfitGoals }) => {
     const nameFromMeta = user?.user_metadata?.name || '';
-    setProfile(prev => ({ ...prev, name: nameFromMeta || prev.name, bio, country, stylePreference, outfitGoals }));
+    setProfile(prev => ({ ...prev, name: nameFromMeta || prev.name, bio, country, stylePreferences, outfitGoals }));
     if (user) {
       const [, { error: authErr }] = await Promise.all([
         supabase.from('profiles').upsert({
@@ -605,7 +607,7 @@ export default function WardrobeApp() {
         }),
         supabase.auth.updateUser({ data: {
           country,
-          style_preference: stylePreference,
+          style_preferences: stylePreferences,
           outfit_goals: outfitGoals,
           onboarding_complete: true,
         }}),
@@ -613,7 +615,7 @@ export default function WardrobeApp() {
       if (authErr) {
         const { error: retryErr } = await supabase.auth.updateUser({ data: {
           country,
-          style_preference: stylePreference,
+          style_preferences: stylePreferences,
           outfit_goals: outfitGoals,
           onboarding_complete: true,
         }});

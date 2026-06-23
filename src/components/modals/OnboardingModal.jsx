@@ -3,17 +3,17 @@ import { Sparkles } from 'lucide-react';
 import { OUTFIT_GOALS, COUNTRIES } from '../../lib/constants.js';
 
 const STYLE_OPTIONS = [
-  { id: 'feminine', label: 'Feminine', emoji: '🌸' },
-  { id: 'masculine', label: 'Masculine', emoji: '🧥' },
-  { id: 'neutral', label: 'Neutral', emoji: '⚡' },
+  { id: 'feminine',  label: 'Feminine'  },
+  { id: 'masculine', label: 'Masculine' },
+  { id: 'neutral',   label: 'Neutral'   },
 ];
 
 export function OnboardingModal({ onComplete }) {
-  const [slide, setSlide]           = useState(0);
-  const [bio, setBio]               = useState('');
-  const [country, setCountry]       = useState('');
-  const [stylePreference, setStylePreference] = useState('');
-  const [outfitGoals, setOutfitGoals] = useState([]);
+  const [slide, setSlide]               = useState(0);
+  const [bio, setBio]                   = useState('');
+  const [country, setCountry]           = useState('');
+  const [stylePreferences, setStylePreferences] = useState([]);
+  const [outfitGoals, setOutfitGoals]   = useState([]);
 
   const TOTAL = 4;
 
@@ -22,7 +22,7 @@ export function OnboardingModal({ onComplete }) {
   };
 
   const handleFinish = () => {
-    onComplete({ bio: bio.trim(), country, stylePreference, outfitGoals });
+    onComplete({ bio: bio.trim(), country, stylePreferences, outfitGoals });
   };
 
   const canAdvance = slide !== 1 || country.trim();
@@ -75,22 +75,23 @@ export function OnboardingModal({ onComplete }) {
     /* Slide 2 — Style preference */
     <div key="style" className="py-2">
       <h3 className="text-lg font-bold text-gray-900 mb-1">What's your style direction?</h3>
-      <p className="text-xs text-gray-400 mb-6">This helps us suggest outfits that feel right for you.</p>
+      <p className="text-xs text-gray-400 mb-6">Select all that apply — this helps us suggest outfits that feel right for you.</p>
       <div className="grid grid-cols-3 gap-3">
-        {STYLE_OPTIONS.map(({ id, label, emoji }) => {
-          const selected = stylePreference === id;
+        {STYLE_OPTIONS.map(({ id, label }) => {
+          const selected = stylePreferences.includes(id);
           return (
             <button
               key={id}
-              onClick={() => setStylePreference(selected ? '' : id)}
-              className={`flex flex-col items-center gap-2.5 py-6 rounded-2xl border-2 transition-all ${
+              onClick={() => setStylePreferences(prev =>
+                selected ? prev.filter(s => s !== id) : [...prev, id]
+              )}
+              className={`py-5 rounded-2xl border-2 text-sm font-semibold transition-all ${
                 selected
                   ? 'border-gray-900 bg-gray-900 text-white'
                   : 'border-gray-100 bg-gray-50 text-gray-600 hover:border-gray-300'
               }`}
             >
-              <span className="text-3xl">{emoji}</span>
-              <span className="text-xs font-semibold tracking-wide">{label}</span>
+              {label}
             </button>
           );
         })}

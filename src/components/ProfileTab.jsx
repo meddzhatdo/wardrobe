@@ -3,9 +3,9 @@ import { Pencil, User, Camera, Loader2, LogOut, Trash2, ChevronRight, MapPin } f
 import { OUTFIT_GOALS, COUNTRIES } from '../lib/constants.js';
 
 const STYLE_OPTIONS = [
-  { id: 'feminine', label: 'Feminine', emoji: '🌸' },
-  { id: 'masculine', label: 'Masculine', emoji: '🧥' },
-  { id: 'neutral', label: 'Neutral', emoji: '⚡' },
+  { id: 'feminine',  label: 'Feminine'  },
+  { id: 'masculine', label: 'Masculine' },
+  { id: 'neutral',   label: 'Neutral'   },
 ];
 
 export function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfile, onSignOut, onUpdateAvatar, onDeleteAccount }) {
@@ -35,7 +35,7 @@ export function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfi
   };
 
   const handleSave = () => {
-    const VALID_GOAL_IDS = new Set(OUTFIT_GOALS.map(g => g.id));
+    const VALID_GOAL_IDS  = new Set(OUTFIT_GOALS.map(g => g.id));
     const VALID_STYLE_IDS = new Set(STYLE_OPTIONS.map(s => s.id));
     onUpdateProfile({
       ...draft,
@@ -45,7 +45,7 @@ export function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfi
       bottomSize: (draft.bottomSize ?? '').trim().slice(0, 20),
       shoeSize: (draft.shoeSize ?? '').trim().slice(0, 20),
       outfitGoals: (draft.outfitGoals ?? []).filter(id => VALID_GOAL_IDS.has(id)),
-      stylePreference: VALID_STYLE_IDS.has(draft.stylePreference) ? draft.stylePreference : '',
+      stylePreferences: (draft.stylePreferences ?? []).filter(id => VALID_STYLE_IDS.has(id)),
     });
     setEditing(false);
   };
@@ -184,13 +184,17 @@ export function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfi
         <section className="mb-8">
           <h4 className="text-sm font-semibold text-gray-700 mb-3">Style direction</h4>
           <div className="grid grid-cols-3 gap-2">
-            {STYLE_OPTIONS.map(({ id, label, emoji }) => {
-              const active = editing ? draft.stylePreference === id : profile.stylePreference === id;
+            {STYLE_OPTIONS.map(({ id, label }) => {
+              const prefs  = editing ? (draft.stylePreferences ?? []) : (profile.stylePreferences ?? []);
+              const active = prefs.includes(id);
               return (
                 <button
                   key={id}
-                  onClick={() => editing && setDraft(d => ({ ...d, stylePreference: d.stylePreference === id ? '' : id }))}
-                  className={`flex flex-col items-center gap-2 py-4 rounded-xl border-2 text-sm font-medium transition-all ${
+                  onClick={() => editing && setDraft(d => {
+                    const prev = d.stylePreferences ?? [];
+                    return { ...d, stylePreferences: prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id] };
+                  })}
+                  className={`py-3.5 rounded-xl border-2 text-sm font-semibold transition-all ${
                     active
                       ? 'border-gray-900 bg-gray-900 text-white'
                       : editing
@@ -198,13 +202,12 @@ export function ProfileTab({ items, boards, savedOutfits, profile, onUpdateProfi
                         : 'border-gray-100 bg-gray-50 text-gray-400 cursor-default'
                   }`}
                 >
-                  <span className="text-xl">{emoji}</span>
-                  <span className="text-xs font-semibold">{label}</span>
+                  {label}
                 </button>
               );
             })}
           </div>
-          {!editing && !profile.stylePreference && (
+          {!editing && !(profile.stylePreferences ?? []).length && (
             <p className="text-sm text-gray-300 mt-2">Tap Edit to set your style direction</p>
           )}
         </section>

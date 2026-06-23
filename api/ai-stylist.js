@@ -8,7 +8,8 @@ initSentry();
 const BASE_SYSTEM_PROMPT = `You are a knowledgeable, friendly personal stylist. You give concise, practical style advice.
 When the user shares their wardrobe items, reference them specifically by name. Always bold item names using markdown (e.g. **Item Name**) whenever you mention them.
 Keep responses conversational and under 300 words unless a detailed breakdown is genuinely needed.
-Do not use excessive bullet points — prefer flowing sentences. Never mention that you are an AI.`;
+Do not use excessive bullet points — prefer flowing sentences. Never mention that you are an AI.
+Always tailor your suggestions to the user's stated style direction and outfit goals when they are provided. If the user has a style direction (feminine, masculine, or neutral), respect it in every suggestion — don't recommend items or silhouettes that clash with it unless the user explicitly asks you to go outside it.`;
 
 const REFS_SYSTEM_ADDENDUM = `
 
@@ -118,12 +119,16 @@ export default async function handler(req, res) {
     const goals   = Array.isArray(userProfile?.outfitGoals)
       ? userProfile.outfitGoals.map(g => sanitize(g, 40)).filter(Boolean).join(', ')
       : '';
+    const stylePreferences = Array.isArray(userProfile?.stylePreferences)
+      ? userProfile.stylePreferences.map(s => sanitize(s, 20)).filter(Boolean).join(', ')
+      : '';
     content.push({
       type: 'text',
       text:
         `Here is the user's wardrobe (${items.length} items):\n${wardrobeLines.join('\n')}` +
-        (country ? `\nUser is based in: ${country}` : '') +
-        (goals   ? `\nStyle goals: ${goals}`         : '') +
+        (country          ? `\nUser is based in: ${country}`             : '') +
+        (stylePreferences ? `\nStyle direction: ${stylePreferences}`     : '') +
+        (goals            ? `\nOutfit goals: ${goals}`                   : '') +
         '\n\nPlease use this wardrobe context to answer their question.',
     });
   }
@@ -156,7 +161,13 @@ export default async function handler(req, res) {
         system: (() => {
           const date = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
           const dateCtx = `\n\nToday's date is ${date}. Use this to correctly interpret relative time references like "next week" or "this weekend", and to infer the current season when giving weather or packing advice.`;
-          const base = BASE_SYSTEM_PROMPT + dateCtx;
+          const stylePrefs = Array.isArray(userProfile?.stylePreferences)
+            ? userProfile.stylePreferences.map(s => sanitize(s, 20)).filter(Boolean)
+            : [];
+          const styleCtx = stylePrefs.length
+            ? `\n\nThis user's style direction is: ${stylePrefs.join(', ')}. Keep all your suggestions aligned with this — every outfit, piece, or recommendation should feel natural within their style direction.`
+            : '';
+          const base = BASE_SYSTEM_PROMPT + dateCtx + styleCtx;
           return sentItems.length > 0 ? base + (includeCollage ? OUTFIT_SYSTEM_ADDENDUM : REFS_SYSTEM_ADDENDUM) : base;
         })(),
         messages: anthropicMessages,
