@@ -319,12 +319,17 @@ export function StylistTab({ items = [], userId = null, userProfile = {}, onSele
     const needsWardrobe = isCollageRequest || WARDROBE_AWARE_RE.test(text);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      let { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        session = refreshed?.session ?? null;
+      }
+      if (!session?.access_token) throw new Error('Your session has expired. Please sign in again.');
       const res = await fetch('/api/ai-stylist', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           messages: nextMessages,
