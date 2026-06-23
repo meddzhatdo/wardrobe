@@ -98,6 +98,7 @@ export default async function handler(req, res) {
       const color     = sanitize(item.color,    40);
       const brand     = sanitize(item.brand,    50);
       const warmth    = sanitize(item.attributes?.warmthRating || '', 20);
+      const price     = typeof item.price === 'number' && item.price > 0 ? item.price : (typeof item.price === 'string' && item.price ? parseFloat(item.price) : null);
       const timesWorn = typeof item.timesWorn === 'number' ? item.timesWorn : null;
       const wornLabel = timesWorn === 0 ? 'never worn' : (timesWorn != null ? `worn ${timesWorn}×` : null);
       const desc = [
@@ -105,6 +106,7 @@ export default async function handler(req, res) {
         color   && `color: ${color}`,
         brand   && `brand: ${brand}`,
         warmth && warmth !== 'none' && `warmth: ${warmth}`,
+        price  && !isNaN(price) && `cost: $${price}`,
         wornLabel,
       ].filter(Boolean).join(' | ');
       wardrobeLines.push(`[ID:${item.id}] ${desc}`);
