@@ -1,4 +1,6 @@
-# Wardrobe
+# Vêtu - Wardrobe App
+
+<img width="1470" height="800" alt="Image" src="https://github.com/user-attachments/assets/3fc4e13b-858f-4d14-8a39-2acc7a541a94" />
 
 A personal wardrobe app with AI-powered outfit generation, a conversational stylist, and a browser extension for saving items from any shopping site.
 
@@ -11,6 +13,12 @@ A personal wardrobe app with AI-powered outfit generation, a conversational styl
 - **Analytics** — cost-per-wear tracking, wear frequency, and spending breakdown by category.
 - **Profile** — style goals, sizes, country/currency, and public profile with shareable bio.
 - **Browser extension** — save clothing items directly from any shopping site with one click. Scrapes name, price, and image automatically.
+
+<img width="1467" height="796" alt="Image" src="https://github.com/user-attachments/assets/ff86e965-ea7a-4466-a487-8d02cc86c5d0" />
+
+<img width="1469" height="802" alt="Image" src="https://github.com/user-attachments/assets/e34952fd-e4f7-4659-95c1-5a595b8e8e74" />
+
+<img width="1470" height="793" alt="Image" src="https://github.com/user-attachments/assets/e88086a7-54aa-4a35-b3dd-167770d11195" />
 
 ## Stack
 
