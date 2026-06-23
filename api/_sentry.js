@@ -1,14 +1,4 @@
-import * as Sentry from '@sentry/node';
-
-let ready = false;
-
-export function initSentry() {
-  if (ready || !process.env.SENTRY_DSN) return;
-  Sentry.init({
-    dsn: process.env.SENTRY_DSN,
-    tracesSampleRate: 0.1,
-  });
-  ready = true;
-}
-
-export { Sentry };
+// Sentry removed — replaced by New Relic browser agent on the frontend.
+// This stub keeps the import contract intact so no other files need changing.
+export function initSentry() {}
+export const Sentry = { captureException: () => {} };

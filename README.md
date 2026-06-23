@@ -28,7 +28,7 @@ A personal wardrobe app with AI-powered outfit generation, a conversational styl
 - **AI** — Anthropic Claude (Sonnet 4.6 for outfit generation, Haiku 4.5 for stylist chat)
 - **Background removal** — `@imgly/background-removal` (runs in a Web Worker)
 - **Weather** — Open-Meteo API (no key required)
-- **Error tracking** — Sentry
+- **Error tracking & monitoring** — New Relic Browser
 
 ## Getting Started
 
@@ -37,6 +37,7 @@ A personal wardrobe app with AI-powered outfit generation, a conversational styl
 - Node.js 18+
 - A [Supabase](https://supabase.com) project
 - An [Anthropic API key](https://console.anthropic.com)
+- A [New Relic](https://newrelic.com) account (free forever tier)
 
 ### Install
 
@@ -64,8 +65,13 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 # Anthropic
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Optional
-SENTRY_DSN=https://...
+# New Relic Browser (all values from New Relic dashboard → Add data → Browser → NPM)
+# The license key is intentionally public — it is included in the frontend bundle.
+VITE_NR_ACCOUNT_ID=your-account-id
+VITE_NR_AGENT_ID=your-agent-id
+VITE_NR_APPLICATION_ID=your-application-id
+VITE_NR_LICENSE_KEY=NRJS-...
+VITE_NR_TRUST_KEY=your-trust-key
 ```
 
 ### Database
@@ -114,7 +120,7 @@ api/                  Vercel serverless functions
   delete-account.js   GDPR account deletion
   _audit.js           Audit logging helper
   _rateLimit.js       Per-user rate limiting
-  _sentry.js          Sentry initialisation
+  _sentry.js          Error tracking stub (New Relic handles monitoring)
   _safeFetch.js       Fetch wrapper with SSRF guard
 
 extension/            Chrome extension

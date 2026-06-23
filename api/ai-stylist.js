@@ -46,8 +46,8 @@ export default async function handler(req, res) {
   const { messages, includeWardrobe, includeCollage, items = [], userProfile = {} } = req.body;
 
   if (includeCollage) {
-    const { limited: collageLimited, resetsAt } = await checkRateLimit({ userId: user.id, endpoint: '/api/ai-stylist', maxRequests: 2, windowMinutes: 1440, event: 'stylist_collage' });
-    if (collageLimited) return res.status(429).json({ error: 'collage_limit', message: "You've used your 2 collage generations for today.", resetsAt });
+    const { limited: collageLimited, resetsAt } = await checkRateLimit({ userId: user.id, endpoint: '/api/ai-stylist', maxRequests: 5, windowMinutes: 1440, event: 'stylist_collage' });
+    if (collageLimited) return res.status(429).json({ error: 'collage_limit', message: "You've used your 5 collage generations for today.", resetsAt });
   }
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages array is required' });
