@@ -9,6 +9,7 @@ import { supabase } from '../supabase.js';
 
 const WARDROBE_AWARE_RE = /\b(my\s+(wardrobe|closet|clothes|items?|pieces?|collection)|what\s+(do\s+i\s+(have|own)|gaps?|i\s+have)|outfit\s+(for|from|with)|make\s+me\s+an\s+outfit|build\s+(me\s+)?an?\s+outfit|suggest\s+(an?\s+)?outfit|style\s+me|capsule\s+wardrobe|what\s+should\s+i\s+wear|what\s+can\s+i\s+wear|what\s+goes\s+with|collage)\b/i;
 const COLLAGE_REQUEST_RE = /\b(collage|make\s+(?:me\s+)?(?:an?\s+)?(?:outfit|look)|build\s+(?:me\s+)?(?:an?\s+)?(?:outfit|look)|create\s+(?:an?\s+)?(?:outfit|look|collage)|put\s+together\s+(?:an?\s+)?(?:outfit|look)|suggest\s+(?:an?\s+)?outfit|show\s+me\s+(?:an?\s+)?outfit|give\s+me\s+(?:an?\s+)?outfit|generate\s+(?:an?\s+)?outfit|style\s+(?:me\s+)?(?:an?\s+)?outfit)\b/i;
+const NEVER_WORN_RE = /\b(never[\s-]worn|never\s+been\s+worn|unworn|not\s+(yet\s+)?worn|haven'?t\s+worn|have\s+not\s+worn)\b/i;
 
 function formatConvoDate(dateStr) {
   const d = new Date(dateStr);
@@ -325,6 +326,8 @@ export function StylistTab({ items = [], userId = null, userProfile = {}, wearLo
       }
     }
     const itemsWithWorn = items.map(item => ({ ...item, timesWorn: wornCounts[String(item.id)] ?? 0 }));
+    const isNeverWornRequest = NEVER_WORN_RE.test(text);
+    const filteredItems = isNeverWornRequest ? itemsWithWorn.filter(item => item.timesWorn === 0) : itemsWithWorn;
 
     try {
       let { data: { session } } = await supabase.auth.getSession();
@@ -343,7 +346,7 @@ export function StylistTab({ items = [], userId = null, userProfile = {}, wearLo
           messages: nextMessages,
           includeWardrobe: needsWardrobe,
           includeCollage: isCollageRequest,
-          items: needsWardrobe ? itemsWithWorn : [],
+          items: needsWardrobe ? filteredItems : [],
           userProfile,
         }),
       });
@@ -488,7 +491,7 @@ export function StylistTab({ items = [], userId = null, userProfile = {}, wearLo
             const isEditing = isUser && editingIdx === i;
             const hasCollage = !isUser && msg.outfit?.itemIds?.length > 0;
             const referenced = !isUser && !hasCollage && onSelectItem
-              ? (Array.isArray(msg.referencedItemIds)
+              ? (Array.isArray(msg.referencedItemIds) && msg.referencedItemIds.length > 0
                   ? items.filter(it => msg.referencedItemIds.includes(String(it.id)))
                   : findReferencedItems(msg.content, items))
               : [];
