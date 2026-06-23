@@ -599,6 +599,9 @@ export function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished
       return;
     }
 
+    // Reset weather so the outfit effect waits for real weather, not leftover preview data.
+    setWeatherSummary(null);
+
     try {
       const saved = localStorage.getItem(locationKey);
       if (saved) { setLocation(JSON.parse(saved)); return; }
@@ -650,6 +653,7 @@ export function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished
       if (goodOutfits.length === cached.length) {
         setOutfits(cached);
         setGenError(null);
+        setGenerating(false);
           return;
       }
       const needed = 3 - goodOutfits.length;
