@@ -1,9 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock Supabase
 const mockSelect = vi.fn();
-const mockEq     = vi.fn();
-const mockGte    = vi.fn();
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
@@ -15,12 +12,21 @@ vi.mock('@supabase/supabase-js', () => ({
 
 import { checkRateLimit } from '../_rateLimit.js';
 
-function chainMock(result) {
-  const chain = { eq: vi.fn(), gte: vi.fn() };
-  chain.eq.mockReturnValue(chain);
-  chain.gte.mockResolvedValue(result);
-  mockSelect.mockReturnValue(chain);
-  return chain;
+function chainMock(countResult, oldestData = []) {
+  let calls = 0;
+  mockSelect.mockImplementation(() => {
+    calls++;
+    const chain = { eq: vi.fn(), gte: vi.fn(), order: vi.fn(), limit: vi.fn() };
+    chain.eq.mockReturnValue(chain);
+    chain.order.mockReturnValue(chain);
+    if (calls === 1) {
+      chain.gte.mockResolvedValue(countResult);
+    } else {
+      chain.gte.mockReturnValue(chain);
+      chain.limit.mockResolvedValue({ data: oldestData, error: null });
+    }
+    return chain;
+  });
 }
 
 beforeEach(() => {
@@ -39,19 +45,27 @@ describe('checkRateLimit', () => {
   });
 
   it('returns limited: true when count equals maxRequests', async () => {
-    chainMock({ count: 40, error: null });
+    chainMock({ count: 40, error: null }, [{ created_at: '2026-06-23T10:00:00Z' }]);
     const result = await checkRateLimit({
       userId: 'u1', endpoint: '/api/ai-stylist', maxRequests: 40, windowMinutes: 60,
     });
-    expect(result).toEqual({ limited: true });
+    expect(result).toEqual(expect.objectContaining({ limited: true }));
   });
 
   it('returns limited: true when count exceeds maxRequests', async () => {
-    chainMock({ count: 99, error: null });
+    chainMock({ count: 99, error: null }, [{ created_at: '2026-06-23T10:00:00Z' }]);
     const result = await checkRateLimit({
       userId: 'u1', endpoint: '/api/ai-stylist', maxRequests: 40, windowMinutes: 60,
     });
-    expect(result).toEqual({ limited: true });
+    expect(result).toEqual(expect.objectContaining({ limited: true }));
+  });
+
+  it('includes resetsAt when limited', async () => {
+    chainMock({ count: 40, error: null }, [{ created_at: '2026-06-23T10:00:00Z' }]);
+    const result = await checkRateLimit({
+      userId: 'u1', endpoint: '/api/ai-stylist', maxRequests: 40, windowMinutes: 60,
+    });
+    expect(result.resetsAt).toBe(new Date(new Date('2026-06-23T10:00:00Z').getTime() + 60 * 60 * 1000).toISOString());
   });
 
   it('fails open (limited: false) when Supabase returns an error', async () => {
