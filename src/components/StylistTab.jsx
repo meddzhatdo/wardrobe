@@ -8,7 +8,7 @@ import { DESIGN_W, DESIGN_H, aiOutfitToCanvasItems, OutfitCollage } from '../lib
 import { supabase } from '../supabase.js';
 
 const WARDROBE_AWARE_RE = /\b(my\s+(wardrobe|closet|clothes|items?|pieces?|collection)|what\s+(do\s+i\s+(have|own)|gaps?|i\s+have)|outfit\s+(for|from|with)|make\s+me\s+an\s+outfit|build\s+(me\s+)?an?\s+outfit|suggest\s+(an?\s+)?outfit|style\s+me|capsule\s+wardrobe|what\s+should\s+i\s+wear|what\s+can\s+i\s+wear|what\s+goes\s+with|collage)\b/i;
-const COLLAGE_REQUEST_RE = /\b(collage|make\s+(?:me\s+)?(?:an?\s+)?(?:outfit|look)|build\s+(?:me\s+)?(?:an?\s+)?(?:outfit|look)|create\s+(?:an?\s+)?(?:outfit|look|collage)|put\s+together\s+(?:an?\s+)?(?:outfit|look)|suggest\s+(?:an?\s+)?outfit|show\s+me\s+(?:an?\s+)?outfit|give\s+me\s+(?:an?\s+)?outfit|generate\s+(?:an?\s+)?outfit|style\s+(?:me\s+)?(?:an?\s+)?outfit)\b/i;
+const COLLAGE_REQUEST_RE = /\bcollage\b/i;
 const NEVER_WORN_RE = /\b(never[\s-]worn|never\s+been\s+worn|unworn|not\s+(yet\s+)?worn|haven'?t\s+worn|have\s+not\s+worn)\b/i;
 
 function formatConvoDate(dateStr) {
