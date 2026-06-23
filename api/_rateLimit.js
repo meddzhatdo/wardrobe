@@ -24,7 +24,22 @@ export async function checkRateLimit({ userId, endpoint, maxRequests, windowMinu
       .gte('created_at', since);
 
     if (error) return { limited: false };
-    return { limited: count >= maxRequests };
+    if (count >= maxRequests) {
+      const { data } = await serviceClient()
+        .from('audit_logs')
+        .select('created_at')
+        .eq('user_id', userId)
+        .eq('event', event)
+        .eq('endpoint', endpoint)
+        .gte('created_at', since)
+        .order('created_at', { ascending: true })
+        .limit(1);
+      const resetsAt = data?.[0]?.created_at
+        ? new Date(new Date(data[0].created_at).getTime() + windowMinutes * 60 * 1000).toISOString()
+        : null;
+      return { limited: true, resetsAt };
+    }
+    return { limited: false };
   } catch {
     return { limited: false };
   }

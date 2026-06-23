@@ -337,7 +337,15 @@ export function StylistTab({ items = [], userId = null, userProfile = {}, onSele
 
       let json;
       try { json = await res.json(); } catch { throw new Error('Server error. Please try again.'); }
-      if (!res.ok) throw new Error(json.error === 'collage_limit' ? json.message : (json.error || 'Request failed'));
+      if (!res.ok) {
+        if (json.error === 'collage_limit') {
+          const when = json.resetsAt
+            ? `${json.message} Next available at ${new Date(json.resetsAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.`
+            : json.message;
+          throw new Error(when);
+        }
+        throw new Error(json.error || 'Request failed');
+      }
 
       const assistantMsg = {
         role: 'assistant',
