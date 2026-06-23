@@ -561,8 +561,10 @@ export function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished
     }, ms);
     return () => clearTimeout(t);
   }, [today]);
-  const hasMountedRef  = useRef(false);
-  const saveTimerRef   = useRef(null);
+  const hasMountedRef         = useRef(false);
+  const saveTimerRef          = useRef(null);
+  const hydratedFromRemoteRef = useRef(false);
+  const isHydratingRef        = useRef(false);
   const [pickerBoard,           setPickerBoard]           = useState('All');
   const [pickerSearch,          setPickerSearch]          = useState('');
   const [pickerFavoritesOnly,   setPickerFavoritesOnly]   = useState(false);
@@ -825,12 +827,31 @@ export function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished
 
   useEffect(() => {
     if (!hasMountedRef.current) { hasMountedRef.current = true; return; }
+    if (isHydratingRef.current) { isHydratingRef.current = false; return; }
     clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       onLogWorn?.({ itemIds: [...wornItemIds], source: 'today_auto', replace: true });
     }, 700);
     return () => clearTimeout(saveTimerRef.current);
   }, [wornItemIds]);
+
+  // Hydrate wornItemIds from Supabase wearLogs when localStorage is empty (cross-device sync)
+  useEffect(() => {
+    if (hydratedFromRemoteRef.current || !userId || !today) return;
+    const localKey = `worn_today_${userId}_${today}`;
+    try {
+      const saved = localStorage.getItem(localKey);
+      if (saved) { hydratedFromRemoteRef.current = true; return; }
+    } catch {}
+    const todayEntries = wearLogs.filter(l => l.worn_date === today);
+    if (!todayEntries.length) { hydratedFromRemoteRef.current = true; return; }
+    const allIds = new Set();
+    todayEntries.forEach(l => (l.item_ids ?? []).forEach(id => allIds.add(String(id))));
+    if (!allIds.size) { hydratedFromRemoteRef.current = true; return; }
+    hydratedFromRemoteRef.current = true;
+    isHydratingRef.current = true;
+    setWornItemIds(allIds);
+  }, [wearLogs, userId, today]);
 
   useEffect(() => {
     if (!pickerFilterOpen) return;
