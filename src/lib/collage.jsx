@@ -364,3 +364,27 @@ export function saveCachedOutfits(outfits, fingerprint) {
     localStorage.setItem(OUTFITS_CACHE_KEY, JSON.stringify(entries));
   } catch {}
 }
+
+export async function loadRemoteOutfits(supabase, fingerprint) {
+  try {
+    const { data, error } = await supabase
+      .from('daily_outfits')
+      .select('outfits')
+      .eq('date', todayDateKey())
+      .eq('fingerprint', fingerprint)
+      .maybeSingle();
+    if (error || !data) return null;
+    return Array.isArray(data.outfits) ? data.outfits : null;
+  } catch { return null; }
+}
+
+export async function saveRemoteOutfits(supabase, outfits, fingerprint, userId) {
+  try {
+    await supabase
+      .from('daily_outfits')
+      .upsert(
+        { user_id: userId, date: todayDateKey(), fingerprint, outfits },
+        { onConflict: 'user_id,date,fingerprint' },
+      );
+  } catch {}
+}

@@ -10,6 +10,7 @@ import {
   buildWeatherPool, DESIGN_W, DESIGN_H, COLLAGE_HEADER_OFFSET,
   aiOutfitToCanvasItems, FadeIn, GeneratingSkeleton, OutfitCollage,
   OUTFITS_CACHE_KEY, todayDateKey, loadCachedOutfits, saveCachedOutfits, weatherFingerprint, useCollageScale,
+  loadRemoteOutfits, saveRemoteOutfits,
 } from '../lib/collage.jsx';
 import { CATEGORIES, PRESET_LOCATIONS } from '../lib/constants.js';
 import { supabase } from '../supabase.js';
@@ -645,50 +646,62 @@ export function TodayTab({ items = [], likedItems = new Set(), onSaveToPublished
     if (isPreview) return;
     if (!weatherSummary || items.length === 0 || !location.city) return;
 
-    const fp = weatherFingerprint(weatherSummary);
-    const cached = loadCachedOutfits(fp);
-    if (cached) {
-      const existingIds = new Set(items.map(i => String(i.id)));
-      const goodOutfits = cached.filter(o => (o.itemIds ?? []).every(id => existingIds.has(String(id))));
-      if (goodOutfits.length === cached.length) {
-        setOutfits(cached);
-        setGenError(null);
-        setGenerating(false);
-          return;
-      }
-      const needed = 3 - goodOutfits.length;
-      if (goodOutfits.length > 0) setOutfits(goodOutfits);
-      let cancelled = false;
-      setCurrentIdx(0);
-      setGenError(null);
-      setGenerating(true);
-      callAnthropicForOutfits(weatherSummary, items, userProfile)
-        .then(fresh => {
-          if (cancelled) return;
-          const combined = [...goodOutfits, ...fresh.slice(0, needed)];
-          setOutfits(combined);
-          saveCachedOutfits(combined, fp);
-            })
-        .catch(e => { if (!cancelled) setGenError(e.message); })
-        .finally(() => { if (!cancelled) setGenerating(false); });
-      return () => { cancelled = true; };
-    }
     let cancelled = false;
-    setOutfits([]);
-    setCurrentIdx(0);
-    setGenError(null);
-    setGenerating(true);
-    callAnthropicForOutfits(weatherSummary, items, userProfile)
-      .then(results => {
+    const fp = weatherFingerprint(weatherSummary);
+    const existingIds = new Set(items.map(i => String(i.id)));
+    const filterValid = (arr) => arr.filter(o => (o.itemIds ?? []).every(id => existingIds.has(String(id))));
+
+    async function run() {
+      // 1. Check localStorage (instant, no network)
+      let cached = loadCachedOutfits(fp);
+
+      // 2. If not cached locally, check Supabase for cross-device sync
+      if (!cached && userId) {
+        cached = await loadRemoteOutfits(supabase, fp);
+        if (cached) saveCachedOutfits(cached, fp); // hydrate local cache
+      }
+
+      if (cached) {
+        const good = filterValid(cached);
+        if (good.length === cached.length) {
+          // All outfits still valid — use as-is
+          if (!cancelled) { setOutfits(good); setGenError(null); setGenerating(false); }
+          return;
+        }
+        // Some wardrobe items were deleted since last generation — show what's valid,
+        // then top up with fresh outfits to reach 3
+        const needed = 3 - good.length;
+        if (good.length > 0 && !cancelled) { setOutfits(good); setCurrentIdx(0); }
+        if (!cancelled) { setGenError(null); setGenerating(true); }
+        try {
+          const fresh = await callAnthropicForOutfits(weatherSummary, items, userProfile);
+          if (!cancelled) {
+            const combined = [...good, ...fresh.slice(0, needed)];
+            setOutfits(combined);
+            saveCachedOutfits(combined, fp);
+            if (userId) saveRemoteOutfits(supabase, combined, fp, userId);
+          }
+        } catch (e) { if (!cancelled) setGenError(e.message); }
+        finally     { if (!cancelled) setGenerating(false); }
+        return;
+      }
+
+      // 3. Nothing cached anywhere — generate fresh
+      if (!cancelled) { setOutfits([]); setCurrentIdx(0); setGenError(null); setGenerating(true); }
+      try {
+        const results = await callAnthropicForOutfits(weatherSummary, items, userProfile);
         if (!cancelled) {
           setOutfits(results);
           saveCachedOutfits(results, fp);
-            }
-      })
-      .catch(e       => { if (!cancelled) setGenError(e.message); })
-      .finally(()    => { if (!cancelled) setGenerating(false); });
+          if (userId) saveRemoteOutfits(supabase, results, fp, userId);
+        }
+      } catch (e) { if (!cancelled) setGenError(e.message); }
+      finally     { if (!cancelled) setGenerating(false); }
+    }
+
+    run();
     return () => { cancelled = true; };
-  }, [weatherSummary, items.length, location.city, retryKey]);
+  }, [weatherSummary, items.length, location.city, retryKey, userId]);
 
   useEffect(() => {
     if (!locationMenuOpen) return;
