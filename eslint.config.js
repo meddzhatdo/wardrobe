@@ -8,31 +8,28 @@ export default defineConfig([
   globalIgnores(['dist', '.claude/']),
   {
     files: ['**/*.{js,jsx}'],
+    plugins: {
+      'react-hooks': reactHooks,
+    },
     extends: [
       js.configs.recommended,
-      reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
     languageOptions: {
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
-  },
-  // Rule overrides — must come after extends to win
-  {
-    files: ['**/*.{js,jsx}'],
     rules: {
+      // Core React hooks rules only — skip the React Compiler rules added in v7
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
+      // Non-blocking: common patterns in this codebase that aren't real bugs
       'no-empty': ['error', { allowEmptyCatch: true }],
       'no-unused-vars': 'warn',
       'react-refresh/only-export-components': 'warn',
-      'react-hooks/exhaustive-deps': 'warn',
-      'react-hooks/set-state-in-effect': 'warn',
-      'react-hooks/refs': 'warn',
-      'react-hooks/purity': 'warn',
-      'react-hooks/immutability': 'warn',
     },
   },
-  // Node.js environment for API handlers and tests
+  // Node.js globals for API handlers and tests
   {
     files: ['api/**/*.{js,jsx}'],
     languageOptions: {
