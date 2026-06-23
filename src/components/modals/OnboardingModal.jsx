@@ -2,20 +2,27 @@ import React, { useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import { OUTFIT_GOALS, COUNTRIES } from '../../lib/constants.js';
 
+const STYLE_OPTIONS = [
+  { id: 'feminine', label: 'Feminine', emoji: '🌸' },
+  { id: 'masculine', label: 'Masculine', emoji: '🧥' },
+  { id: 'neutral', label: 'Neutral', emoji: '⚡' },
+];
+
 export function OnboardingModal({ onComplete }) {
-  const [slide, setSlide]     = useState(0);
-  const [bio, setBio]         = useState('');
-  const [country, setCountry] = useState('');
+  const [slide, setSlide]           = useState(0);
+  const [bio, setBio]               = useState('');
+  const [country, setCountry]       = useState('');
+  const [stylePreference, setStylePreference] = useState('');
   const [outfitGoals, setOutfitGoals] = useState([]);
 
-  const TOTAL = 3;
+  const TOTAL = 4;
 
   const toggleOutfitGoal = (id) => {
     setOutfitGoals(prev => prev.includes(id) ? prev.filter(g => g !== id) : [...prev, id]);
   };
 
   const handleFinish = () => {
-    onComplete({ bio: bio.trim(), country, outfitGoals });
+    onComplete({ bio: bio.trim(), country, stylePreference, outfitGoals });
   };
 
   const canAdvance = slide !== 1 || country.trim();
@@ -65,7 +72,32 @@ export function OnboardingModal({ onComplete }) {
       </div>
     </div>,
 
-    /* Slide 2 — Outfit goals */
+    /* Slide 2 — Style preference */
+    <div key="style" className="py-2">
+      <h3 className="text-lg font-bold text-gray-900 mb-1">What's your style direction?</h3>
+      <p className="text-xs text-gray-400 mb-6">This helps us suggest outfits that feel right for you.</p>
+      <div className="grid grid-cols-3 gap-3">
+        {STYLE_OPTIONS.map(({ id, label, emoji }) => {
+          const selected = stylePreference === id;
+          return (
+            <button
+              key={id}
+              onClick={() => setStylePreference(selected ? '' : id)}
+              className={`flex flex-col items-center gap-2.5 py-6 rounded-2xl border-2 transition-all ${
+                selected
+                  ? 'border-gray-900 bg-gray-900 text-white'
+                  : 'border-gray-100 bg-gray-50 text-gray-600 hover:border-gray-300'
+              }`}
+            >
+              <span className="text-3xl">{emoji}</span>
+              <span className="text-xs font-semibold tracking-wide">{label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>,
+
+    /* Slide 3 — Outfit goals */
     <div key="goals" className="py-2">
       <h3 className="text-lg font-bold text-gray-900 mb-1">What kind of outfits are you looking to create?</h3>
       <p className="text-xs text-gray-400 mb-5">Select all that apply — or skip.</p>
@@ -140,7 +172,7 @@ export function OnboardingModal({ onComplete }) {
           </div>
 
           {/* Skip on non-required slides */}
-          {slide > 1 && (
+          {slide > 1 && slide < TOTAL && (
             <button
               onClick={() => slide === TOTAL - 1 ? handleFinish() : setSlide(s => s + 1)}
               className="mt-3 w-full text-xs text-gray-400 hover:text-gray-600 transition-colors text-center"
